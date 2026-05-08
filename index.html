@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alice</title>
+  <meta name="description" content="Alice 是一个基于 AI 大模型的 3D 数字伙伴，支持语音对话与个性化配置。">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+  <div class="grid-bg" id="gridBg"></div>
+
+  <div id="loading">
+    <div>SYSTEM INITIALIZING...</div>
+    <div class="loader-bar">
+      <div class="loader-progress" id="loaderProgress"></div>
+    </div>
+  </div>
+
+  <canvas id="scene"></canvas>
+
+  <div class="ui-layer">
+    <div class="top-hud">
+      <div class="brand">
+        <span class="brand-text">Alice</span>
+        <!-- NOTE: statusText 用于 aria 状态读取，visually-hidden 保证不影响视觉 -->
+        <span class="status-badge" id="statusBadge">ONLINE</span>
+      </div>
+      <div class="top-actions">
+        <button class="btn-tech" id="muteBtn" title="语音开关">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+            <line x1="12" y1="19" x2="12" y2="23"></line>
+            <line x1="8" y1="23" x2="16" y2="23"></line>
+          </svg>
+        </button>
+        <button class="btn-tech" id="settingsBtn" title="控制终端">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="4" y1="21" x2="4" y2="14"></line>
+            <line x1="4" y1="10" x2="4" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12" y2="3"></line>
+            <line x1="20" y1="21" x2="20" y2="16"></line>
+            <line x1="20" y1="12" x2="20" y2="3"></line>
+            <line x1="1" y1="14" x2="7" y2="14"></line>
+            <line x1="9" y1="8" x2="15" y2="8"></line>
+            <line x1="17" y1="16" x2="23" y2="16"></line>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- NOTE: 数字伙伴回复不再显示文字气泡，只保留语音播报 -->
+    <span class="visually-hidden" id="statusText">ONLINE / IDLE</span>
+
+    <div class="interaction-hint">拖拽旋转视角 / 滚动缩放 / 点击模型互动</div>
+
+    <div class="bottom-hud">
+      <div class="input-dock">
+        <input type="text" class="prompt-input" id="promptInput" placeholder="与 Alice 对话..." autocomplete="off">
+        <button class="dock-btn" id="voiceBtn" title="语音输入">
+          <svg id="voiceBtnIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+            <line x1="12" y1="19" x2="12" y2="23"></line>
+          </svg>
+          <span class="recording-pulse" id="recordingPulse"></span>
+        </button>
+        <button class="dock-btn primary" id="sendBtn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右侧控制终端面板 -->
+  <div class="side-panel" id="sidePanel">
+    <div class="panel-header">
+      <h2>控制终端</h2>
+      <button class="close-btn" id="closePanelBtn">✕</button>
+    </div>
+
+    <div class="panel-body">
+
+      <!-- ===== AI 大模型配置（核心模块）===== -->
+      <details class="section" open>
+        <summary>🤖 AI 大模型配置</summary>
+        <div class="details-content">
+          <div class="setting-group">
+            <span class="setting-label">模型提供商</span>
+            <select class="custom-input" id="llmProvider">
+              <option value="openai">OpenAI (GPT)</option>
+              <option value="anthropic">Anthropic (Claude)</option>
+              <option value="qwen">阿里云 通义千问</option>
+              <option value="deepseek">DeepSeek</option>
+              <option value="custom">自定义 (OpenAI 兼容接口)</option>
+            </select>
+          </div>
+          <div class="setting-group">
+            <span class="setting-label">API Key</span>
+            <div class="api-key-wrapper">
+              <input type="password" class="custom-input" id="apiKeyInput" placeholder="sk-... 输入后本地保存，不上传服务器">
+              <button class="api-key-toggle" id="apiKeyToggle" title="显示/隐藏">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="setting-group" id="baseUrlGroup">
+            <span class="setting-label">Base URL（可选，用于国内代理）</span>
+            <input type="text" class="custom-input" id="baseUrlInput" placeholder="https://api.openai.com/v1">
+          </div>
+          <div class="setting-group">
+            <span class="setting-label">模型版本</span>
+            <select class="custom-input" id="llmModel">
+              <option value="gpt-4o">gpt-4o</option>
+              <option value="gpt-4o-mini">gpt-4o-mini</option>
+              <option value="gpt-4-turbo">gpt-4-turbo</option>
+              <option value="claude-3-5-sonnet-20241022">claude-3-5-sonnet</option>
+              <option value="qwen-plus">qwen-plus</option>
+              <option value="qwen-max">qwen-max</option>
+              <option value="deepseek-chat">deepseek-chat</option>
+            </select>
+          </div>
+          <div class="setting-group">
+            <span class="setting-label">角色设定 Prompt</span>
+            <textarea class="custom-input" id="systemPromptInput" rows="3"
+              placeholder="你是 Alice，一个元气满满的青少年 AI 伙伴。请用简短活泼的语气回复，每次控制在 50 字以内。"></textarea>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="custom-btn" id="saveLLMConfigBtn">💾 保存配置</button>
+            <button class="custom-btn" id="testLLMBtn"
+              style="background: transparent; color: var(--muted); border-color: rgba(255,255,255,0.15);">测试连接</button>
+          </div>
+          <div class="llm-status" id="llmStatus"></div>
+        </div>
+      </details>
+
+      <!-- ===== 语音合成配置 ===== -->
+      <details class="section">
+        <summary>🎙 语音合成配置</summary>
+        <div class="details-content">
+          <div class="setting-group">
+            <span class="setting-label">TTS 引擎</span>
+            <select class="custom-input" id="ttsEngine">
+              <option value="browser">浏览器原生（Edge/Chrome 晓晓神经网络）</option>
+              <option value="openai">OpenAI TTS（需要 API Key）</option>
+            </select>
+          </div>
+          <div class="setting-group" id="browserVoiceGroup">
+            <span class="setting-label">声音选择</span>
+            <select class="custom-input" id="voiceSelect">
+              <option value="auto">自动（优先晓晓 Neural）</option>
+            </select>
+          </div>
+          <div class="setting-group" id="openaiVoiceGroup" style="display: none;">
+            <span class="setting-label">OpenAI 声线</span>
+            <select class="custom-input" id="openaiVoiceSelect">
+              <option value="nova">Nova（青年女性）</option>
+              <option value="shimmer">Shimmer（温柔女性）</option>
+              <option value="alloy">Alloy（中性）</option>
+            </select>
+          </div>
+          <div class="setting-group">
+            <span class="setting-label">语速 <span id="rateVal">1.05</span>x</span>
+            <input type="range" id="speechRate" min="0.6" max="1.6" step="0.05" value="1.05">
+          </div>
+          <div class="setting-group">
+            <span class="setting-label">音调 <span id="pitchVal">1.2</span></span>
+            <input type="range" id="speechPitch" min="0.8" max="2.0" step="0.05" value="1.2">
+          </div>
+          <button class="custom-btn" id="testVoiceBtn">🔊 试听声音</button>
+        </div>
+      </details>
+
+      <!-- ===== 3D 场景与渲染配置 ===== -->
+      <details class="section">
+        <summary>🖥 3D 场景与渲染配置</summary>
+        <div class="details-content">
+          <div class="setting-group">
+            <span class="setting-label">模型基础缩放倍率</span>
+            <input type="range" id="scaleSlider" min="0.5" max="3" step="0.1" value="1">
+          </div>
+          <div class="setting-group">
+            <span class="setting-label">主光源强度</span>
+            <input type="range" id="lightSlider" min="0" max="5" step="0.1" value="1.5">
+          </div>
+          <div class="setting-group">
+            <span class="setting-label">环境光强度</span>
+            <input type="range" id="ambientSlider" min="0" max="3" step="0.1" value="0.6">
+          </div>
+          <div class="setting-group">
+            <span class="setting-label">镜头视角 FOV（度）</span>
+            <input type="range" id="fovSlider" min="20" max="90" step="1" value="45">
+          </div>
+          <div class="setting-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="autoRotateToggle"> 开启镜头自动环绕
+            </label>
+          </div>
+          <div class="setting-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="gridToggle" checked> 显示科技网格背景
+            </label>
+          </div>
+          <div class="setting-group"
+            style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 8px; padding-top: 8px;">
+            <label class="checkbox-label">
+              <input type="checkbox" id="debugToggle" checked> [DEBUG] 显示诊断边界框
+            </label>
+            <label class="checkbox-label" style="margin-top: 4px;">
+              <input type="checkbox" id="freezeAnimToggle"> [DEBUG] 冻结模型动画
+            </label>
+          </div>
+        </div>
+      </details>
+
+      <!-- ===== 角色档案与记忆 ===== -->
+      <details class="section">
+        <summary>📁 角色档案与记忆</summary>
+        <div class="details-content">
+          <input type="text" class="custom-input" placeholder="你的名字" id="nameInput">
+          <input type="text" class="custom-input" placeholder="你的生日（如 1998-07-15）" id="birthdayInput">
+          <textarea class="custom-input" placeholder="她记住的偏好（如：喜欢科幻、极简风、喜欢听歌）" id="likesInput"></textarea>
+          <button class="custom-btn" id="saveMemoryBtn">💾 保存记忆档案</button>
+        </div>
+      </details>
+
+      <!-- ===== 情绪与互动动作 ===== -->
+      <details class="section">
+        <summary>💫 情绪与互动动作</summary>
+        <div class="details-content">
+          <div class="setting-group">
+            <span class="setting-label">快捷动作演示</span>
+            <div class="tag-list">
+              <div class="tag" onclick="triggerReaction('head')">摸摸头</div>
+              <div class="tag" onclick="triggerReaction('body')">戳身体</div>
+              <div class="tag" onclick="triggerReaction('chat')">打招呼</div>
+            </div>
+          </div>
+          <div class="setting-group">
+            <span class="setting-label">情绪状态模拟</span>
+            <div class="tag-list">
+              <div class="tag active" id="moodEnerge" onclick="setMood('energe')">✨ 元气</div>
+              <div class="tag" id="moodThink" onclick="setMood('think')">🤔 思考</div>
+              <div class="tag" id="moodAngry" onclick="setMood('angry')">💢 炸毛</div>
+              <div class="tag" id="moodShy" onclick="setMood('shy')">🌸 害羞</div>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <!-- ===== 服装系统 ===== -->
+      <details class="section">
+        <summary>👗 服装系统</summary>
+        <div class="details-content">
+          <div class="tag-list">
+            <div class="tag active">帝皇帝皇 (祭典皮肤)</div>
+            <div class="tag">校园休闲 (未装载)</div>
+            <div class="tag">机能战衣 (未装载)</div>
+          </div>
+        </div>
+      </details>
+
+      <!-- ===== 亲密度系统 ===== -->
+      <details class="section">
+        <summary>❤️ 亲密度系统</summary>
+        <div class="details-content">
+          <div class="setting-group">
+            <span class="setting-label" style="text-align: right;" id="intimacyLabel">Lv.2 熟络升温 (45/100)</span>
+            <div class="intimacy-bar-container">
+              <div class="intimacy-bar" id="intimacyBar" style="width: 45%;"></div>
+            </div>
+            <span class="setting-label" style="text-transform: none; margin-top: 4px;">继续互动可解锁更多隐藏动作和权限。</span>
+          </div>
+        </div>
+      </details>
+
+      <!-- ===== 录制与分享 ===== -->
+      <details class="section">
+        <summary>📹 录制与分享</summary>
+        <div class="details-content">
+          <div style="display: flex; gap: 8px;">
+            <button class="custom-btn" onclick="triggerReaction('record')">开始录制</button>
+            <button class="custom-btn"
+              style="background: transparent; color: var(--text); border-color: var(--panel-border);">添加标记</button>
+          </div>
+        </div>
+      </details>
+
+    </div>
+  </div>
+
+  <!-- Import Three.js and loaders -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.169.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.169.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <script type="module" src="js/script.js"></script>
+</body>
+
+</html>
