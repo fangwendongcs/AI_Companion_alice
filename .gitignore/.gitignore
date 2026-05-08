@@ -1,0 +1,24 @@
+# 你的大资源文件夹
+01文档/
+02模型/
+
+# Node
+node_modules/
+
+# 构建缓存
+dist/
+build/
+.cache/
+
+# 环境变量
+.env
+
+# Mac
+.DS_Store
+
+# VSCode
+.vscode/
+
+# Python
+__pycache__/
+*.pyc
