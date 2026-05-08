@@ -27,10 +27,10 @@ npx serve .
 python -m http.server
 ```
 
-如果需要使用 AI 对话或 OpenAI TTS，请通过后端代理启动，API Key 不再保存在浏览器中：
+如果需要使用 AI 对话、OpenAI TTS 或 MiniMax TTS，请通过后端代理启动，API Key 不再保存在浏览器中：
 
 ```bash
-OPENAI_API_KEY=sk-... npm run dev
+OPENAI_API_KEY=sk-... MINIMAX_API_KEY=... npm run dev
 ```
 
 默认访问：

@@ -152,6 +152,7 @@
             <span class="setting-label">TTS 引擎</span>
             <select class="custom-input" id="ttsEngine">
               <option value="browser">浏览器原生（Edge/Chrome 晓晓神经网络）</option>
+              <option value="minimax">MiniMax 动漫中文（推荐）</option>
               <option value="openai">OpenAI TTS（需要 API Key）</option>
             </select>
           </div>
@@ -164,10 +165,24 @@
           <div class="setting-group" id="openaiVoiceGroup" style="display: none;">
             <span class="setting-label">OpenAI 声线</span>
             <select class="custom-input" id="openaiVoiceSelect">
-              <option value="nova">Nova（青年女性）</option>
-              <option value="shimmer">Shimmer（温柔女性）</option>
-              <option value="alloy">Alloy（中性）</option>
             </select>
+            <span class="setting-label">OpenAI 语气指令</span>
+            <textarea class="custom-input" id="openaiTTSInstructionsInput" rows="3"
+              placeholder="例如：中文普通话，年轻明亮，轻快二次元角色感。"></textarea>
+          </div>
+          <div class="setting-group" id="minimaxVoiceGroup" style="display: none;">
+            <span class="setting-label">MiniMax 声线</span>
+            <select class="custom-input" id="minimaxVoiceSelect"></select>
+            <span class="setting-label">MiniMax 模型</span>
+            <select class="custom-input" id="minimaxModelSelect">
+              <option value="speech-2.8-hd">speech-2.8-hd（高质量）</option>
+              <option value="speech-2.8-turbo">speech-2.8-turbo（低延迟）</option>
+              <option value="speech-2.6-hd">speech-2.6-hd</option>
+              <option value="speech-2.6-turbo">speech-2.6-turbo</option>
+            </select>
+            <span class="setting-label">自定义 voice_id</span>
+            <input type="text" class="custom-input" id="customVoiceIdInput"
+              placeholder="选择自定义后填写，例如你的克隆音色 ID">
           </div>
           <div class="setting-group">
             <span class="setting-label">语速 <span id="rateVal">1.05</span>x</span>
@@ -178,6 +193,7 @@
             <input type="range" id="speechPitch" min="0.8" max="2.0" step="0.05" value="1.2">
           </div>
           <button class="custom-btn" id="testVoiceBtn">🔊 试听声音</button>
+          <div class="llm-status" id="ttsStatus"></div>
         </div>
       </details>
 

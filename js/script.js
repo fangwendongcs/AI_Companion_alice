@@ -2,6 +2,7 @@ import { AvatarLoader } from './avatar/AvatarLoader.js';
 import { AnimationController, AvatarState } from './animation/AnimationController.js';
 import { LLMClient } from './ai/LLMClient.js';
 import { loadJson } from './core/loadJson.js';
+import { MINIMAX_VOICE_PRESETS, OPENAI_TTS_VOICES } from './config/voicePresets.js';
 import { HitTestController } from './interaction/HitTestController.js';
 import { SceneRuntime } from './scene/SceneRuntime.js';
 import { LocalConfigStore } from './storage/LocalConfigStore.js';
@@ -52,6 +53,11 @@ const refs = {
   ttsEngine: document.getElementById('ttsEngine'),
   voiceSelect: document.getElementById('voiceSelect'),
   openaiVoiceSelect: document.getElementById('openaiVoiceSelect'),
+  openaiTTSInstructionsInput: document.getElementById('openaiTTSInstructionsInput'),
+  minimaxVoiceGroup: document.getElementById('minimaxVoiceGroup'),
+  minimaxVoiceSelect: document.getElementById('minimaxVoiceSelect'),
+  minimaxModelSelect: document.getElementById('minimaxModelSelect'),
+  customVoiceIdInput: document.getElementById('customVoiceIdInput'),
   browserVoiceGroup: document.getElementById('browserVoiceGroup'),
   openaiVoiceGroup: document.getElementById('openaiVoiceGroup'),
   speechRate: document.getElementById('speechRate'),
@@ -59,6 +65,7 @@ const refs = {
   rateVal: document.getElementById('rateVal'),
   pitchVal: document.getElementById('pitchVal'),
   testVoiceBtn: document.getElementById('testVoiceBtn'),
+  ttsStatus: document.getElementById('ttsStatus'),
   ambientSlider: document.getElementById('ambientSlider'),
   fovSlider: document.getElementById('fovSlider')
 };
@@ -259,10 +266,20 @@ function bindLLMControls() {
 }
 
 function bindTTSControls() {
+  populateOpenAIVoices();
+  populateMinimaxVoices();
+
   refs.ttsEngine.value = ttsConfig.engine;
   refs.speechRate.value = ttsConfig.rate;
   refs.speechPitch.value = ttsConfig.pitch;
-  refs.openaiVoiceSelect.value = ttsConfig.openaiVoice;
+  setSelectValue(refs.openaiVoiceSelect, ttsConfig.openaiVoice);
+  setSelectValue(refs.minimaxVoiceSelect, ttsConfig.minimaxVoice);
+  setSelectValue(refs.minimaxModelSelect, ttsConfig.minimaxModel);
+  ttsConfig.openaiVoice = refs.openaiVoiceSelect.value;
+  ttsConfig.minimaxVoice = refs.minimaxVoiceSelect.value;
+  ttsConfig.minimaxModel = refs.minimaxModelSelect.value;
+  refs.openaiTTSInstructionsInput.value = ttsConfig.openaiInstructions || '';
+  refs.customVoiceIdInput.value = ttsConfig.customVoiceId || '';
   refs.rateVal.textContent = ttsConfig.rate.toFixed(2);
   refs.pitchVal.textContent = ttsConfig.pitch.toFixed(2);
 
@@ -274,6 +291,7 @@ function bindTTSControls() {
     ttsConfig.engine = event.target.value;
     store.saveTTSConfig(ttsConfig);
     syncTTSEngineUI();
+    showTTSEngineHint();
   });
 
   refs.voiceSelect.addEventListener('change', (event) => {
@@ -298,9 +316,32 @@ function bindTTSControls() {
     store.saveTTSConfig(ttsConfig);
   });
 
+  refs.openaiTTSInstructionsInput.addEventListener('input', (event) => {
+    ttsConfig.openaiInstructions = event.target.value;
+    store.saveTTSConfig(ttsConfig);
+  });
+
+  refs.minimaxVoiceSelect.addEventListener('change', (event) => {
+    ttsConfig.minimaxVoice = event.target.value;
+    store.saveTTSConfig(ttsConfig);
+    syncTTSEngineUI();
+  });
+
+  refs.minimaxModelSelect.addEventListener('change', (event) => {
+    ttsConfig.minimaxModel = event.target.value;
+    store.saveTTSConfig(ttsConfig);
+  });
+
+  refs.customVoiceIdInput.addEventListener('input', (event) => {
+    ttsConfig.customVoiceId = event.target.value.trim();
+    store.saveTTSConfig(ttsConfig);
+  });
+
   refs.testVoiceBtn.addEventListener('click', () => {
     speakText('你好！我是 Alice，很高兴认识你！');
   });
+
+  showTTSEngineHint();
 }
 
 function bindMemoryControls() {
@@ -440,10 +481,22 @@ function speakText(text) {
 
   const estimatedDuration = Math.max(3000, text.length * 150);
   state.speechTimer = setTimeout(resetSpeakingState, estimatedDuration);
+  if (ttsConfig.engine !== 'browser') {
+    showTTSStatus('loading', `正在请求 ${getTTSEngineName(ttsConfig.engine)} 语音服务...`);
+  }
 
   ttsService.speak(text, ttsConfig, {
     muted: state.isMuted,
-    onEnd: resetSpeakingState
+    onEnd: () => {
+      resetSpeakingState();
+      if (ttsConfig.engine !== 'browser') {
+        showTTSStatus('success', `${getTTSEngineName(ttsConfig.engine)} 语音播放完成。`);
+      }
+    },
+    onError: (error) => {
+      showTTSStatus('error', formatTTSError(error));
+      resetSpeakingState();
+    }
   });
 }
 
@@ -476,9 +529,82 @@ function populateVoices() {
   refs.voiceSelect.value = hasSaved ? ttsConfig.browserVoice : 'auto';
 }
 
+function populateOpenAIVoices() {
+  refs.openaiVoiceSelect.innerHTML = '';
+  OPENAI_TTS_VOICES.forEach((voice) => {
+    const opt = document.createElement('option');
+    opt.value = voice.id;
+    opt.textContent = voice.label;
+    refs.openaiVoiceSelect.appendChild(opt);
+  });
+}
+
+function populateMinimaxVoices() {
+  refs.minimaxVoiceSelect.innerHTML = '';
+  MINIMAX_VOICE_PRESETS.forEach((voice) => {
+    const opt = document.createElement('option');
+    opt.value = voice.id;
+    opt.textContent = `${voice.label} / ${voice.id}`;
+    opt.title = voice.description;
+    refs.minimaxVoiceSelect.appendChild(opt);
+  });
+}
+
+function setSelectValue(select, value) {
+  const hasValue = [...select.options].some((option) => option.value === value);
+  select.value = hasValue ? value : select.options[0]?.value || '';
+}
+
 function syncTTSEngineUI() {
   refs.browserVoiceGroup.style.display = ttsConfig.engine === 'browser' ? '' : 'none';
   refs.openaiVoiceGroup.style.display = ttsConfig.engine === 'openai' ? '' : 'none';
+  refs.minimaxVoiceGroup.style.display = ttsConfig.engine === 'minimax' ? '' : 'none';
+  refs.customVoiceIdInput.disabled = ttsConfig.minimaxVoice !== 'custom';
+}
+
+function showTTSEngineHint() {
+  if (ttsConfig.engine === 'minimax') {
+    showTTSStatus('loading', '已选择 MiniMax。必须用 npm run dev 启动后端，并配置 MINIMAX_API_KEY；Python 静态服务不会生效。');
+    return;
+  }
+  if (ttsConfig.engine === 'openai') {
+    showTTSStatus('loading', '已选择 OpenAI TTS。必须用 npm run dev 启动后端，并配置 OPENAI_API_KEY。');
+    return;
+  }
+  showTTSStatus('success', '当前使用浏览器原生语音，声音质量取决于系统/浏览器内置声线。');
+}
+
+function getTTSEngineName(engine) {
+  if (engine === 'minimax') return 'MiniMax';
+  if (engine === 'openai') return 'OpenAI';
+  return '浏览器原生';
+}
+
+function formatTTSError(error) {
+  const message = error?.message || '未知错误';
+  if (message.includes('501') || message.includes('404')) {
+    return 'TTS 后端没有接通。请不要用 python3 -m http.server 试听高级声线，改用 npm run dev 后访问 http://localhost:3000。';
+  }
+  if (message.includes('MINIMAX_API_KEY')) {
+    return 'MiniMax 没有配置 API Key。请用 MINIMAX_API_KEY=你的key npm run dev 启动。';
+  }
+  if (message.includes('Invalid API key format')) {
+    return 'API Key 格式无效。请确认环境变量里是真实 Key，不是中文占位文本，并且不要带空格或换行。';
+  }
+  if (message.includes('OPENAI_API_KEY')) {
+    return 'OpenAI 没有配置 API Key。请用 OPENAI_API_KEY=你的key npm run dev 启动。';
+  }
+  return `TTS 请求失败：${message.slice(0, 160)}`;
+}
+
+function showTTSStatus(type, message) {
+  refs.ttsStatus.className = `llm-status ${type}`;
+  refs.ttsStatus.textContent = message;
+  if (type === 'success') {
+    setTimeout(() => {
+      refs.ttsStatus.className = 'llm-status';
+    }, 4000);
+  }
 }
 
 function showLLMStatus(type, message) {

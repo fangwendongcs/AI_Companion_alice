@@ -2,6 +2,7 @@ export class TTSService {
   constructor(endpoint = '/api/tts') {
     this.endpoint = endpoint;
     this.currentAudio = null;
+    this.backendEngines = new Set(['openai', 'minimax']);
   }
 
   getVoices() {
@@ -16,35 +17,31 @@ export class TTSService {
     }
   }
 
-  async speak(text, config, { muted = false, onStart, onEnd } = {}) {
+  async speak(text, config, { muted = false, onStart, onEnd, onError } = {}) {
     if (muted) return;
     this.stop();
     onStart?.();
 
-    if (config.engine === 'openai') {
-      try {
+    try {
+      if (this.backendEngines.has(config.engine)) {
         await this.speakWithBackend(text, config);
         onEnd?.();
         return;
-      } catch (error) {
-        console.error('[TTS] 后端 TTS 失败，降级到浏览器 TTS:', error);
       }
-    }
 
-    await this.speakWithBrowser(text, config);
-    onEnd?.();
+      await this.speakWithBrowser(text, config);
+      onEnd?.();
+    } catch (error) {
+      console.error('[TTS] 语音合成失败:', error);
+      onError?.(error);
+    }
   }
 
   async speakWithBackend(text, config) {
     const response = await fetch(this.endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        text,
-        provider: 'openai',
-        voice: config.openaiVoice,
-        speed: config.rate
-      })
+      body: JSON.stringify(this.createBackendPayload(text, config))
     });
 
     if (!response.ok) {
@@ -65,6 +62,33 @@ export class TTSService {
 
     URL.revokeObjectURL(url);
     this.currentAudio = null;
+  }
+
+  createBackendPayload(text, config) {
+    if (config.engine === 'minimax') {
+      const customVoice = (config.customVoiceId || '').trim();
+      const selectedVoice = config.minimaxVoice === 'custom'
+        ? customVoice || 'Chinese (Mandarin)_Crisp_Girl'
+        : config.minimaxVoice;
+
+      return {
+        text,
+        provider: 'minimax',
+        voice: selectedVoice,
+        model: config.minimaxModel,
+        speed: config.rate,
+        pitch: config.pitch
+      };
+    }
+
+    return {
+      text,
+      provider: 'openai',
+      voice: config.openaiVoice,
+      model: config.openaiModel,
+      speed: config.rate,
+      instructions: config.openaiInstructions
+    };
   }
 
   speakWithBrowser(text, config) {
