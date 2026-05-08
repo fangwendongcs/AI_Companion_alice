@@ -1,0 +1,43 @@
+{
+  "actions": [
+    {
+      "name": "boot",
+      "file": "models/animations/boot.fbx",
+      "loop": "once",
+      "priority": 20,
+      "tags": ["startup"]
+    },
+    {
+      "name": "idle",
+      "file": "models/animations/idle.fbx",
+      "loop": "repeat",
+      "priority": 0,
+      "tags": ["base"]
+    },
+    {
+      "name": "arm",
+      "file": "models/animations/arm_stretch.fbx",
+      "loop": "once",
+      "priority": 10,
+      "tags": ["interaction", "upper_body"]
+    },
+    {
+      "name": "head",
+      "file": "models/animations/head.fbx",
+      "loop": "once",
+      "priority": 10,
+      "tags": ["interaction", "head"]
+    },
+    {
+      "name": "leg",
+      "file": "models/animations/leg.fbx",
+      "loop": "once",
+      "priority": 10,
+      "tags": ["interaction", "lower_body"]
+    }
+  ],
+  "proceduralFallbacks": {
+    "idle": true,
+    "interact": true
+  }
+}

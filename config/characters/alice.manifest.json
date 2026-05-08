@@ -1,0 +1,40 @@
+{
+  "id": "alice_festival",
+  "name": "Alice",
+  "model": "models/characters/avatar_v2.glb",
+  "actionManifest": "config/actions/alice.actions.json",
+  "skeletonMap": "config/skeletons/alice.mixamo.json",
+  "scale": {
+    "targetHeight": 120
+  },
+  "orientation": {
+    "y": 0
+  },
+  "camera": {
+    "targetY": 90,
+    "minDistance": 100,
+    "maxDistance": 600
+  },
+  "hitRegions": {
+    "head": ["head", "neck"],
+    "arm": ["arm", "hand", "shoulder"],
+    "leg": ["leg", "foot", "toe"]
+  },
+  "skins": [
+    {
+      "id": "festival",
+      "name": "帝皇帝皇 (祭典皮肤)",
+      "active": true
+    },
+    {
+      "id": "school",
+      "name": "校园休闲",
+      "active": false
+    },
+    {
+      "id": "tactical",
+      "name": "机能战衣",
+      "active": false
+    }
+  ]
+}

@@ -104,9 +104,9 @@
             </select>
           </div>
           <div class="setting-group">
-            <span class="setting-label">API Key</span>
+            <span class="setting-label">API Key（后端环境变量）</span>
             <div class="api-key-wrapper">
-              <input type="password" class="custom-input" id="apiKeyInput" placeholder="sk-... 输入后本地保存，不上传服务器">
+              <input type="password" class="custom-input" id="apiKeyInput" placeholder="请在后端配置 OPENAI_API_KEY / LLM_API_KEY" disabled>
               <button class="api-key-toggle" id="apiKeyToggle" title="显示/隐藏">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
@@ -137,7 +137,7 @@
               placeholder="你是 Alice，一个元气满满的青少年 AI 伙伴。请用简短活泼的语气回复，每次控制在 50 字以内。"></textarea>
           </div>
           <div style="display: flex; gap: 8px;">
-            <button class="custom-btn" id="saveLLMConfigBtn">💾 保存配置</button>
+            <button class="custom-btn" id="saveLLMConfigBtn">💾 保存偏好</button>
             <button class="custom-btn" id="testLLMBtn"
               style="background: transparent; color: var(--muted); border-color: rgba(255,255,255,0.15);">测试连接</button>
           </div>

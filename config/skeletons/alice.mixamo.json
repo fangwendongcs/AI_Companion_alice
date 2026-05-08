@@ -1,0 +1,22 @@
+{
+  "mixamorigHips": "Hips_66",
+  "mixamorigSpine": "Spine_55",
+  "mixamorigSpine1": "Spine1_54",
+  "mixamorigSpine2": "Spine2_53",
+  "mixamorigNeck": "Neck_4",
+  "mixamorigHead": "Head_3",
+  "mixamorigLeftShoulder": "LeftShoulder_28",
+  "mixamorigLeftArm": "LeftArm_27",
+  "mixamorigLeftForeArm": "LeftForeArm_26",
+  "mixamorigLeftHand": "LeftHand_25",
+  "mixamorigRightShoulder": "RightShoulder_52",
+  "mixamorigRightArm": "RightArm_51",
+  "mixamorigRightForeArm": "RightForeArm_50",
+  "mixamorigRightHand": "RightHand_49",
+  "mixamorigLeftUpLeg": "LeftUpLeg_60",
+  "mixamorigLeftLeg": "LeftLeg_59",
+  "mixamorigLeftFoot": "LeftFoot_58",
+  "mixamorigRightUpLeg": "RightUpLeg_65",
+  "mixamorigRightLeg": "RightLeg_64",
+  "mixamorigRightFoot": "RightFoot_63"
+}

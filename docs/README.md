@@ -26,3 +26,15 @@ npx serve .
 ```bash
 python -m http.server
 ```
+
+如果需要使用 AI 对话或 OpenAI TTS，请通过后端代理启动，API Key 不再保存在浏览器中：
+
+```bash
+OPENAI_API_KEY=sk-... npm run dev
+```
+
+默认访问：
+
+```text
+http://localhost:3000
+```
