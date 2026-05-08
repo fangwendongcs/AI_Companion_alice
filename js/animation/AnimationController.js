@@ -38,6 +38,7 @@ export class AnimationController {
     this.activeRequests = new Map();
     this.currentState = AvatarState.IDLE;
     this.onStateChange = null;
+    this.onStateRequest = null;
     this.onStateComplete = null;
     this.onActionStart = null;
     this.onActionComplete = null;
@@ -149,7 +150,11 @@ export class AnimationController {
     if (!result.ok) return false;
 
     this.currentState = result.to;
-    this.onStateChange?.(result);
+    if (result.actionPlan?.mode === 'enqueue') {
+      this.onStateRequest?.(result);
+    } else {
+      this.onStateChange?.(result);
+    }
     this.executeStateAction(result.actionPlan, { state: result.to });
     return true;
   }
@@ -169,7 +174,7 @@ export class AnimationController {
     this.enqueueAction(actionPlan.action, {
       layer: actionPlan.layer,
       state: context.state,
-      interrupt: true
+      interrupt: actionPlan.mode === 'play'
     });
   }
 
@@ -208,14 +213,10 @@ export class AnimationController {
     });
 
     if (decision.type === 'play') {
-      console.log('[ActionQueue] play', decision.request.name);
       this.playQueuedAction(decision.request);
     } else if (decision.type === 'interrupt') {
-      console.log('[ActionQueue] interrupt', decision.interrupted.name, '->', decision.request.name);
       this.stopLayerAction(decision.interrupted.layer, true);
       this.playQueuedAction(decision.request);
-    } else if (decision.type === 'queued') {
-      console.log('[ActionQueue] queued', decision.request.name);
     }
 
     return true;
@@ -246,6 +247,14 @@ export class AnimationController {
     }
 
     this.scheduleCompletionFallback(request, action, meta);
+    if (request.state) {
+      this.onStateChange?.({
+        from: this.currentState,
+        to: request.state,
+        queued: Boolean(request.wasQueued),
+        actionPlan: { action: request.name, layer: request.layer }
+      });
+    }
     this.onActionStart?.(request);
     return true;
   }
@@ -279,8 +288,9 @@ export class AnimationController {
     }
 
     this.onActionComplete?.(request);
-    const next = this.queue.complete(request.id);
+    const next = this.queue.complete(request.id, request.layer);
     if (next) {
+      next.wasQueued = true;
       this.playQueuedAction(next);
       return;
     }

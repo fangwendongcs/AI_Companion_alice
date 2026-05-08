@@ -1,7 +1,6 @@
 import { AvatarLoader } from './avatar/AvatarLoader.js';
 import { AnimationController, AvatarState } from './animation/AnimationController.js';
 import { LLMClient } from './ai/LLMClient.js';
-import { PROVIDER_BASE_URLS } from './config/providers.js';
 import { loadJson } from './core/loadJson.js';
 import { HitTestController } from './interaction/HitTestController.js';
 import { SceneRuntime } from './scene/SceneRuntime.js';
@@ -81,6 +80,7 @@ const runtime = new SceneRuntime(document.getElementById('scene'));
 const avatarLoader = new AvatarLoader(runtime);
 const animationController = new AnimationController();
 const recognitionService = new SpeechRecognitionService();
+animationController.onStateChange = ({ to }) => applyAvatarState(to);
 animationController.onStateComplete = (nextState) => setAvatarState(nextState);
 
 const state = {
@@ -226,19 +226,20 @@ function bindSceneControls() {
 
 function bindLLMControls() {
   refs.llmProvider.value = llmConfig.provider;
-  refs.baseUrlInput.value = llmConfig.baseUrl;
+  refs.baseUrlInput.value = '';
   refs.llmModel.value = llmConfig.model;
   refs.systemPromptInput.value = llmConfig.systemPrompt;
 
   refs.llmProvider.addEventListener('change', (event) => {
-    const url = PROVIDER_BASE_URLS[event.target.value] || '';
-    if (!refs.baseUrlInput.value) refs.baseUrlInput.value = url;
+    refs.baseUrlInput.placeholder = event.target.value === 'custom'
+      ? '请在后端配置 CUSTOM_BASE_URL'
+      : '请在后端配置对应 provider 的 *_BASE_URL';
   });
 
   refs.saveLLMConfigBtn.addEventListener('click', () => {
     llmConfig = {
       provider: refs.llmProvider.value,
-      baseUrl: refs.baseUrlInput.value.trim(),
+      baseUrl: '',
       model: refs.llmModel.value,
       systemPrompt: refs.systemPromptInput.value.trim()
     };
@@ -332,11 +333,25 @@ function bindInteractionControls() {
   canvas.addEventListener('pointerup', (event) => {
     if (!isDragging && hitTestController) {
       const hitPart = hitTestController.pick(event);
-      if (hitPart) window.triggerReaction(hitPart);
+      if (hitPart) triggerReaction(hitPart);
     }
   });
 
-  window.setMood = (mood) => {
+  document.addEventListener('click', (event) => {
+    const reactionTarget = event.target.closest('[data-reaction]');
+    if (reactionTarget) {
+      triggerReaction(reactionTarget.dataset.reaction);
+      return;
+    }
+
+    const moodTarget = event.target.closest('[data-mood]');
+    if (moodTarget) {
+      setMood(moodTarget.dataset.mood);
+    }
+  });
+}
+
+function setMood(mood) {
     document.querySelectorAll('[id^="mood"]').forEach((el) => el.classList.remove('active'));
     const el = document.getElementById(`mood${mood.charAt(0).toUpperCase() + mood.slice(1)}`);
     if (el) el.classList.add('active');
@@ -347,9 +362,9 @@ function bindInteractionControls() {
       shy: '...才、才没有什么嘛。'
     };
     showDialogue(moodDialogues[mood] || '嗯...');
-  };
+}
 
-  window.triggerReaction = (type) => {
+function triggerReaction(type) {
     const pool = dialogues[type] || dialogues.idle;
     const text = pool[Math.floor(Math.random() * pool.length)];
     const stateMap = {
@@ -361,7 +376,6 @@ function bindInteractionControls() {
     };
     setAvatarState(stateMap[type] || AvatarState.INTERACTING);
     showDialogue(text);
-  };
 }
 
 async function handleChat() {
@@ -389,7 +403,7 @@ async function handleChat() {
 function readLLMFormConfig() {
   return {
     provider: refs.llmProvider.value,
-    baseUrl: refs.baseUrlInput.value.trim(),
+    baseUrl: '',
     model: refs.llmModel.value,
     systemPrompt: refs.systemPromptInput.value.trim()
   };
@@ -398,11 +412,14 @@ function readLLMFormConfig() {
 function setAvatarState(newState) {
   const accepted = runtime.debug.freezeAnim ? true : animationController.setState(newState);
   if (!accepted) return false;
+  if (runtime.debug.freezeAnim) applyAvatarState(newState);
+  return true;
+}
 
+function applyAvatarState(newState) {
   state.currentState = newState;
   refs.statusText.textContent = `ONLINE / ${newState.toUpperCase()}`;
   refs.statusBadge.className = 'status-badge';
-
   if (newState === AvatarState.THINKING) {
     refs.statusBadge.textContent = 'THINKING';
     refs.statusBadge.classList.add('thinking');
@@ -412,8 +429,6 @@ function setAvatarState(newState) {
   } else {
     refs.statusBadge.textContent = 'ONLINE';
   }
-
-  return true;
 }
 
 function showDialogue(text) {
@@ -437,14 +452,7 @@ function resetSpeakingState() {
     clearTimeout(state.speechTimer);
     state.speechTimer = null;
   }
-  const transientStates = new Set([
-    AvatarState.SPEAKING,
-    AvatarState.INTERACTING,
-    AvatarState.ARM_ACTION,
-    AvatarState.HEAD_ACTION,
-    AvatarState.LEG_ACTION
-  ]);
-  if (transientStates.has(state.currentState)) setAvatarState(AvatarState.IDLE);
+  if (state.currentState === AvatarState.SPEAKING) setAvatarState(AvatarState.IDLE);
 }
 
 function populateVoices() {

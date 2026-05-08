@@ -10,7 +10,6 @@ export class LLMClient {
       body: JSON.stringify({
         message: userMessage,
         provider: config.provider,
-        baseUrl: config.baseUrl,
         model: config.model,
         systemPrompt: config.systemPrompt
       })

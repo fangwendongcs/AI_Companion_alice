@@ -1,9 +1,12 @@
 import { DEFAULT_LLM_CONFIG, DEFAULT_TTS_CONFIG } from '../config/providers.js';
 
+const supportedProviders = new Set(['openai', 'qwen', 'deepseek', 'custom']);
+
 export class LocalConfigStore {
   loadLLMConfig() {
+    const provider = localStorage.getItem('llm_provider') || DEFAULT_LLM_CONFIG.provider;
     return {
-      provider: localStorage.getItem('llm_provider') || DEFAULT_LLM_CONFIG.provider,
+      provider: supportedProviders.has(provider) ? provider : DEFAULT_LLM_CONFIG.provider,
       baseUrl: localStorage.getItem('llm_base_url') || DEFAULT_LLM_CONFIG.baseUrl,
       model: localStorage.getItem('llm_model') || DEFAULT_LLM_CONFIG.model,
       systemPrompt: localStorage.getItem('llm_system_prompt') || DEFAULT_LLM_CONFIG.systemPrompt

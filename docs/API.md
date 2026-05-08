@@ -2,7 +2,7 @@
 
 ### POST /api/chat
 
-浏览器只提交对话参数，API Key 由后端环境变量读取。
+浏览器只提交对话参数，API Key 和上游 Base URL 均由后端环境变量读取。
 
 请求：
 
@@ -10,7 +10,6 @@
 {
   "message": "你好",
   "provider": "openai",
-  "baseUrl": "",
   "model": "gpt-4o-mini",
   "systemPrompt": "你是 Alice..."
 }

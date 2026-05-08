@@ -1,16 +1,15 @@
 import { createReadStream, existsSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
-import { extname, join, normalize, resolve } from 'node:path';
+import { extname, join, normalize, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const rootDir = resolve(__dirname, '..');
 const port = Number(process.env.PORT || 3000);
+const maxJsonBodyBytes = 1024 * 1024;
 
 const providerBaseUrls = {
   openai: 'https://api.openai.com/v1',
-  anthropic: 'https://api.anthropic.com/v1',
   qwen: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
   deepseek: 'https://api.deepseek.com/v1',
   custom: ''
@@ -18,10 +17,16 @@ const providerBaseUrls = {
 
 const providerKeyEnv = {
   openai: 'OPENAI_API_KEY',
-  anthropic: 'ANTHROPIC_API_KEY',
   qwen: 'QWEN_API_KEY',
   deepseek: 'DEEPSEEK_API_KEY',
   custom: 'CUSTOM_API_KEY'
+};
+
+const providerBaseUrlEnv = {
+  openai: 'OPENAI_BASE_URL',
+  qwen: 'QWEN_BASE_URL',
+  deepseek: 'DEEPSEEK_BASE_URL',
+  custom: 'CUSTOM_BASE_URL'
 };
 
 const mimeTypes = {
@@ -75,8 +80,10 @@ const server = createServer(async (req, res) => {
 
     await serveStatic(url.pathname, req.method, res);
   } catch (error) {
-    console.error('[server]', error);
-    sendJson(res, 500, { error: error.message || 'Internal server error' });
+    if (!error.statusCode || error.statusCode >= 500) {
+      console.error('[server]', error);
+    }
+    sendJson(res, error.statusCode || 500, { error: error.message || 'Internal server error' });
   }
 });
 
@@ -86,9 +93,16 @@ server.listen(port, () => {
 
 async function handleChat(req, res) {
   const body = await readJsonBody(req);
-  const provider = body.provider || 'openai';
-  const baseUrl = sanitizeBaseUrl(body.baseUrl || providerBaseUrls[provider] || providerBaseUrls.openai);
+  const provider = normalizeProvider(body.provider);
+  const baseUrl = resolveProviderBaseUrl(provider);
   const apiKey = resolveApiKey(provider);
+
+  if (!baseUrl) {
+    sendJson(res, 400, {
+      error: `Missing base URL. Set ${providerBaseUrlEnv[provider]} in the backend environment.`
+    });
+    return;
+  }
 
   if (!apiKey) {
     sendJson(res, 400, {
@@ -129,7 +143,7 @@ async function handleChat(req, res) {
 async function handleTTS(req, res) {
   const body = await readJsonBody(req);
   const apiKey = resolveApiKey('openai');
-  const baseUrl = sanitizeBaseUrl(process.env.OPENAI_BASE_URL || providerBaseUrls.openai);
+  const baseUrl = resolveProviderBaseUrl('openai');
 
   if (!apiKey) {
     sendJson(res, 400, {
@@ -171,8 +185,9 @@ async function serveStatic(pathname, method, res) {
   const requested = pathname === '/' ? '/index.html' : decodeURIComponent(pathname);
   const normalized = normalize(requested).replace(/^(\.\.[/\\])+/, '');
   const filePath = join(rootDir, normalized);
+  const relativePath = relative(rootDir, filePath);
 
-  if (!filePath.startsWith(rootDir) || !existsSync(filePath)) {
+  if (relativePath.startsWith('..') || relativePath === '' || !existsSync(filePath)) {
     sendJson(res, 404, { error: 'Not found' });
     return;
   }
@@ -190,10 +205,42 @@ async function serveStatic(pathname, method, res) {
 
 async function readJsonBody(req) {
   const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
+  let totalBytes = 0;
+  for await (const chunk of req) {
+    totalBytes += chunk.length;
+    if (totalBytes > maxJsonBodyBytes) {
+      const error = new Error('Request body too large');
+      error.statusCode = 413;
+      throw error;
+    }
+    chunks.push(chunk);
+  }
   const raw = Buffer.concat(chunks).toString('utf8');
   if (!raw) return {};
-  return JSON.parse(raw);
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const error = new Error('Invalid JSON body');
+    error.statusCode = 400;
+    throw error;
+  }
+}
+
+function normalizeProvider(provider) {
+  const value = String(provider || 'openai').toLowerCase();
+  if (!providerBaseUrls.hasOwnProperty(value)) {
+    const error = new Error(`Unsupported provider: ${value}`);
+    error.statusCode = 400;
+    throw error;
+  }
+  return value;
+}
+
+function resolveProviderBaseUrl(provider) {
+  const envName = providerBaseUrlEnv[provider];
+  const envValue = envName ? process.env[envName] : '';
+  const baseUrl = envValue || providerBaseUrls[provider] || '';
+  return baseUrl ? sanitizeBaseUrl(baseUrl) : '';
 }
 
 function resolveApiKey(provider) {

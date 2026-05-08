@@ -97,10 +97,9 @@
             <span class="setting-label">模型提供商</span>
             <select class="custom-input" id="llmProvider">
               <option value="openai">OpenAI (GPT)</option>
-              <option value="anthropic">Anthropic (Claude)</option>
               <option value="qwen">阿里云 通义千问</option>
               <option value="deepseek">DeepSeek</option>
-              <option value="custom">自定义 (OpenAI 兼容接口)</option>
+              <option value="custom">自定义（后端 CUSTOM_BASE_URL）</option>
             </select>
           </div>
           <div class="setting-group">
@@ -116,8 +115,8 @@
             </div>
           </div>
           <div class="setting-group" id="baseUrlGroup">
-            <span class="setting-label">Base URL（可选，用于国内代理）</span>
-            <input type="text" class="custom-input" id="baseUrlInput" placeholder="https://api.openai.com/v1">
+            <span class="setting-label">Base URL（后端环境变量）</span>
+            <input type="text" class="custom-input" id="baseUrlInput" placeholder="请在后端配置 OPENAI_BASE_URL / CUSTOM_BASE_URL" disabled>
           </div>
           <div class="setting-group">
             <span class="setting-label">模型版本</span>
@@ -242,18 +241,18 @@
           <div class="setting-group">
             <span class="setting-label">快捷动作演示</span>
             <div class="tag-list">
-              <div class="tag" onclick="triggerReaction('head')">摸摸头</div>
-              <div class="tag" onclick="triggerReaction('body')">戳身体</div>
-              <div class="tag" onclick="triggerReaction('chat')">打招呼</div>
+              <div class="tag" data-reaction="head">摸摸头</div>
+              <div class="tag" data-reaction="body">戳身体</div>
+              <div class="tag" data-reaction="chat">打招呼</div>
             </div>
           </div>
           <div class="setting-group">
             <span class="setting-label">情绪状态模拟</span>
             <div class="tag-list">
-              <div class="tag active" id="moodEnerge" onclick="setMood('energe')">✨ 元气</div>
-              <div class="tag" id="moodThink" onclick="setMood('think')">🤔 思考</div>
-              <div class="tag" id="moodAngry" onclick="setMood('angry')">💢 炸毛</div>
-              <div class="tag" id="moodShy" onclick="setMood('shy')">🌸 害羞</div>
+              <div class="tag active" id="moodEnerge" data-mood="energe">✨ 元气</div>
+              <div class="tag" id="moodThink" data-mood="think">🤔 思考</div>
+              <div class="tag" id="moodAngry" data-mood="angry">💢 炸毛</div>
+              <div class="tag" id="moodShy" data-mood="shy">🌸 害羞</div>
             </div>
           </div>
         </div>
@@ -290,7 +289,7 @@
         <summary>📹 录制与分享</summary>
         <div class="details-content">
           <div style="display: flex; gap: 8px;">
-            <button class="custom-btn" onclick="triggerReaction('record')">开始录制</button>
+            <button class="custom-btn" data-reaction="record">开始录制</button>
             <button class="custom-btn"
               style="background: transparent; color: var(--text); border-color: var(--panel-border);">添加标记</button>
           </div>

@@ -10,6 +10,7 @@ const actionStates = [
 const transitions = {
   [AvatarState.BOOT]: [AvatarState.IDLE],
   [AvatarState.IDLE]: [
+    AvatarState.BOOT,
     AvatarState.THINKING,
     AvatarState.SPEAKING,
     ...actionStates,

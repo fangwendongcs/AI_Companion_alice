@@ -20,10 +20,12 @@ http://localhost:3000
 - `OPENAI_API_KEY`：OpenAI Chat/TTS
 - `QWEN_API_KEY`：通义千问 OpenAI-compatible 接口
 - `DEEPSEEK_API_KEY`：DeepSeek OpenAI-compatible 接口
-- `ANTHROPIC_API_KEY`：Anthropic 相关代理配置
 - `CUSTOM_API_KEY`：自定义 OpenAI-compatible 接口
 - `LLM_API_KEY`：通用兜底 Key
 - `OPENAI_BASE_URL`：OpenAI 兼容代理地址
+- `QWEN_BASE_URL`：通义千问兼容接口地址，未配置时使用默认值
+- `DEEPSEEK_BASE_URL`：DeepSeek 兼容接口地址，未配置时使用默认值
+- `CUSTOM_BASE_URL`：自定义 OpenAI-compatible 接口地址
 - `OPENAI_TTS_MODEL`：TTS 模型，默认 `tts-1`
 
 ## 接口
