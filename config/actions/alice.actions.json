@@ -5,6 +5,10 @@
       "file": "models/animations/boot.fbx",
       "loop": "once",
       "priority": 20,
+      "layer": "gesture",
+      "interrupt": true,
+      "fadeIn": 0.2,
+      "fadeOut": 0.2,
       "tags": ["startup"]
     },
     {
@@ -12,6 +16,10 @@
       "file": "models/animations/idle.fbx",
       "loop": "repeat",
       "priority": 0,
+      "layer": "base",
+      "interrupt": false,
+      "fadeIn": 0.35,
+      "fadeOut": 0.25,
       "tags": ["base"]
     },
     {
@@ -19,6 +27,10 @@
       "file": "models/animations/arm_stretch.fbx",
       "loop": "once",
       "priority": 10,
+      "layer": "gesture",
+      "interrupt": true,
+      "fadeIn": 0.15,
+      "fadeOut": 0.2,
       "tags": ["interaction", "upper_body"]
     },
     {
@@ -26,6 +38,10 @@
       "file": "models/animations/head.fbx",
       "loop": "once",
       "priority": 10,
+      "layer": "gesture",
+      "interrupt": true,
+      "fadeIn": 0.15,
+      "fadeOut": 0.2,
       "tags": ["interaction", "head"]
     },
     {
@@ -33,6 +49,10 @@
       "file": "models/animations/leg.fbx",
       "loop": "once",
       "priority": 10,
+      "layer": "gesture",
+      "interrupt": true,
+      "fadeIn": 0.15,
+      "fadeOut": 0.2,
       "tags": ["interaction", "lower_body"]
     }
   ],

@@ -396,6 +396,9 @@ function readLLMFormConfig() {
 }
 
 function setAvatarState(newState) {
+  const accepted = runtime.debug.freezeAnim ? true : animationController.setState(newState);
+  if (!accepted) return false;
+
   state.currentState = newState;
   refs.statusText.textContent = `ONLINE / ${newState.toUpperCase()}`;
   refs.statusBadge.className = 'status-badge';
@@ -410,7 +413,7 @@ function setAvatarState(newState) {
     refs.statusBadge.textContent = 'ONLINE';
   }
 
-  if (!runtime.debug.freezeAnim) animationController.setState(newState);
+  return true;
 }
 
 function showDialogue(text) {

@@ -1,16 +1,23 @@
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { ActionQueue } from './ActionQueue.js';
+import { AnimationStateMachine } from './AnimationStateMachine.js';
+import { AvatarState } from './states.js';
 
-export const AvatarState = {
-  BOOT: 'boot',
-  IDLE: 'idle',
-  THINKING: 'thinking',
-  SPEAKING: 'speaking',
-  INTERACTING: 'interacting',
-  ARM_ACTION: 'arm_action',
-  HEAD_ACTION: 'head_action',
-  LEG_ACTION: 'leg_action'
+export { AvatarState };
+
+const loopModes = {
+  once: THREE.LoopOnce,
+  repeat: THREE.LoopRepeat
 };
+
+const transientStates = new Set([
+  AvatarState.BOOT,
+  AvatarState.INTERACTING,
+  AvatarState.ARM_ACTION,
+  AvatarState.HEAD_ACTION,
+  AvatarState.LEG_ACTION
+]);
 
 export class AnimationController {
   constructor() {
@@ -19,9 +26,21 @@ export class AnimationController {
     this.skinnedMesh = null;
     this.mixer = null;
     this.actions = Object.create(null);
-    this.currentAction = null;
+    this.actionMeta = Object.create(null);
+    this.stateMachine = new AnimationStateMachine();
+    this.queue = new ActionQueue();
+    this.layers = {
+      base: { active: null, weight: 1 },
+      gesture: { active: null, weight: 1 },
+      expression: { active: null, weight: 1 },
+      lipsync: { active: null, weight: 1 }
+    };
+    this.activeRequests = new Map();
     this.currentState = AvatarState.IDLE;
+    this.onStateChange = null;
     this.onStateComplete = null;
+    this.onActionStart = null;
+    this.onActionComplete = null;
   }
 
   async init({ avatar, actionManifest, skeletonMap }) {
@@ -44,19 +63,35 @@ export class AnimationController {
     clips.forEach(({ entry, clip }) => {
       if (!clip) return;
       const retargeted = this.retargetClipToAvatar(clip, skeletonMap);
-      if (retargeted) this.registerAction(entry.name, retargeted);
+      if (retargeted) this.registerAction(entry.name, retargeted, entry);
     });
 
     if (!this.actions.idle && actionManifest.proceduralFallbacks?.idle) {
       const idleClip = this.createIdleClip();
-      if (idleClip) this.registerAction('idle', idleClip);
+      if (idleClip) this.registerAction('idle', idleClip, {
+        name: 'idle',
+        loop: 'repeat',
+        priority: 0,
+        layer: 'base',
+        fadeIn: 0.35,
+        fadeOut: 0.25
+      });
     }
 
     if (!this.actions.interact && actionManifest.proceduralFallbacks?.interact) {
       const interactClip = this.createInteractClip();
-      if (interactClip) this.registerAction('interact', interactClip);
+      if (interactClip) this.registerAction('interact', interactClip, {
+        name: 'interact',
+        loop: 'once',
+        priority: 8,
+        layer: 'gesture',
+        interrupt: true,
+        fadeIn: 0.12,
+        fadeOut: 0.18
+      });
     }
 
+    this.requestState(AvatarState.IDLE, { force: true });
   }
 
   initMixer() {
@@ -67,9 +102,8 @@ export class AnimationController {
     if (!this.skinnedMesh) return;
 
     this.mixer = new THREE.AnimationMixer(this.skinnedMesh);
-    this.mixer.addEventListener('finished', () => {
-      this.setState(AvatarState.IDLE);
-      this.onStateComplete?.(AvatarState.IDLE);
+    this.mixer.addEventListener('finished', (event) => {
+      this.handleActionFinished(event.action);
     });
   }
 
@@ -83,48 +117,211 @@ export class AnimationController {
     return fbx.animations[0];
   }
 
-  registerAction(name, clip) {
+  registerAction(name, clip, meta = {}) {
     if (!this.mixer || !clip) return;
-    this.actions[name] = this.mixer.clipAction(clip, this.avatar);
+    const action = this.mixer.clipAction(clip, this.avatar);
+    this.actions[name] = action;
+    this.actionMeta[name] = {
+      name,
+      loop: meta.loop || 'repeat',
+      layer: meta.layer || (meta.loop === 'repeat' ? 'base' : 'gesture'),
+      priority: meta.priority || 0,
+      interrupt: Boolean(meta.interrupt),
+      fadeIn: meta.fadeIn ?? 0.2,
+      fadeOut: meta.fadeOut ?? 0.2,
+      baseWeightWhileActive: meta.baseWeightWhileActive ?? 0.45,
+      clipDuration: clip.duration || 0,
+      tags: meta.tags || []
+    };
   }
 
-  setState(newState) {
-    this.currentState = newState;
-    if (!this.mixer) return;
+  requestState(nextState, options = {}) {
+    if (options.force) {
+      const from = this.currentState;
+      this.stateMachine.current = nextState;
+      this.currentState = nextState;
+      this.onStateChange?.({ from, to: nextState, forced: true });
+      if (nextState === AvatarState.IDLE) this.playBase('idle');
+      return true;
+    }
 
-    if (newState === AvatarState.BOOT && !this.playAction('boot', THREE.LoopOnce)) {
-      this.setState(AvatarState.IDLE);
+    const result = this.stateMachine.transition(nextState);
+    if (!result.ok) return false;
+
+    this.currentState = result.to;
+    this.onStateChange?.(result);
+    this.executeStateAction(result.actionPlan, { state: result.to });
+    return true;
+  }
+
+  setState(nextState, options = {}) {
+    return this.requestState(nextState, options);
+  }
+
+  executeStateAction(actionPlan, context = {}) {
+    if (!actionPlan?.action) return;
+
+    if (actionPlan.mode === 'base') {
+      this.playBase(actionPlan.action);
+      return;
+    }
+
+    this.enqueueAction(actionPlan.action, {
+      layer: actionPlan.layer,
+      state: context.state,
+      interrupt: true
+    });
+  }
+
+  playBase(name) {
+    const action = this.actions[name];
+    const meta = this.actionMeta[name];
+    if (!action || !meta) return false;
+
+    const layer = this.layers.base;
+    if (layer.active?.action === action && action.isRunning()) return true;
+    if (layer.active?.action && layer.active.action !== action) {
+      layer.active.action.fadeOut(layer.active.meta.fadeOut);
+    }
+
+    action.reset();
+    action.enabled = true;
+    action.setEffectiveWeight(layer.weight);
+    action.setLoop(THREE.LoopRepeat);
+    action.clampWhenFinished = false;
+    action.fadeIn(meta.fadeIn);
+    action.play();
+    layer.active = { name, action, meta };
+    return true;
+  }
+
+  enqueueAction(name, options = {}) {
+    const meta = this.actionMeta[name];
+    if (!meta) return false;
+
+    const decision = this.queue.enqueue({
+      name,
+      layer: options.layer || meta.layer,
+      priority: options.priority ?? meta.priority,
+      interrupt: options.interrupt ?? meta.interrupt,
+      state: options.state || null
+    });
+
+    if (decision.type === 'play') {
+      console.log('[ActionQueue] play', decision.request.name);
+      this.playQueuedAction(decision.request);
+    } else if (decision.type === 'interrupt') {
+      console.log('[ActionQueue] interrupt', decision.interrupted.name, '->', decision.request.name);
+      this.stopLayerAction(decision.interrupted.layer, true);
+      this.playQueuedAction(decision.request);
+    } else if (decision.type === 'queued') {
+      console.log('[ActionQueue] queued', decision.request.name);
+    }
+
+    return true;
+  }
+
+  playQueuedAction(request) {
+    const action = this.actions[request.name];
+    const meta = this.actionMeta[request.name];
+    const layer = this.layers[request.layer] || this.layers.gesture;
+    if (!action || !meta || !layer) return false;
+
+    if (layer.active?.action && layer.active.action !== action) {
+      layer.active.action.fadeOut(layer.active.meta.fadeOut);
+    }
+
+    this.activeRequests.set(action, request);
+    action.reset();
+    action.enabled = true;
+    action.setEffectiveWeight(layer.weight);
+    action.setLoop(loopModes[meta.loop] || THREE.LoopOnce);
+    action.clampWhenFinished = meta.loop !== 'repeat';
+    action.fadeIn(meta.fadeIn);
+    action.play();
+    layer.active = { name: request.name, action, meta, request };
+
+    if (request.layer === 'gesture') {
+      this.setLayerWeight('base', meta.baseWeightWhileActive, meta.fadeIn);
+    }
+
+    this.scheduleCompletionFallback(request, action, meta);
+    this.onActionStart?.(request);
+    return true;
+  }
+
+  scheduleCompletionFallback(request, action, meta) {
+    if (meta.loop === 'repeat') return;
+    const duration = Math.max(300, (meta.clipDuration || 1) * 1000 + meta.fadeOut * 1000 + 120);
+    request.completionTimer = window.setTimeout(() => {
+      if (this.activeRequests.get(action)?.id === request.id) {
+        this.handleActionFinished(action);
+      }
+    }, duration);
+  }
+
+  handleActionFinished(action) {
+    const request = this.activeRequests.get(action);
+    if (!request) return;
+
+    const meta = this.actionMeta[request.name];
+    if (request.completionTimer) window.clearTimeout(request.completionTimer);
+    this.activeRequests.delete(action);
+
+    const layer = this.layers[request.layer];
+    if (layer?.active?.request?.id === request.id) {
+      action.fadeOut(meta?.fadeOut ?? 0.2);
+      layer.active = null;
+    }
+
+    if (request.layer === 'gesture') {
+      this.setLayerWeight('base', 1, meta?.fadeOut ?? 0.2);
+    }
+
+    this.onActionComplete?.(request);
+    const next = this.queue.complete(request.id);
+    if (next) {
+      this.playQueuedAction(next);
+      return;
+    }
+
+    if (transientStates.has(this.currentState)) {
+      this.requestState(AvatarState.IDLE);
       this.onStateComplete?.(AvatarState.IDLE);
     }
-    if (newState === AvatarState.IDLE || newState === AvatarState.THINKING || newState === AvatarState.SPEAKING) {
-      this.playAction('idle', THREE.LoopRepeat);
-    }
-    if (newState === AvatarState.INTERACTING) this.playAction('interact', THREE.LoopOnce);
-    if (newState === AvatarState.ARM_ACTION) this.playAction('arm', THREE.LoopOnce);
-    if (newState === AvatarState.HEAD_ACTION) this.playAction('head', THREE.LoopOnce);
-    if (newState === AvatarState.LEG_ACTION) this.playAction('leg', THREE.LoopOnce);
   }
 
-  playAction(name, loop = THREE.LoopRepeat) {
-    const next = this.actions[name];
-    if (!next) return false;
+  setLayerWeight(layerName, weight, fadeDuration = 0.2) {
+    const layer = this.layers[layerName];
+    if (!layer) return;
+    layer.weight = weight;
+    if (layer.active?.action) {
+      layer.active.action.setEffectiveWeight(weight);
+    }
+  }
 
-    const isSame = this.currentAction === next;
-    if (this.currentAction && !isSame) this.currentAction.fadeOut(0.2);
-    if (isSame) next.stop();
-
-    next.reset();
-    next.setLoop(loop);
-    next.clampWhenFinished = loop === THREE.LoopOnce;
-    next.fadeIn(0.2);
-    next.play();
-    this.currentAction = next;
-    return true;
+  stopLayerAction(layerName, immediate = false) {
+    const layer = this.layers[layerName];
+    if (!layer?.active) return;
+    const { action, meta, request } = layer.active;
+    if (request?.completionTimer) window.clearTimeout(request.completionTimer);
+    this.activeRequests.delete(action);
+    if (immediate) action.stop();
+    else action.fadeOut(meta.fadeOut);
+    layer.active = null;
   }
 
   stopAll() {
     Object.values(this.actions).forEach((action) => action.stop());
-    this.currentAction = null;
+    Object.values(this.layers).forEach((layer) => {
+      layer.active = null;
+      layer.weight = 1;
+    });
+    this.activeRequests.forEach((request) => {
+      if (request.completionTimer) window.clearTimeout(request.completionTimer);
+    });
+    this.activeRequests.clear();
+    this.queue.clear();
   }
 
   update(delta) {
