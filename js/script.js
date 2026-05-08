@@ -481,6 +481,7 @@ function speakText(text) {
 
   const estimatedDuration = Math.max(3000, text.length * 150);
   state.speechTimer = setTimeout(resetSpeakingState, estimatedDuration);
+  let usedFallbackVoice = false;
   if (ttsConfig.engine !== 'browser') {
     showTTSStatus('loading', `正在请求 ${getTTSEngineName(ttsConfig.engine)} 语音服务...`);
   }
@@ -489,9 +490,13 @@ function speakText(text) {
     muted: state.isMuted,
     onEnd: () => {
       resetSpeakingState();
-      if (ttsConfig.engine !== 'browser') {
+      if (ttsConfig.engine !== 'browser' && !usedFallbackVoice) {
         showTTSStatus('success', `${getTTSEngineName(ttsConfig.engine)} 语音播放完成。`);
       }
+    },
+    onFallback: (error) => {
+      usedFallbackVoice = true;
+      showTTSStatus('error', `${formatTTSError(error)} 已自动使用免费本机语音兜底。`);
     },
     onError: (error) => {
       showTTSStatus('error', formatTTSError(error));

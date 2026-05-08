@@ -17,13 +17,14 @@ export class TTSService {
     }
   }
 
-  async speak(text, config, { muted = false, onStart, onEnd, onError } = {}) {
+  async speak(text, config, { muted = false, onStart, onEnd, onError, onFallback } = {}) {
     if (muted) return;
     this.stop();
     onStart?.();
+    const isBackendEngine = this.backendEngines.has(config.engine);
 
     try {
-      if (this.backendEngines.has(config.engine)) {
+      if (isBackendEngine) {
         await this.speakWithBackend(text, config);
         onEnd?.();
         return;
@@ -33,6 +34,12 @@ export class TTSService {
       onEnd?.();
     } catch (error) {
       console.error('[TTS] 语音合成失败:', error);
+      if (isBackendEngine) {
+        onFallback?.(error);
+        await this.speakWithBrowser(text, config);
+        onEnd?.();
+        return;
+      }
       onError?.(error);
     }
   }
@@ -109,7 +116,13 @@ export class TTSService {
           'Microsoft Xiaoxiao Online (Natural) - Chinese (Mainland)',
           'Microsoft XiaoXiao',
           'Xiaoxiao',
+          '婷婷',
+          'Tingting',
           'Google 普通话（中国大陆）',
+          '美嘉',
+          'Meijia',
+          '善怡',
+          'Sinji',
           'zh-CN'
         ];
 

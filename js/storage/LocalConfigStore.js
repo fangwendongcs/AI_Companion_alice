@@ -2,6 +2,7 @@ import { DEFAULT_LLM_CONFIG, DEFAULT_TTS_CONFIG } from '../config/providers.js';
 
 const supportedProviders = new Set(['openai', 'qwen', 'deepseek', 'custom']);
 const supportedTTSEngines = new Set(['browser', 'openai', 'minimax']);
+const freeDefaultMigrationKey = 'tts_free_default_migration_v1';
 
 export class LocalConfigStore {
   loadLLMConfig() {
@@ -22,7 +23,14 @@ export class LocalConfigStore {
   }
 
   loadTTSConfig() {
-    const engine = localStorage.getItem('tts_engine') || DEFAULT_TTS_CONFIG.engine;
+    let engine = localStorage.getItem('tts_engine') || DEFAULT_TTS_CONFIG.engine;
+    if (!localStorage.getItem(freeDefaultMigrationKey)) {
+      if (engine !== 'browser') {
+        engine = DEFAULT_TTS_CONFIG.engine;
+        localStorage.setItem('tts_engine', engine);
+      }
+      localStorage.setItem(freeDefaultMigrationKey, '1');
+    }
     return {
       engine: supportedTTSEngines.has(engine) ? engine : DEFAULT_TTS_CONFIG.engine,
       browserVoice: localStorage.getItem('tts_browser_voice') || DEFAULT_TTS_CONFIG.browserVoice,
