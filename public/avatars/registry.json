@@ -1,0 +1,10 @@
+{
+  "defaultAvatarId": "alice",
+  "avatars": [
+    {
+      "id": "alice",
+      "name": "Alice",
+      "meta": "public/avatars/alice/meta.json"
+    }
+  ]
+}

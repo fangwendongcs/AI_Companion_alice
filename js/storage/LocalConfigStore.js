@@ -22,6 +22,14 @@ export class LocalConfigStore {
     localStorage.setItem('llm_system_prompt', config.systemPrompt);
   }
 
+  loadAvatarId(defaultAvatarId) {
+    return localStorage.getItem('avatar_id') || defaultAvatarId;
+  }
+
+  saveAvatarId(avatarId) {
+    localStorage.setItem('avatar_id', avatarId);
+  }
+
   loadTTSConfig() {
     let engine = localStorage.getItem('tts_engine') || DEFAULT_TTS_CONFIG.engine;
     if (!localStorage.getItem(freeDefaultMigrationKey)) {

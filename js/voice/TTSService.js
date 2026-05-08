@@ -1,8 +1,9 @@
+import { getTTSProvider } from './TTSProviderRegistry.js';
+
 export class TTSService {
   constructor(endpoint = '/api/tts') {
     this.endpoint = endpoint;
     this.currentAudio = null;
-    this.backendEngines = new Set(['openai', 'minimax']);
   }
 
   getVoices() {
@@ -21,11 +22,12 @@ export class TTSService {
     if (muted) return;
     this.stop();
     onStart?.();
-    const isBackendEngine = this.backendEngines.has(config.engine);
+    const provider = getTTSProvider(config.engine);
+    const isBackendEngine = provider.transport === 'backend';
 
     try {
       if (isBackendEngine) {
-        await this.speakWithBackend(text, config);
+        await this.speakWithBackend(text, config, provider);
         onEnd?.();
         return;
       }
@@ -44,11 +46,11 @@ export class TTSService {
     }
   }
 
-  async speakWithBackend(text, config) {
+  async speakWithBackend(text, config, provider = getTTSProvider(config.engine)) {
     const response = await fetch(this.endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(this.createBackendPayload(text, config))
+      body: JSON.stringify(provider.createPayload(text, config))
     });
 
     if (!response.ok) {
@@ -69,33 +71,6 @@ export class TTSService {
 
     URL.revokeObjectURL(url);
     this.currentAudio = null;
-  }
-
-  createBackendPayload(text, config) {
-    if (config.engine === 'minimax') {
-      const customVoice = (config.customVoiceId || '').trim();
-      const selectedVoice = config.minimaxVoice === 'custom'
-        ? customVoice || 'Chinese (Mandarin)_Crisp_Girl'
-        : config.minimaxVoice;
-
-      return {
-        text,
-        provider: 'minimax',
-        voice: selectedVoice,
-        model: config.minimaxModel,
-        speed: config.rate,
-        pitch: config.pitch
-      };
-    }
-
-    return {
-      text,
-      provider: 'openai',
-      voice: config.openaiVoice,
-      model: config.openaiModel,
-      speed: config.rate,
-      instructions: config.openaiInstructions
-    };
   }
 
   speakWithBrowser(text, config) {

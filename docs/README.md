@@ -12,6 +12,16 @@
   - environments/
   - animations/
 - backend/
+- public/avatars/
+  - registry.json
+  - {avatarId}/meta.json
+  - {avatarId}/motions.json
+  - {avatarId}/skeleton.mixamo.json
+
+## 架构文档
+
+- `docs/AVATAR_ARCHITECTURE.md`：可替换人物模型架构
+- `docs/LOCAL_TTS.md`：本地免费 TTS 方案
 
 ## 本地运行
 

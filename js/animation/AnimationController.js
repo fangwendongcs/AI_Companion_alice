@@ -44,8 +44,10 @@ export class AnimationController {
     this.onActionComplete = null;
   }
 
-  async init({ avatar, actionManifest, skeletonMap }) {
+  async init({ avatar, actionManifest, skeletonMap, retargetAdapter = null }) {
+    this.reset();
     this.avatar = avatar;
+    this.retargetAdapter = retargetAdapter;
     this.initMixer();
     if (!this.mixer) return;
 
@@ -67,32 +69,32 @@ export class AnimationController {
       if (retargeted) this.registerAction(entry.name, retargeted, entry);
     });
 
-    if (!this.actions.idle && actionManifest.proceduralFallbacks?.idle) {
-      const idleClip = this.createIdleClip();
-      if (idleClip) this.registerAction('idle', idleClip, {
-        name: 'idle',
-        loop: 'repeat',
-        priority: 0,
-        layer: 'base',
-        fadeIn: 0.35,
-        fadeOut: 0.25
-      });
-    }
-
-    if (!this.actions.interact && actionManifest.proceduralFallbacks?.interact) {
-      const interactClip = this.createInteractClip();
-      if (interactClip) this.registerAction('interact', interactClip, {
-        name: 'interact',
-        loop: 'once',
-        priority: 8,
-        layer: 'gesture',
-        interrupt: true,
-        fadeIn: 0.12,
-        fadeOut: 0.18
-      });
-    }
+    this.registerProceduralFallbacks(actionManifest.proceduralFallbacks || {});
 
     this.requestState(AvatarState.IDLE, { force: true });
+  }
+
+  reset() {
+    if (this.mixer && this.avatar) {
+      this.stopAll();
+      this.mixer.uncacheRoot(this.avatar);
+    }
+    this.avatar = null;
+    this.skinnedMesh = null;
+    this.mixer = null;
+    this.actions = Object.create(null);
+    this.actionMeta = Object.create(null);
+    this.stateMachine = new AnimationStateMachine();
+    this.queue = new ActionQueue();
+    this.layers = {
+      base: { active: null, weight: 1 },
+      gesture: { active: null, weight: 1 },
+      expression: { active: null, weight: 1 },
+      lipsync: { active: null, weight: 1 }
+    };
+    this.activeRequests = new Map();
+    this.currentState = AvatarState.IDLE;
+    this.retargetAdapter = null;
   }
 
   initMixer() {
@@ -134,6 +136,26 @@ export class AnimationController {
       clipDuration: clip.duration || 0,
       tags: meta.tags || []
     };
+  }
+
+  registerProceduralFallbacks(fallbacks) {
+    const fallbackDefs = {
+      idle: { factory: () => this.createIdleClip(), loop: 'repeat', priority: 0, layer: 'base', fadeIn: 0.35, fadeOut: 0.25 },
+      speaking: { factory: () => this.createIdleClip(), loop: 'repeat', priority: 1, layer: 'base', fadeIn: 0.25, fadeOut: 0.2 },
+      listening: { factory: () => this.createIdleClip(), loop: 'repeat', priority: 1, layer: 'base', fadeIn: 0.25, fadeOut: 0.2 },
+      intro: { factory: () => this.createInteractClip(), loop: 'once', priority: 20, layer: 'gesture', interrupt: true, fadeIn: 0.2, fadeOut: 0.2 },
+      headTap: { factory: () => this.createInteractClip(), loop: 'once', priority: 10, layer: 'gesture', interrupt: true, fadeIn: 0.12, fadeOut: 0.18 },
+      legTap: { factory: () => this.createInteractClip(), loop: 'once', priority: 10, layer: 'gesture', interrupt: true, fadeIn: 0.12, fadeOut: 0.18 },
+      armTap: { factory: () => this.createInteractClip(), loop: 'once', priority: 10, layer: 'gesture', interrupt: true, fadeIn: 0.12, fadeOut: 0.18 },
+      bodyTap: { factory: () => this.createInteractClip(), loop: 'once', priority: 8, layer: 'gesture', interrupt: true, fadeIn: 0.12, fadeOut: 0.18 },
+      chat: { factory: () => this.createInteractClip(), loop: 'once', priority: 8, layer: 'gesture', interrupt: true, fadeIn: 0.12, fadeOut: 0.18 }
+    };
+
+    Object.entries(fallbackDefs).forEach(([name, meta]) => {
+      if (this.actions[name] || !fallbacks[name]) return;
+      const clip = meta.factory();
+      if (clip) this.registerAction(name, clip, { name, ...meta });
+    });
   }
 
   requestState(nextState, options = {}) {
@@ -340,6 +362,10 @@ export class AnimationController {
 
   retargetClipToAvatar(sourceClip, skeletonMap) {
     if (!sourceClip || !this.avatar) return null;
+    if (this.retargetAdapter) {
+      const adapted = this.retargetAdapter({ sourceClip, skeletonMap, avatar: this.avatar });
+      if (adapted) return adapted;
+    }
 
     const tracks = [];
     let matchedCount = 0;

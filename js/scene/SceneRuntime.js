@@ -42,11 +42,9 @@ export class SceneRuntime {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.05;
-    this.controls.target.set(0, characterManifest.camera?.targetY || 90, 0);
-    this.controls.minDistance = characterManifest.camera?.minDistance || 100;
-    this.controls.maxDistance = characterManifest.camera?.maxDistance || 600;
     this.controls.enablePan = false;
     this.controls.maxPolarAngle = Math.PI / 2 + 0.1;
+    this.applyCameraConfig(characterManifest.camera);
 
     this.camera.position.set(0, 100, 250);
 
@@ -67,8 +65,42 @@ export class SceneRuntime {
   }
 
   setAvatarObject(object) {
+    this.clearAvatarObject();
     this.avatarObject = object;
     this.avatarAnim.add(object);
+  }
+
+  clearAvatarObject() {
+    if (this.speechAnchor) {
+      this.avatarRoot.remove(this.speechAnchor);
+      this.speechAnchor = null;
+    }
+
+    this.avatarAnim.children.slice().forEach((child) => {
+      this.avatarAnim.remove(child);
+      this.disposeObject(child);
+    });
+
+    this.debug.boxes.forEach((box) => this.scene?.remove(box));
+    this.debug.boxes = [];
+    this.interactableMeshes = [];
+    this.avatarObject = null;
+  }
+
+  disposeObject(object) {
+    object.traverse?.((child) => {
+      if (child.geometry) child.geometry.dispose?.();
+      const materials = Array.isArray(child.material) ? child.material : [child.material];
+      materials.filter(Boolean).forEach((material) => material.dispose?.());
+    });
+  }
+
+  applyCameraConfig(cameraConfig = {}) {
+    if (!this.controls) return;
+    this.controls.target.set(0, cameraConfig.targetY || 90, 0);
+    this.controls.minDistance = cameraConfig.minDistance || 100;
+    this.controls.maxDistance = cameraConfig.maxDistance || 600;
+    this.controls.update();
   }
 
   normalizeModel(group, targetHeight = 120) {

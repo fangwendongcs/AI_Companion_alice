@@ -28,14 +28,14 @@ const transitions = {
 };
 
 const stateActions = {
-  [AvatarState.BOOT]: { action: 'boot', layer: 'gesture', mode: 'play' },
+  [AvatarState.BOOT]: { action: 'intro', layer: 'gesture', mode: 'play' },
   [AvatarState.IDLE]: { action: 'idle', layer: 'base', mode: 'base' },
-  [AvatarState.THINKING]: { action: 'idle', layer: 'base', mode: 'base' },
-  [AvatarState.SPEAKING]: { action: 'idle', layer: 'base', mode: 'base' },
-  [AvatarState.INTERACTING]: { action: 'interact', layer: 'gesture', mode: 'enqueue' },
-  [AvatarState.ARM_ACTION]: { action: 'arm', layer: 'gesture', mode: 'enqueue' },
-  [AvatarState.HEAD_ACTION]: { action: 'head', layer: 'gesture', mode: 'enqueue' },
-  [AvatarState.LEG_ACTION]: { action: 'leg', layer: 'gesture', mode: 'enqueue' }
+  [AvatarState.THINKING]: { action: 'listening', layer: 'base', mode: 'base' },
+  [AvatarState.SPEAKING]: { action: 'speaking', layer: 'base', mode: 'base' },
+  [AvatarState.INTERACTING]: { action: 'bodyTap', layer: 'gesture', mode: 'enqueue' },
+  [AvatarState.ARM_ACTION]: { action: 'armTap', layer: 'gesture', mode: 'enqueue' },
+  [AvatarState.HEAD_ACTION]: { action: 'headTap', layer: 'gesture', mode: 'enqueue' },
+  [AvatarState.LEG_ACTION]: { action: 'legTap', layer: 'gesture', mode: 'enqueue' }
 };
 
 export class AnimationStateMachine {

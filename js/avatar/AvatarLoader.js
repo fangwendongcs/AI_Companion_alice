@@ -8,9 +8,10 @@ export class AvatarLoader {
   }
 
   async load(characterManifest, onProgress) {
+    const modelUrl = this.getModelUrl(characterManifest);
     const gltf = await new Promise((resolve, reject) => {
       this.loader.load(
-        characterManifest.model,
+        modelUrl,
         resolve,
         (xhr) => {
           if (xhr.lengthComputable && xhr.total > 0) {
@@ -22,7 +23,7 @@ export class AvatarLoader {
     });
 
     const avatar = gltf.scene;
-    avatar.rotation.y = characterManifest.orientation?.y || 0;
+    this.applyRotation(avatar, characterManifest);
     this.runtime.interactableMeshes = [];
 
     avatar.traverse((child) => {
@@ -36,8 +37,9 @@ export class AvatarLoader {
     this.runtime.setAvatarObject(avatar);
     const baseScale = this.runtime.normalizeModel(
       avatar,
-      characterManifest.scale?.targetHeight || 120
+      this.getTargetHeight(characterManifest)
     );
+    this.applyPositionAndScale(avatar, characterManifest);
     this.runtime.setupSpeechAnchor();
     this.runtime.fitCameraToObject(this.runtime.avatarRoot);
     this.runtime.setupDebugHelpers();
@@ -46,8 +48,35 @@ export class AvatarLoader {
       avatar,
       animations: gltf.animations || [],
       baseScale,
-      capability: this.inspectCapability(avatar, gltf.animations || [])
+      capability: this.inspectCapability(avatar, gltf.animations || [], characterManifest)
     };
+  }
+
+  getModelUrl(characterManifest) {
+    const model = characterManifest.model;
+    if (typeof model === 'string') return model;
+    return model?.url || `public/avatars/${characterManifest.id}/model.vrm`;
+  }
+
+  getTargetHeight(characterManifest) {
+    return characterManifest.transform?.targetHeight
+      || characterManifest.scale?.targetHeight
+      || 120;
+  }
+
+  applyRotation(avatar, characterManifest) {
+    const rotation = characterManifest.transform?.rotation || characterManifest.orientation || {};
+    avatar.rotation.set(rotation.x || 0, rotation.y || 0, rotation.z || 0);
+  }
+
+  applyPositionAndScale(avatar, characterManifest) {
+    const transform = characterManifest.transform || {};
+    if (transform.scale) avatar.scale.multiplyScalar(transform.scale);
+
+    const position = transform.position || {};
+    avatar.position.x += position.x || 0;
+    avatar.position.y += position.y || 0;
+    avatar.position.z += position.z || 0;
   }
 
   createFallback() {
@@ -60,7 +89,7 @@ export class AvatarLoader {
     return fallbackMesh;
   }
 
-  inspectCapability(avatar, animations) {
+  inspectCapability(avatar, animations, characterManifest = {}) {
     let hasSkinnedMesh = false;
     const boneNames = [];
 
@@ -73,6 +102,13 @@ export class AvatarLoader {
     if (hasSkinnedMesh && boneNames.length > 0) level = 2;
     if (level === 2 && animations.length > 0) level = 3;
 
-    return { level, hasSkinnedMesh, boneNames, hasAnimations: animations.length > 0 };
+    return {
+      level,
+      format: characterManifest.model?.format || 'gltf',
+      type: characterManifest.type || 'humanoid-gltf',
+      hasSkinnedMesh,
+      boneNames,
+      hasAnimations: animations.length > 0
+    };
   }
 }

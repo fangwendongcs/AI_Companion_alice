@@ -1,9 +1,8 @@
-import { AvatarLoader } from './avatar/AvatarLoader.js';
-import { AnimationController, AvatarState } from './animation/AnimationController.js';
+import { CharacterManager } from './avatar/CharacterManager.js';
+import { MotionManager, AvatarState } from './animation/MotionManager.js';
 import { LLMClient } from './ai/LLMClient.js';
-import { loadJson } from './core/loadJson.js';
 import { MINIMAX_VOICE_PRESETS, OPENAI_TTS_VOICES } from './config/voicePresets.js';
-import { HitTestController } from './interaction/HitTestController.js';
+import { InteractionManager } from './interaction/InteractionManager.js';
 import { SceneRuntime } from './scene/SceneRuntime.js';
 import { LocalConfigStore } from './storage/LocalConfigStore.js';
 import { SpeechRecognitionService } from './voice/SpeechRecognitionService.js';
@@ -38,6 +37,7 @@ const refs = {
   autoRotateToggle: document.getElementById('autoRotateToggle'),
   gridToggle: document.getElementById('gridToggle'),
   gridBg: document.getElementById('gridBg'),
+  avatarSelect: document.getElementById('avatarSelect'),
   saveMemoryBtn: document.getElementById('saveMemoryBtn'),
   debugToggle: document.getElementById('debugToggle'),
   freezeAnimToggle: document.getElementById('freezeAnimToggle'),
@@ -84,25 +84,27 @@ const store = new LocalConfigStore();
 const llmClient = new LLMClient();
 const ttsService = new TTSService();
 const runtime = new SceneRuntime(document.getElementById('scene'));
-const avatarLoader = new AvatarLoader(runtime);
-const animationController = new AnimationController();
+const characterManager = new CharacterManager(runtime);
+const motionManager = new MotionManager();
+const interactionManager = new InteractionManager(runtime, {
+  onHit: ({ part, motionSlot }) => triggerReaction(part, motionSlot)
+});
 const recognitionService = new SpeechRecognitionService();
-animationController.onStateChange = ({ to }) => applyAvatarState(to);
-animationController.onStateComplete = (nextState) => setAvatarState(nextState);
+motionManager.onStateChange = ({ to }) => applyAvatarState(to);
+motionManager.onStateComplete = (nextState) => setAvatarState(nextState);
 
 const state = {
   currentState: AvatarState.IDLE,
   isMuted: false,
   modelLoaded: false,
   speechTimer: null,
-  characterManifest: null,
-  actionManifest: null,
-  skeletonMap: null
+  avatarRegistry: null,
+  currentAvatarId: null,
+  characterMeta: null
 };
 
 let llmConfig = store.loadLLMConfig();
 let ttsConfig = store.loadTTSConfig();
-let hitTestController = null;
 
 init();
 
@@ -111,35 +113,42 @@ async function init() {
     localStorage.removeItem('llm_api_key');
     prepareLLMKeyUI();
 
-    state.characterManifest = await loadJson('config/characters/alice.manifest.json');
-    state.actionManifest = await loadJson(state.characterManifest.actionManifest);
-    state.skeletonMap = await loadJson(state.characterManifest.skeletonMap);
+    state.avatarRegistry = await characterManager.loadRegistry();
+    const savedAvatarId = store.loadAvatarId(characterManager.getDefaultAvatarId());
+    const hasSavedAvatar = characterManager.listAvatars().some((avatar) => avatar.id === savedAvatarId);
+    state.currentAvatarId = hasSavedAvatar ? savedAvatarId : characterManager.getDefaultAvatarId();
+    state.characterMeta = await characterManager.loadMeta(state.currentAvatarId);
 
-    runtime.init(state.characterManifest);
+    runtime.init(state.characterMeta);
     bindEvents();
-    runtime.render((delta) => animationController.update(delta));
+    runtime.render((delta) => motionManager.update(delta));
 
-    await loadAvatarAndAnimations();
+    await switchAvatar(state.currentAvatarId);
   } catch (error) {
     console.error('[App] 初始化失败:', error);
     showLoadingError(error.message);
   }
 }
 
-async function loadAvatarAndAnimations() {
+async function switchAvatar(avatarId) {
   try {
-    const result = await avatarLoader.load(state.characterManifest, (percent) => {
+    refs.loaderProgress.style.width = '0%';
+    motionManager.unload();
+
+    const result = await characterManager.switchCharacter(avatarId, (percent) => {
       refs.loaderProgress.style.width = `${percent}%`;
     });
 
+    state.currentAvatarId = result.id;
+    state.characterMeta = result.meta;
     state.modelLoaded = true;
-    hitTestController = new HitTestController(runtime, state.characterManifest.hitRegions);
+    store.saveAvatarId(result.id);
+    interactionManager.setCharacter(result.meta);
     refs.loaderProgress.style.width = '100%';
 
-    await animationController.init({
+    await motionManager.loadForCharacter({
       avatar: result.avatar,
-      actionManifest: state.actionManifest,
-      skeletonMap: state.skeletonMap
+      characterMeta: result.meta
     });
 
     setAvatarState(AvatarState.BOOT);
@@ -155,7 +164,7 @@ async function loadAvatarAndAnimations() {
     }, 500);
   } catch (error) {
     console.error('[ResourceLoader] 系统资源加载中断:', error);
-    avatarLoader.createFallback();
+    characterManager.createFallback();
     showLoadingError(error.message);
   }
 }
@@ -177,6 +186,7 @@ function bindEvents() {
   });
 
   bindSceneControls();
+  bindAvatarControls();
   bindLLMControls();
   bindTTSControls();
   bindMemoryControls();
@@ -224,11 +234,31 @@ function bindSceneControls() {
   refs.freezeAnimToggle.addEventListener('change', (event) => {
     runtime.debug.freezeAnim = event.target.checked;
     if (runtime.debug.freezeAnim) {
-      animationController.stopAll();
+      motionManager.stopAll();
     } else {
       setAvatarState(state.currentState);
     }
   });
+}
+
+function bindAvatarControls() {
+  populateAvatarSelect();
+  refs.avatarSelect.addEventListener('change', async (event) => {
+    refs.loading.style.display = 'flex';
+    refs.loading.style.opacity = '1';
+    await switchAvatar(event.target.value);
+  });
+}
+
+function populateAvatarSelect() {
+  refs.avatarSelect.innerHTML = '';
+  characterManager.listAvatars().forEach((avatar) => {
+    const opt = document.createElement('option');
+    opt.value = avatar.id;
+    opt.textContent = avatar.name || avatar.id;
+    refs.avatarSelect.appendChild(opt);
+  });
+  refs.avatarSelect.value = state.currentAvatarId;
 }
 
 function bindLLMControls() {
@@ -363,25 +393,13 @@ function bindInteractionControls() {
     onError: (event) => console.warn('[Speech] 识别错误:', event.error)
   });
 
-  let isDragging = false;
-  const canvas = runtime.renderer.domElement;
-  canvas.addEventListener('pointerdown', () => {
-    isDragging = false;
-  });
-  canvas.addEventListener('pointermove', () => {
-    isDragging = true;
-  });
-  canvas.addEventListener('pointerup', (event) => {
-    if (!isDragging && hitTestController) {
-      const hitPart = hitTestController.pick(event);
-      if (hitPart) triggerReaction(hitPart);
-    }
-  });
+  interactionManager.bindPointer(runtime.renderer.domElement);
 
   document.addEventListener('click', (event) => {
     const reactionTarget = event.target.closest('[data-reaction]');
     if (reactionTarget) {
-      triggerReaction(reactionTarget.dataset.reaction);
+      const part = reactionTarget.dataset.reaction;
+      triggerReaction(part, interactionManager.getMotionSlotForPart(part));
       return;
     }
 
@@ -405,17 +423,10 @@ function setMood(mood) {
     showDialogue(moodDialogues[mood] || '嗯...');
 }
 
-function triggerReaction(type) {
+function triggerReaction(type, motionSlot = interactionManager.getMotionSlotForPart(type)) {
     const pool = dialogues[type] || dialogues.idle;
     const text = pool[Math.floor(Math.random() * pool.length)];
-    const stateMap = {
-      head: AvatarState.HEAD_ACTION,
-      arm: AvatarState.ARM_ACTION,
-      leg: AvatarState.LEG_ACTION,
-      body: AvatarState.INTERACTING,
-      chat: AvatarState.INTERACTING
-    };
-    setAvatarState(stateMap[type] || AvatarState.INTERACTING);
+    setAvatarState(motionManager.getStateForSlot(motionSlot));
     showDialogue(text);
 }
 
@@ -451,7 +462,7 @@ function readLLMFormConfig() {
 }
 
 function setAvatarState(newState) {
-  const accepted = runtime.debug.freezeAnim ? true : animationController.setState(newState);
+  const accepted = runtime.debug.freezeAnim ? true : motionManager.setState(newState);
   if (!accepted) return false;
   if (runtime.debug.freezeAnim) applyAvatarState(newState);
   return true;

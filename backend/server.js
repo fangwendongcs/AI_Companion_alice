@@ -59,6 +59,8 @@ const mimeTypes = {
   '.svg': 'image/svg+xml',
   '.glb': 'model/gltf-binary',
   '.gltf': 'model/gltf+json',
+  '.vrm': 'model/gltf-binary',
+  '.bin': 'application/octet-stream',
   '.fbx': 'application/octet-stream',
   '.obj': 'text/plain; charset=utf-8',
   '.wav': 'audio/wav',

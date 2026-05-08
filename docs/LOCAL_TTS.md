@@ -14,3 +14,24 @@
 1. 默认：免费本机语音，保证交互一定有声音。
 2. 高级云 TTS：MiniMax / OpenAI 可手动选择，失败时自动回退到免费本机语音。
 3. 后续本地开源 TTS：建议优先接 CosyVoice 或 Qwen3-TTS 的本地 HTTP 服务，不需要浏览器保存 API Key。
+
+## 扩展入口
+
+前端 TTS provider 已集中在 `js/voice/TTSProviderRegistry.js`。后续接入本地 CosyVoice / Qwen3-TTS 时，新增一个 provider 即可：
+
+```js
+localCosyVoice: {
+  id: 'localCosyVoice',
+  label: '本地 CosyVoice',
+  transport: 'backend',
+  createPayload(text, config) {
+    return {
+      text,
+      provider: 'localCosyVoice',
+      voice: config.localVoiceId
+    };
+  }
+}
+```
+
+后端再在 `/api/tts` 增加对应 provider 分支即可。默认 `browser` provider 永远保留为无 Key 兜底。
