@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "slots": {},
+  "proceduralFallbacks": {
+    "idle": true,
+    "intro": true,
+    "headTap": true,
+    "legTap": true,
+    "armTap": true,
+    "bodyTap": true,
+    "chat": true,
+    "speaking": true,
+    "listening": true
+  },
+  "notes": "This CC0 VRM keeps the standard motion slots but uses procedural fallbacks by default. Alice FBX clips can be re-enabled after a model-specific retarget profile is tuned."
+}

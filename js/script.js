@@ -38,6 +38,15 @@ const refs = {
   gridToggle: document.getElementById('gridToggle'),
   gridBg: document.getElementById('gridBg'),
   avatarSelect: document.getElementById('avatarSelect'),
+  avatarMetaStatus: document.getElementById('avatarMetaStatus'),
+  avatarIdInput: document.getElementById('avatarIdInput'),
+  avatarNameInput: document.getElementById('avatarNameInput'),
+  avatarModelFileInput: document.getElementById('avatarModelFileInput'),
+  avatarMotionFileInput: document.getElementById('avatarMotionFileInput'),
+  avatarSkeletonFileInput: document.getElementById('avatarSkeletonFileInput'),
+  avatarTargetHeightInput: document.getElementById('avatarTargetHeightInput'),
+  uploadAvatarBtn: document.getElementById('uploadAvatarBtn'),
+  avatarUploadStatus: document.getElementById('avatarUploadStatus'),
   saveMemoryBtn: document.getElementById('saveMemoryBtn'),
   debugToggle: document.getElementById('debugToggle'),
   freezeAnimToggle: document.getElementById('freezeAnimToggle'),
@@ -143,6 +152,7 @@ async function switchAvatar(avatarId) {
     state.characterMeta = result.meta;
     state.modelLoaded = true;
     store.saveAvatarId(result.id);
+    updateAvatarMetaStatus(result.meta);
     interactionManager.setCharacter(result.meta);
     refs.loaderProgress.style.width = '100%';
 
@@ -248,6 +258,7 @@ function bindAvatarControls() {
     refs.loading.style.opacity = '1';
     await switchAvatar(event.target.value);
   });
+  refs.uploadAvatarBtn.addEventListener('click', handleAvatarUpload);
 }
 
 function populateAvatarSelect() {
@@ -259,6 +270,84 @@ function populateAvatarSelect() {
     refs.avatarSelect.appendChild(opt);
   });
   refs.avatarSelect.value = state.currentAvatarId;
+}
+
+function updateAvatarMetaStatus(meta) {
+  if (!refs.avatarMetaStatus || !meta) return;
+  const format = (meta.model?.format || meta.type || 'gltf').toUpperCase();
+  const license = typeof meta.license === 'string' ? meta.license : meta.license?.name;
+  const source = typeof meta.license === 'object' ? meta.license.source : '';
+  const licenseLabel = license ? `${license}${source ? ` / ${source}` : ''}` : '本地角色';
+  refs.avatarMetaStatus.className = 'llm-status success';
+  refs.avatarMetaStatus.textContent = `${format} / ${licenseLabel} / 动作与语音交互已接入`;
+}
+
+async function handleAvatarUpload() {
+  const modelFile = refs.avatarModelFileInput.files?.[0];
+  const motionFile = refs.avatarMotionFileInput.files?.[0] || null;
+  const skeletonFile = refs.avatarSkeletonFileInput.files?.[0] || null;
+  const avatarId = refs.avatarIdInput.value.trim();
+  const avatarName = refs.avatarNameInput.value.trim();
+
+  if (!modelFile) {
+    showAvatarUploadStatus('error', '请选择 .vrm / .glb / .gltf 人物模型文件。');
+    return;
+  }
+
+  if (!isAllowedAvatarModel(modelFile.name)) {
+    showAvatarUploadStatus('error', '模型格式不支持。请上传 .vrm / .glb / .gltf。');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('model', modelFile);
+  if (motionFile) formData.append('motions', motionFile);
+  if (skeletonFile) formData.append('skeleton', skeletonFile);
+  formData.append('avatarId', avatarId);
+  formData.append('name', avatarName || modelFile.name.replace(/\.[^.]+$/, ''));
+  formData.append('targetHeight', refs.avatarTargetHeightInput.value || '120');
+  formData.append('llmProvider', llmConfig.provider);
+  formData.append('llmModel', llmConfig.model);
+  formData.append('ttsEngine', ttsConfig.engine);
+
+  refs.uploadAvatarBtn.disabled = true;
+  showAvatarUploadStatus('loading', '正在上传角色资源...');
+  try {
+    const response = await fetch('/api/avatars', {
+      method: 'POST',
+      body: formData
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+
+    await characterManager.loadRegistry({ force: true });
+    state.avatarRegistry = characterManager.registry;
+    populateAvatarSelect();
+
+    refs.loading.style.display = 'flex';
+    refs.loading.style.opacity = '1';
+    await switchAvatar(payload.avatar.id);
+    refs.avatarSelect.value = payload.avatar.id;
+    showAvatarUploadStatus('success', `已上传并切换到 ${payload.avatar.name}。`);
+  } catch (error) {
+    showAvatarUploadStatus('error', `上传失败：${error.message.slice(0, 140)}`);
+  } finally {
+    refs.uploadAvatarBtn.disabled = false;
+  }
+}
+
+function isAllowedAvatarModel(filename) {
+  return /\.(vrm|glb|gltf)$/i.test(filename || '');
+}
+
+function showAvatarUploadStatus(type, message) {
+  refs.avatarUploadStatus.className = `llm-status ${type}`;
+  refs.avatarUploadStatus.textContent = message;
+  if (type === 'success') {
+    setTimeout(() => {
+      refs.avatarUploadStatus.className = 'llm-status';
+    }, 5000);
+  }
 }
 
 function bindLLMControls() {

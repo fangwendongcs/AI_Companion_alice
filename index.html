@@ -204,6 +204,22 @@
           <div class="setting-group">
             <span class="setting-label">当前角色</span>
             <select class="custom-input" id="avatarSelect"></select>
+            <div class="llm-status" id="avatarMetaStatus"></div>
+          </div>
+          <div class="setting-group">
+            <span class="setting-label">上传/替换角色</span>
+            <input type="text" class="custom-input" id="avatarIdInput" placeholder="avatarId，例如 alice_v2">
+            <input type="text" class="custom-input" id="avatarNameInput" placeholder="显示名称，例如 Alice V2">
+            <span class="setting-label">模型文件（.vrm / .glb / .gltf）</span>
+            <input type="file" class="custom-input" id="avatarModelFileInput" accept=".vrm,.glb,.gltf">
+            <span class="setting-label">动作配置 motions.json（可选）</span>
+            <input type="file" class="custom-input" id="avatarMotionFileInput" accept=".json">
+            <span class="setting-label">骨骼映射 skeleton.mixamo.json（可选）</span>
+            <input type="file" class="custom-input" id="avatarSkeletonFileInput" accept=".json">
+            <span class="setting-label">目标身高</span>
+            <input type="number" class="custom-input" id="avatarTargetHeightInput" min="40" max="260" step="1" value="120">
+            <button class="custom-btn" id="uploadAvatarBtn">上传并切换角色</button>
+            <div class="llm-status" id="avatarUploadStatus"></div>
           </div>
           <div class="setting-group">
             <span class="setting-label">模型基础缩放倍率</span>
@@ -263,6 +279,8 @@
             <div class="tag-list">
               <div class="tag" data-reaction="head">摸摸头</div>
               <div class="tag" data-reaction="body">戳身体</div>
+              <div class="tag" data-reaction="arm">碰手臂</div>
+              <div class="tag" data-reaction="leg">碰腿部</div>
               <div class="tag" data-reaction="chat">打招呼</div>
             </div>
           </div>
@@ -329,7 +347,7 @@
     }
   </script>
 
-  <script type="module" src="js/script.js"></script>
+  <script type="module" src="js/script.js?v=avatar-registry-20260511"></script>
 </body>
 
 </html>

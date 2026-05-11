@@ -1,0 +1,22 @@
+{
+  "mixamorigHips": "mixamorig:Hips",
+  "mixamorigSpine": "mixamorig:Spine",
+  "mixamorigSpine1": "mixamorig:Spine1",
+  "mixamorigSpine2": "mixamorig:Spine2",
+  "mixamorigNeck": "mixamorig:Neck",
+  "mixamorigHead": "mixamorig:Head",
+  "mixamorigLeftShoulder": "mixamorig:LeftShoulder",
+  "mixamorigLeftArm": "mixamorig:LeftArm",
+  "mixamorigLeftForeArm": "mixamorig:LeftForeArm",
+  "mixamorigLeftHand": "mixamorig:LeftHand",
+  "mixamorigRightShoulder": "mixamorig:RightShoulder",
+  "mixamorigRightArm": "mixamorig:RightArm",
+  "mixamorigRightForeArm": "mixamorig:RightForeArm",
+  "mixamorigRightHand": "mixamorig:RightHand",
+  "mixamorigLeftUpLeg": "mixamorig:LeftUpLeg",
+  "mixamorigLeftLeg": "mixamorig:LeftLeg",
+  "mixamorigLeftFoot": "mixamorig:LeftFoot",
+  "mixamorigRightUpLeg": "mixamorig:RightUpLeg",
+  "mixamorigRightLeg": "mixamorig:RightLeg",
+  "mixamorigRightFoot": "mixamorig:RightFoot"
+}

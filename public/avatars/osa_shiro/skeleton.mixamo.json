@@ -1,0 +1,22 @@
+{
+  "mixamorigHips": "vis_char_058:mixamorig:Hips",
+  "mixamorigSpine": "vis_char_058:mixamorig:Spine",
+  "mixamorigSpine1": "vis_char_058:mixamorig:Spine1",
+  "mixamorigSpine2": "vis_char_058:mixamorig:Spine2",
+  "mixamorigNeck": "vis_char_058:mixamorig:Neck",
+  "mixamorigHead": "vis_char_058:mixamorig:Head",
+  "mixamorigLeftShoulder": "vis_char_058:mixamorig:LeftShoulder",
+  "mixamorigLeftArm": "vis_char_058:mixamorig:LeftArm",
+  "mixamorigLeftForeArm": "vis_char_058:mixamorig:LeftForeArm",
+  "mixamorigLeftHand": "vis_char_058:mixamorig:LeftHand",
+  "mixamorigRightShoulder": "vis_char_058:mixamorig:RightShoulder",
+  "mixamorigRightArm": "vis_char_058:mixamorig:RightArm",
+  "mixamorigRightForeArm": "vis_char_058:mixamorig:RightForeArm",
+  "mixamorigRightHand": "vis_char_058:mixamorig:RightHand",
+  "mixamorigLeftUpLeg": "vis_char_058:mixamorig:LeftUpLeg",
+  "mixamorigLeftLeg": "vis_char_058:mixamorig:LeftLeg",
+  "mixamorigLeftFoot": "vis_char_058:mixamorig:LeftFoot",
+  "mixamorigRightUpLeg": "vis_char_058:mixamorig:RightUpLeg",
+  "mixamorigRightLeg": "vis_char_058:mixamorig:RightLeg",
+  "mixamorigRightFoot": "vis_char_058:mixamorig:RightFoot"
+}

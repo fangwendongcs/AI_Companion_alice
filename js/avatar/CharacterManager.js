@@ -10,8 +10,10 @@ export class CharacterManager {
     this.current = null;
   }
 
-  async loadRegistry() {
-    this.registry = await loadJson(this.registryUrl);
+  async loadRegistry({ force = false } = {}) {
+    if (this.registry && !force) return this.registry;
+    const url = this.withCacheBuster(this.registryUrl);
+    this.registry = await loadJson(url);
     return this.registry;
   }
 
@@ -27,7 +29,7 @@ export class CharacterManager {
     if (!this.registry) await this.loadRegistry();
     const entry = this.listAvatars().find((avatar) => avatar.id === avatarId);
     const metaUrl = entry?.meta || `public/avatars/${avatarId}/meta.json`;
-    const meta = await loadJson(metaUrl);
+    const meta = await loadJson(this.withCacheBuster(metaUrl));
     return this.normalizeMeta(meta, entry);
   }
 
@@ -87,5 +89,10 @@ export class CharacterManager {
     if (ext === 'glb') return 'glb';
     if (ext === 'gltf') return 'gltf';
     return 'gltf';
+  }
+
+  withCacheBuster(url) {
+    const separator = String(url).includes('?') ? '&' : '?';
+    return `${url}${separator}t=${Date.now()}`;
   }
 }

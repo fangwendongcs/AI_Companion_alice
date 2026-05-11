@@ -13,6 +13,16 @@ public/
       motions.json
       skeleton.mixamo.json
       model.vrm            # 新角色推荐放这里；Alice 当前复用 models/characters/avatar_v2.glb
+    osa_shiro/
+      model.vrm            # Open Source Avatars / 100Avatars, CC0
+      meta.json
+      motions.json
+      skeleton.mixamo.json
+    osa_wambo/
+      model.vrm            # Open Source Avatars / 100Avatars, CC0
+      meta.json
+      motions.json
+      skeleton.mixamo.json
 
 js/
   avatar/
@@ -24,6 +34,16 @@ js/
   interaction/
     InteractionManager.js  # 点击部位 -> 标准动作槽位
 ```
+
+## 当前内置角色
+
+```text
+alice      -> 项目原始角色
+osa_shiro  -> Shiro，Open Source Avatars / 100Avatars，CC0
+osa_wambo  -> Wambo，Open Source Avatars / 100Avatars，CC0
+```
+
+`osa_shiro` 和 `osa_wambo` 都走同一套 `CharacterManager -> MotionManager -> InteractionManager` 链路，切换角色后会重新加载模型、动作槽、骨骼映射和点击命中区域。上传角色功能仍然使用 `POST /api/avatars`，不会被内置角色影响。
 
 ## 标准动作槽位
 
@@ -129,6 +149,57 @@ idle, intro, headTap, legTap, speaking, listening
   "meta": "public/avatars/new_avatar/meta.json"
 }
 ```
+
+## 前端上传角色
+
+侧边栏 `3D 场景与渲染配置 -> 上传/替换角色` 已接入后端 `POST /api/avatars`。
+
+支持格式：
+
+```text
+.vrm
+.glb
+.gltf
+```
+
+推荐优先使用自包含资源的 `.vrm` 或 `.glb`。如果上传 `.gltf`，需要确保它不依赖未上传的外部 `.bin` 或贴图资源。
+
+上传时会自动完成：
+
+1. 保存模型到 `public/avatars/{avatarId}/model.*`
+2. 生成或保存 `motions.json`
+3. 生成或保存 `skeleton.mixamo.json`
+4. 生成 `meta.json`
+5. 更新 `public/avatars/registry.json`
+6. 前端刷新角色列表并切换到新角色
+
+如果没有上传动作配置，后端会生成默认动作槽位，沿用当前 Alice 的动作文件：
+
+```text
+intro -> models/animations/boot.fbx
+idle -> models/animations/idle.fbx
+headTap -> models/animations/head.fbx
+legTap -> models/animations/leg.fbx
+armTap -> models/animations/arm_stretch.fbx
+```
+
+`meta.json` 会同时记录接口关联信息：
+
+```json
+{
+  "integrations": {
+    "llm": {
+      "provider": "openai",
+      "model": "gpt-4o-mini"
+    },
+    "tts": {
+      "engine": "browser"
+    }
+  }
+}
+```
+
+这些字段只负责把角色与接口配置关联起来，不会写入或修改任何 API Key。
 
 ## 旧交互为什么不受影响
 

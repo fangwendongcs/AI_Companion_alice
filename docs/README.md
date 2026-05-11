@@ -14,6 +14,9 @@
 - backend/
 - public/avatars/
   - registry.json
+  - alice/
+  - osa_shiro/
+  - osa_wambo/
   - {avatarId}/meta.json
   - {avatarId}/motions.json
   - {avatarId}/skeleton.mixamo.json
@@ -42,6 +45,8 @@ python -m http.server
 ```bash
 OPENAI_API_KEY=sk-... MINIMAX_API_KEY=... npm run dev
 ```
+
+前端上传/替换人物模型也需要使用 `npm run dev`，因为它依赖后端 `POST /api/avatars` 写入 `public/avatars/{avatarId}`。
 
 默认访问：
 

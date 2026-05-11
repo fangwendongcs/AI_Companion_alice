@@ -1,4 +1,5 @@
 import { createReadStream, existsSync } from 'node:fs';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { extname, join, normalize, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -7,6 +8,9 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const rootDir = resolve(__dirname, '..');
 const port = Number(process.env.PORT || 3000);
 const maxJsonBodyBytes = 1024 * 1024;
+const maxUploadBodyBytes = 80 * 1024 * 1024;
+const avatarsDir = join(rootDir, 'public', 'avatars');
+const avatarRegistryPath = join(avatarsDir, 'registry.json');
 
 const providerBaseUrls = {
   openai: 'https://api.openai.com/v1',
@@ -90,6 +94,16 @@ const server = createServer(async (req, res) => {
 
     if (url.pathname === '/api/tts' && req.method === 'POST') {
       await handleTTS(req, res);
+      return;
+    }
+
+    if (url.pathname === '/api/avatars' && req.method === 'GET') {
+      await handleAvatarRegistry(res);
+      return;
+    }
+
+    if (url.pathname === '/api/avatars' && req.method === 'POST') {
+      await handleAvatarUpload(req, res);
       return;
     }
 
@@ -295,6 +309,81 @@ async function handleMiniMaxTTS(body, text, res) {
   res.end(audioBuffer);
 }
 
+async function handleAvatarRegistry(res) {
+  const registry = await readJsonFile(avatarRegistryPath, { defaultAvatarId: 'alice', avatars: [] });
+  sendJson(res, 200, registry);
+}
+
+async function handleAvatarUpload(req, res) {
+  const form = await readMultipartForm(req, maxUploadBodyBytes);
+  const model = form.files.model?.[0];
+  if (!model) {
+    sendJson(res, 400, { error: 'Missing model file. Upload a .vrm, .glb, or .gltf file.' });
+    return;
+  }
+
+  const modelExt = extname(model.filename).toLowerCase();
+  if (!['.vrm', '.glb', '.gltf'].includes(modelExt)) {
+    sendJson(res, 400, { error: 'Unsupported model format. Use .vrm, .glb, or .gltf.' });
+    return;
+  }
+
+  const avatarId = sanitizeAvatarId(form.fields.avatarId || form.fields.name || model.filename);
+  const avatarName = sanitizeDisplayName(form.fields.name || avatarId);
+  const targetHeight = clampNumber(form.fields.targetHeight, 40, 260, 120);
+  const avatarDir = join(avatarsDir, avatarId);
+  const relativeAvatarDir = relative(rootDir, avatarDir);
+  if (relativeAvatarDir.startsWith('..') || relativeAvatarDir === '') {
+    sendJson(res, 400, { error: 'Invalid avatar id.' });
+    return;
+  }
+
+  await mkdir(avatarDir, { recursive: true });
+
+  const modelFileName = `model${modelExt}`;
+  const motionFile = form.files.motions?.[0] || null;
+  const skeletonFile = form.files.skeleton?.[0] || null;
+  const motions = motionFile
+    ? parseJsonUpload(motionFile, 'motions.json')
+    : createDefaultMotionManifest();
+  const skeletonMap = skeletonFile
+    ? parseJsonUpload(skeletonFile, 'skeleton.mixamo.json')
+    : createDefaultSkeletonMap();
+
+  await writeFile(join(avatarDir, modelFileName), model.buffer);
+  await writeFile(join(avatarDir, 'motions.json'), `${JSON.stringify(motions, null, 2)}\n`);
+  await writeFile(join(avatarDir, 'skeleton.mixamo.json'), `${JSON.stringify(skeletonMap, null, 2)}\n`);
+
+  const meta = createAvatarMeta({
+    avatarId,
+    avatarName,
+    modelFileName,
+    targetHeight,
+    llmProvider: form.fields.llmProvider,
+    llmModel: form.fields.llmModel,
+    ttsEngine: form.fields.ttsEngine
+  });
+  await writeFile(join(avatarDir, 'meta.json'), `${JSON.stringify(meta, null, 2)}\n`);
+
+  const registry = await upsertAvatarRegistry({
+    id: avatarId,
+    name: avatarName,
+    meta: `public/avatars/${avatarId}/meta.json`
+  });
+
+  sendJson(res, 201, {
+    avatar: {
+      id: avatarId,
+      name: avatarName,
+      meta: `public/avatars/${avatarId}/meta.json`,
+      model: meta.model,
+      motionManifest: meta.motionManifest,
+      skeletonMap: meta.skeletonMap
+    },
+    registry
+  });
+}
+
 async function serveStatic(pathname, method, res) {
   const requested = pathname === '/' ? '/index.html' : decodeURIComponent(pathname);
   const normalized = normalize(requested).replace(/^(\.\.[/\\])+/, '');
@@ -307,8 +396,10 @@ async function serveStatic(pathname, method, res) {
   }
 
   writeCors(res);
+  const ext = extname(filePath).toLowerCase();
   res.writeHead(200, {
-    'Content-Type': mimeTypes[extname(filePath).toLowerCase()] || 'application/octet-stream'
+    'Content-Type': mimeTypes[ext] || 'application/octet-stream',
+    ...(shouldDisableStaticCache(ext, relativePath) ? { 'Cache-Control': 'no-store' } : {})
   });
   if (method === 'HEAD') {
     res.end();
@@ -317,19 +408,13 @@ async function serveStatic(pathname, method, res) {
   createReadStream(filePath).pipe(res);
 }
 
+function shouldDisableStaticCache(ext, relativePath) {
+  return ['.html', '.js', '.json'].includes(ext)
+    || relativePath.startsWith(`public${join('/', 'avatars')}`);
+}
+
 async function readJsonBody(req) {
-  const chunks = [];
-  let totalBytes = 0;
-  for await (const chunk of req) {
-    totalBytes += chunk.length;
-    if (totalBytes > maxJsonBodyBytes) {
-      const error = new Error('Request body too large');
-      error.statusCode = 413;
-      throw error;
-    }
-    chunks.push(chunk);
-  }
-  const raw = Buffer.concat(chunks).toString('utf8');
+  const raw = (await readRequestBuffer(req, maxJsonBodyBytes)).toString('utf8');
   if (!raw) return {};
   try {
     return JSON.parse(raw);
@@ -340,6 +425,75 @@ async function readJsonBody(req) {
   }
 }
 
+async function readRequestBuffer(req, maxBytes) {
+  const chunks = [];
+  let totalBytes = 0;
+  for await (const chunk of req) {
+    totalBytes += chunk.length;
+    if (totalBytes > maxBytes) {
+      const error = new Error('Request body too large');
+      error.statusCode = 413;
+      throw error;
+    }
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
+async function readMultipartForm(req, maxBytes) {
+  const contentType = req.headers['content-type'] || '';
+  const boundary = getMultipartBoundary(contentType);
+  if (!boundary) {
+    const error = new Error('Expected multipart/form-data.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const body = await readRequestBuffer(req, maxBytes);
+  const boundaryBuffer = Buffer.from(`--${boundary}`);
+  const fields = {};
+  const files = {};
+  let start = body.indexOf(boundaryBuffer);
+
+  while (start !== -1) {
+    let partStart = start + boundaryBuffer.length;
+    if (body[partStart] === 45 && body[partStart + 1] === 45) break;
+    if (body[partStart] === 13 && body[partStart + 1] === 10) partStart += 2;
+
+    const next = body.indexOf(boundaryBuffer, partStart);
+    if (next === -1) break;
+
+    let partEnd = next;
+    if (body[partEnd - 2] === 13 && body[partEnd - 1] === 10) partEnd -= 2;
+
+    const part = body.subarray(partStart, partEnd);
+    const headerEnd = part.indexOf(Buffer.from('\r\n\r\n'));
+    if (headerEnd > -1) {
+      const headerText = part.subarray(0, headerEnd).toString('utf8');
+      const content = part.subarray(headerEnd + 4);
+      const disposition = parseContentDisposition(headerText);
+      if (disposition.name) {
+        if (disposition.filename) {
+          const file = {
+            fieldName: disposition.name,
+            filename: sanitizeFilename(disposition.filename),
+            contentType: parseHeaderValue(headerText, 'content-type') || 'application/octet-stream',
+            buffer: content
+          };
+          files[disposition.name] = files[disposition.name] || [];
+          files[disposition.name].push(file);
+        } else {
+          fields[disposition.name] = content.toString('utf8').trim();
+        }
+      }
+    }
+
+    start = next;
+  }
+
+  return { fields, files };
+}
+
 function normalizeProvider(provider) {
   const value = String(provider || 'openai').toLowerCase();
   if (!providerBaseUrls.hasOwnProperty(value)) {
@@ -348,6 +502,209 @@ function normalizeProvider(provider) {
     throw error;
   }
   return value;
+}
+
+function getMultipartBoundary(contentType) {
+  const match = String(contentType).match(/boundary=(?:"([^"]+)"|([^;]+))/i);
+  return match?.[1] || match?.[2] || '';
+}
+
+function parseContentDisposition(headerText) {
+  const line = headerText.split(/\r?\n/).find((header) => /^content-disposition:/i.test(header)) || '';
+  const result = {};
+  line.replace(/;\s*([^=]+)="([^"]*)"/g, (_, key, value) => {
+    result[key.toLowerCase()] = value;
+    return '';
+  });
+  return result;
+}
+
+function parseHeaderValue(headerText, name) {
+  const prefix = `${name}:`;
+  const line = headerText.split(/\r?\n/).find((header) => header.toLowerCase().startsWith(prefix));
+  return line ? line.slice(prefix.length).trim() : '';
+}
+
+function sanitizeFilename(filename) {
+  return String(filename || 'upload.bin').replace(/[/\\]/g, '').slice(0, 120);
+}
+
+function sanitizeAvatarId(value) {
+  const raw = String(value || 'avatar')
+    .toLowerCase()
+    .replace(/\.[^.]+$/, '')
+    .replace(/[^a-z0-9_-]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 48);
+  return raw || `avatar_${Date.now()}`;
+}
+
+function sanitizeDisplayName(value) {
+  return String(value || 'New Avatar').trim().slice(0, 80) || 'New Avatar';
+}
+
+function parseJsonUpload(file, label) {
+  if (extname(file.filename).toLowerCase() !== '.json') {
+    const error = new Error(`${label} must be a JSON file.`);
+    error.statusCode = 400;
+    throw error;
+  }
+  try {
+    return JSON.parse(file.buffer.toString('utf8'));
+  } catch {
+    const error = new Error(`${label} is not valid JSON.`);
+    error.statusCode = 400;
+    throw error;
+  }
+}
+
+async function readJsonFile(filePath, fallback) {
+  try {
+    return JSON.parse(await readFile(filePath, 'utf8'));
+  } catch {
+    return fallback;
+  }
+}
+
+async function upsertAvatarRegistry(entry) {
+  await mkdir(avatarsDir, { recursive: true });
+  const registry = await readJsonFile(avatarRegistryPath, {
+    defaultAvatarId: entry.id,
+    avatars: []
+  });
+
+  registry.avatars = Array.isArray(registry.avatars) ? registry.avatars : [];
+  const index = registry.avatars.findIndex((avatar) => avatar.id === entry.id);
+  if (index >= 0) registry.avatars[index] = entry;
+  else registry.avatars.push(entry);
+  if (!registry.defaultAvatarId) registry.defaultAvatarId = entry.id;
+
+  await writeFile(avatarRegistryPath, `${JSON.stringify(registry, null, 2)}\n`);
+  return registry;
+}
+
+function createAvatarMeta({
+  avatarId,
+  avatarName,
+  modelFileName,
+  targetHeight,
+  llmProvider,
+  llmModel,
+  ttsEngine
+}) {
+  return {
+    id: avatarId,
+    name: avatarName,
+    type: 'humanoid-gltf',
+    model: {
+      url: `public/avatars/${avatarId}/${modelFileName}`,
+      format: extname(modelFileName).replace('.', '')
+    },
+    motionManifest: `public/avatars/${avatarId}/motions.json`,
+    skeletonMap: `public/avatars/${avatarId}/skeleton.mixamo.json`,
+    transform: {
+      targetHeight,
+      position: { x: 0, y: 0, z: 0 },
+      rotation: { x: 0, y: 0, z: 0 },
+      scale: 1
+    },
+    camera: {
+      targetY: 90,
+      minDistance: 100,
+      maxDistance: 600
+    },
+    hitRegions: {
+      head: ['head', 'neck'],
+      arm: ['arm', 'hand', 'shoulder'],
+      leg: ['leg', 'foot', 'toe']
+    },
+    interactions: {
+      head: { motionSlot: 'headTap' },
+      leg: { motionSlot: 'legTap' },
+      arm: { motionSlot: 'armTap' },
+      body: { motionSlot: 'bodyTap' },
+      chat: { motionSlot: 'chat' }
+    },
+    retargeting: {
+      adapter: 'mixamoHumanoidMap'
+    },
+    integrations: {
+      llm: {
+        provider: sanitizeIntegrationValue(llmProvider || 'openai'),
+        model: sanitizeIntegrationValue(llmModel || 'gpt-4o-mini')
+      },
+      tts: {
+        engine: sanitizeIntegrationValue(ttsEngine || 'browser')
+      }
+    }
+  };
+}
+
+function sanitizeIntegrationValue(value) {
+  return String(value || '').trim().replace(/[\r\n]/g, '').slice(0, 80);
+}
+
+function createDefaultMotionManifest() {
+  return {
+    version: 1,
+    slots: {
+      intro: {
+        file: 'models/animations/boot.fbx',
+        loop: 'once',
+        priority: 20,
+        layer: 'gesture',
+        interrupt: true,
+        fadeIn: 0.2,
+        fadeOut: 0.2,
+        tags: ['startup']
+      },
+      idle: {
+        file: 'models/animations/idle.fbx',
+        loop: 'repeat',
+        priority: 0,
+        layer: 'base',
+        interrupt: false,
+        fadeIn: 0.35,
+        fadeOut: 0.25,
+        tags: ['base']
+      },
+      headTap: createDefaultGestureMotion('models/animations/head.fbx', ['interaction', 'head']),
+      legTap: createDefaultGestureMotion('models/animations/leg.fbx', ['interaction', 'lower_body']),
+      armTap: createDefaultGestureMotion('models/animations/arm_stretch.fbx', ['interaction', 'upper_body']),
+      bodyTap: { fallbackSlot: 'headTap', tags: ['interaction', 'body'] },
+      chat: { fallbackSlot: 'armTap', tags: ['interaction', 'chat'] },
+      speaking: { fallbackSlot: 'idle', loop: 'repeat', layer: 'base', tags: ['speech'] },
+      listening: { fallbackSlot: 'idle', loop: 'repeat', layer: 'base', tags: ['listening'] }
+    },
+    proceduralFallbacks: {
+      idle: true,
+      intro: true,
+      headTap: true,
+      legTap: true,
+      armTap: true,
+      bodyTap: true,
+      chat: true,
+      speaking: true,
+      listening: true
+    }
+  };
+}
+
+function createDefaultGestureMotion(file, tags) {
+  return {
+    file,
+    loop: 'once',
+    priority: 10,
+    layer: 'gesture',
+    interrupt: true,
+    fadeIn: 0.15,
+    fadeOut: 0.2,
+    tags
+  };
+}
+
+function createDefaultSkeletonMap() {
+  return {};
 }
 
 function normalizeTTSProvider(provider) {

@@ -5,6 +5,16 @@
       "id": "alice",
       "name": "Alice",
       "meta": "public/avatars/alice/meta.json"
+    },
+    {
+      "id": "osa_shiro",
+      "name": "Shiro（CC0 动漫风）",
+      "meta": "public/avatars/osa_shiro/meta.json"
+    },
+    {
+      "id": "osa_wambo",
+      "name": "Wambo（CC0 风格化）",
+      "meta": "public/avatars/osa_wambo/meta.json"
     }
   ]
 }
