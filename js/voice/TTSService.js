@@ -1,8 +1,12 @@
 import { getTTSProvider } from './TTSProviderRegistry.js';
+import { createLogger } from '../core/logger.js';
+
+const log = createLogger('TTS');
 
 export class TTSService {
-  constructor(endpoint = '/api/tts') {
+  constructor(endpoint = '/api/tts', { timeoutMs = 45000 } = {}) {
     this.endpoint = endpoint;
+    this.timeoutMs = timeoutMs;
     this.currentAudio = null;
   }
 
@@ -16,6 +20,10 @@ export class TTSService {
       this.currentAudio.pause();
       this.currentAudio = null;
     }
+  }
+
+  destroy() {
+    this.stop();
   }
 
   async speak(text, config, { muted = false, onStart, onEnd, onError, onFallback } = {}) {
@@ -35,7 +43,7 @@ export class TTSService {
       await this.speakWithBrowser(text, config);
       onEnd?.();
     } catch (error) {
-      console.error('[TTS] 语音合成失败:', error);
+      log.error('语音合成失败:', error);
       if (isBackendEngine) {
         onFallback?.(error);
         await this.speakWithBrowser(text, config);
@@ -47,7 +55,7 @@ export class TTSService {
   }
 
   async speakWithBackend(text, config, provider = getTTSProvider(config.engine)) {
-    const response = await fetch(this.endpoint, {
+    const response = await this.fetchWithTimeout(this.endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(provider.createPayload(text, config))
@@ -61,16 +69,36 @@ export class TTSService {
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
 
-    await new Promise((resolve, reject) => {
-      const audio = new Audio(url);
-      this.currentAudio = audio;
-      audio.onended = resolve;
-      audio.onerror = reject;
-      audio.play().catch(reject);
-    });
+    try {
+      await new Promise((resolve, reject) => {
+        const audio = new Audio(url);
+        this.currentAudio = audio;
+        audio.onended = resolve;
+        audio.onerror = reject;
+        audio.play().catch(reject);
+      });
+    } finally {
+      URL.revokeObjectURL(url);
+      this.currentAudio = null;
+    }
+  }
 
-    URL.revokeObjectURL(url);
-    this.currentAudio = null;
+  async fetchWithTimeout(url, options = {}) {
+    const controller = new AbortController();
+    const timeout = globalThis.setTimeout(() => controller.abort(), this.timeoutMs);
+    try {
+      return await fetch(url, {
+        ...options,
+        signal: controller.signal
+      });
+    } catch (error) {
+      if (error?.name === 'AbortError') {
+        throw new Error('TTS 请求超时，已准备切换到免费本机语音兜底。');
+      }
+      throw error;
+    } finally {
+      globalThis.clearTimeout(timeout);
+    }
   }
 
   speakWithBrowser(text, config) {

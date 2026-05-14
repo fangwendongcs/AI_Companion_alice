@@ -5,6 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "node backend/server.js",
-    "check": "node scripts/check-js.mjs"
+    "check": "npm run check:js && npm run check:config && npm run check:assets",
+    "check:js": "node scripts/check-js.mjs",
+    "check:config": "node scripts/check-config.mjs",
+    "check:assets": "node scripts/check-assets.mjs",
+    "smoke": "node scripts/smoke-test.mjs"
   }
 }

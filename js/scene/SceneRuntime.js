@@ -18,6 +18,8 @@ export class SceneRuntime {
     this.avatarObject = null;
     this.speechAnchor = null;
     this.interactableMeshes = [];
+    this.frameId = 0;
+    this.isDestroyed = false;
     this.debug = {
       enabled: true,
       freezeAnim: false,
@@ -154,11 +156,21 @@ export class SceneRuntime {
   }
 
   render(updateMixer) {
-    requestAnimationFrame(() => this.render(updateMixer));
+    if (this.isDestroyed) return;
+    this.frameId = requestAnimationFrame(() => this.render(updateMixer));
     const delta = this.clock.getDelta();
     if (!this.debug.freezeAnim) updateMixer(delta);
     this.controls.update();
     this.debug.boxes.forEach((box) => box.update());
     this.renderer.render(this.scene, this.camera);
+  }
+
+  destroy() {
+    this.isDestroyed = true;
+    if (this.frameId) cancelAnimationFrame(this.frameId);
+    this.clearAvatarObject();
+    this.controls?.dispose?.();
+    this.renderer?.dispose?.();
+    this.scene?.clear?.();
   }
 }

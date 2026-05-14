@@ -4,6 +4,8 @@ export class SpeechRecognitionService {
     this.supported = Boolean(Recognition);
     this.recognition = this.supported ? new Recognition() : null;
     this.isRecording = false;
+    this.boundButton = null;
+    this.boundClickHandler = null;
 
     if (this.recognition) {
       this.recognition.lang = lang;
@@ -33,7 +35,8 @@ export class SpeechRecognitionService {
       onError?.(event);
     };
 
-    button.addEventListener('click', () => {
+    this.boundButton = button;
+    this.boundClickHandler = () => {
       if (this.isRecording) {
         this.recognition.stop();
       } else {
@@ -41,6 +44,21 @@ export class SpeechRecognitionService {
         this.isRecording = true;
         button.classList.add('recording');
       }
-    });
+    };
+    button.addEventListener('click', this.boundClickHandler);
+  }
+
+  destroy() {
+    if (this.boundButton && this.boundClickHandler) {
+      this.boundButton.removeEventListener('click', this.boundClickHandler);
+    }
+    try {
+      this.recognition?.stop?.();
+    } catch {
+      // Web Speech throws if stop() is called while not recording.
+    }
+    this.boundButton = null;
+    this.boundClickHandler = null;
+    this.isRecording = false;
   }
 }

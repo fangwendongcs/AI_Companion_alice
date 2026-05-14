@@ -12,6 +12,12 @@ build/
 
 # 环境变量
 .env
+.env.*
+!.env.example
+
+# 日志与本地测试缓存
+*.log
+.playwright-cli/
 
 # Mac
 .DS_Store

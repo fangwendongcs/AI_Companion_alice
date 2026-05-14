@@ -29,14 +29,14 @@ const slotDefaults = {
 
 const slotStates = {
   [MotionSlot.IDLE]: AvatarState.IDLE,
-  [MotionSlot.INTRO]: AvatarState.BOOT,
+  [MotionSlot.INTRO]: AvatarState.ENTERING,
   [MotionSlot.HEAD_TAP]: AvatarState.HEAD_ACTION,
   [MotionSlot.LEG_TAP]: AvatarState.LEG_ACTION,
   [MotionSlot.ARM_TAP]: AvatarState.ARM_ACTION,
-  [MotionSlot.BODY_TAP]: AvatarState.INTERACTING,
-  [MotionSlot.CHAT]: AvatarState.INTERACTING,
+  [MotionSlot.BODY_TAP]: AvatarState.REACTING,
+  [MotionSlot.CHAT]: AvatarState.REACTING,
   [MotionSlot.SPEAKING]: AvatarState.SPEAKING,
-  [MotionSlot.LISTENING]: AvatarState.THINKING
+  [MotionSlot.LISTENING]: AvatarState.LISTENING
 };
 
 export class MotionManager {
@@ -70,10 +70,12 @@ export class MotionManager {
 
   async loadForCharacter({ avatar, characterMeta }) {
     this.characterMeta = characterMeta;
-    this.motionManifest = characterMeta.motionManifest
+    const motionManifest = characterMeta.motionManifest
       ? await loadJson(characterMeta.motionManifest)
       : { slots: {}, proceduralFallbacks: { idle: true } };
-    this.skeletonMap = characterMeta.skeletonMap ? await loadJson(characterMeta.skeletonMap) : {};
+    const skeletonMap = characterMeta.skeletonMap ? await loadJson(characterMeta.skeletonMap) : {};
+    this.motionManifest = motionManifest || { slots: {}, proceduralFallbacks: { idle: true } };
+    this.skeletonMap = skeletonMap || {};
 
     await this.controller.init({
       avatar,
@@ -85,6 +87,13 @@ export class MotionManager {
 
   unload() {
     this.controller.reset();
+    this.characterMeta = null;
+    this.motionManifest = null;
+    this.skeletonMap = {};
+  }
+
+  destroy() {
+    this.controller.destroy?.();
     this.characterMeta = null;
     this.motionManifest = null;
     this.skeletonMap = {};
@@ -110,7 +119,7 @@ export class MotionManager {
     return slotStates[slot] || AvatarState.INTERACTING;
   }
 
-  toActionManifest(motionManifest) {
+  toActionManifest(motionManifest = {}) {
     const slots = motionManifest.slots || {};
     const actions = Object.keys(slotDefaults)
       .map((slot) => this.toActionEntry(slot, slots))

@@ -6,8 +6,17 @@
     "url": "models/characters/avatar_v2.glb",
     "format": "glb"
   },
+  "thumbnail": "",
   "motionManifest": "public/avatars/alice/motions.json",
   "skeletonMap": "public/avatars/alice/skeleton.mixamo.json",
+  "skeleton": {
+    "type": "humanoid",
+    "map": "public/avatars/alice/skeleton.mixamo.json"
+  },
+  "animations": {
+    "manifest": "public/avatars/alice/motions.json",
+    "standardSlots": true
+  },
   "transform": {
     "targetHeight": 120,
     "position": { "x": 0, "y": 0, "z": 0 },
@@ -33,6 +42,9 @@
   },
   "retargeting": {
     "adapter": "mixamoHumanoidMap"
+  },
+  "voice": {
+    "defaultEngine": "browser"
   },
   "skins": [
     {

@@ -30,9 +30,22 @@ http://localhost:3000
 - `CUSTOM_BASE_URL`：自定义 OpenAI-compatible 接口地址
 - `OPENAI_TTS_MODEL`：OpenAI TTS 模型，默认 `gpt-4o-mini-tts`
 - `MINIMAX_TTS_MODEL`：MiniMax TTS 模型，默认 `speech-2.8-hd`
+- `UPSTREAM_TIMEOUT_MS`：后端访问 LLM/TTS 上游的超时时间，默认 `45000`
 
 ## 接口
 
 - `POST /api/chat`
 - `POST /api/tts`
+- `GET /api/avatars`
+- `POST /api/avatars`
 - `GET /api/health`
+
+## 角色上传限制
+
+`POST /api/avatars` 当前面向本地开发使用，支持 `.vrm`、`.glb`、`.gltf`。后端会做基础校验：
+
+- `.vrm/.glb` 必须是 GLB 容器，文件头为 `glTF`
+- `.gltf` 必须是合法 JSON，并包含 `asset.version`
+- 单次上传体积上限为 80MB
+
+如果后续部署公网，需要在该接口前增加鉴权、来源限制和更严格的文件扫描。

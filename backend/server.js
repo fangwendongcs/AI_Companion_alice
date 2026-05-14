@@ -9,6 +9,7 @@ const rootDir = resolve(__dirname, '..');
 const port = Number(process.env.PORT || 3000);
 const maxJsonBodyBytes = 1024 * 1024;
 const maxUploadBodyBytes = 80 * 1024 * 1024;
+const upstreamTimeoutMs = Number(process.env.UPSTREAM_TIMEOUT_MS || 45000);
 const avatarsDir = join(rootDir, 'public', 'avatars');
 const avatarRegistryPath = join(avatarsDir, 'registry.json');
 
@@ -145,7 +146,7 @@ async function handleChat(req, res) {
     return;
   }
 
-  const upstream = await fetch(`${baseUrl}/chat/completions`, {
+  const upstream = await fetchWithTimeout(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -215,7 +216,7 @@ async function handleOpenAITTS(body, text, res) {
     payload.instructions = String(body.instructions).slice(0, 1000);
   }
 
-  const upstream = await fetch(`${baseUrl}/audio/speech`, {
+  const upstream = await fetchWithTimeout(`${baseUrl}/audio/speech`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -272,7 +273,7 @@ async function handleMiniMaxTTS(body, text, res) {
     }
   };
 
-  const upstream = await fetch(`${baseUrl}/t2a_v2`, {
+  const upstream = await fetchWithTimeout(`${baseUrl}/t2a_v2`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -327,6 +328,7 @@ async function handleAvatarUpload(req, res) {
     sendJson(res, 400, { error: 'Unsupported model format. Use .vrm, .glb, or .gltf.' });
     return;
   }
+  validateAvatarModelUpload(model, modelExt);
 
   const avatarId = sanitizeAvatarId(form.fields.avatarId || form.fields.name || model.filename);
   const avatarName = sanitizeDisplayName(form.fields.name || avatarId);
@@ -440,6 +442,26 @@ async function readRequestBuffer(req, maxBytes) {
   return Buffer.concat(chunks);
 }
 
+async function fetchWithTimeout(url, options = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), upstreamTimeoutMs);
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      const timeoutError = new Error('Upstream request timed out.');
+      timeoutError.statusCode = 504;
+      throw timeoutError;
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function readMultipartForm(req, maxBytes) {
   const contentType = req.headers['content-type'] || '';
   const boundary = getMultipartBoundary(contentType);
@@ -543,6 +565,41 @@ function sanitizeDisplayName(value) {
   return String(value || 'New Avatar').trim().slice(0, 80) || 'New Avatar';
 }
 
+function validateAvatarModelUpload(file, modelExt) {
+  if (!file.buffer || file.buffer.length === 0) {
+    const error = new Error('Model file is empty.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (['.vrm', '.glb'].includes(modelExt)) {
+    const magic = file.buffer.subarray(0, 4).toString('utf8');
+    if (magic !== 'glTF') {
+      const error = new Error('Invalid binary model. .vrm/.glb files must be GLB containers.');
+      error.statusCode = 400;
+      throw error;
+    }
+    return;
+  }
+
+  if (modelExt === '.gltf') {
+    let parsed = null;
+    try {
+      parsed = JSON.parse(file.buffer.toString('utf8'));
+    } catch {
+      const error = new Error('Invalid .gltf file. Expected JSON glTF manifest.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (!parsed?.asset?.version) {
+      const error = new Error('Invalid .gltf file. Missing asset.version.');
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+}
+
 function parseJsonUpload(file, label) {
   if (extname(file.filename).toLowerCase() !== '.json') {
     const error = new Error(`${label} must be a JSON file.`);
@@ -600,8 +657,17 @@ function createAvatarMeta({
       url: `public/avatars/${avatarId}/${modelFileName}`,
       format: extname(modelFileName).replace('.', '')
     },
+    thumbnail: '',
     motionManifest: `public/avatars/${avatarId}/motions.json`,
     skeletonMap: `public/avatars/${avatarId}/skeleton.mixamo.json`,
+    skeleton: {
+      type: 'humanoid',
+      map: `public/avatars/${avatarId}/skeleton.mixamo.json`
+    },
+    animations: {
+      manifest: `public/avatars/${avatarId}/motions.json`,
+      standardSlots: true
+    },
     transform: {
       targetHeight,
       position: { x: 0, y: 0, z: 0 },
@@ -636,6 +702,9 @@ function createAvatarMeta({
       tts: {
         engine: sanitizeIntegrationValue(ttsEngine || 'browser')
       }
+    },
+    voice: {
+      defaultEngine: sanitizeIntegrationValue(ttsEngine || 'browser')
     }
   };
 }
@@ -803,4 +872,5 @@ function writeCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
 }

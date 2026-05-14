@@ -1,19 +1,31 @@
 import { CharacterManager } from './avatar/CharacterManager.js';
 import { MotionManager, AvatarState } from './animation/MotionManager.js';
 import { LLMClient } from './ai/LLMClient.js';
+import { APP_MODE, EVENT_NAMES, REQUEST_TIMEOUTS, UI_TIMING, isAllowedAvatarModelFileName } from './config/appConfig.js';
+import { DEFAULT_DIALOGUES, MOOD_DIALOGUES } from './config/dialogues.js';
+import { validateRuntimeConfig } from './config/validateConfig.js';
 import { MINIMAX_VOICE_PRESETS, OPENAI_TTS_VOICES } from './config/voicePresets.js';
+import { EventBus } from './core/EventBus.js';
+import { ERROR_CODES } from './core/errors/errorCodes.js';
+import { handleAppError } from './core/errors/errorHandler.js';
+import { createLogger } from './core/logger.js';
+import { DialogueManager } from './dialogue/DialogueManager.js';
 import { InteractionManager } from './interaction/InteractionManager.js';
 import { SceneRuntime } from './scene/SceneRuntime.js';
+import { ApiClient } from './services/api/ApiClient.js';
+import { CompanionStateStore } from './state/CompanionStateStore.js';
 import { LocalConfigStore } from './storage/LocalConfigStore.js';
 import { SpeechRecognitionService } from './voice/SpeechRecognitionService.js';
 import { TTSService } from './voice/TTSService.js';
 
+const globalLog = createLogger('Global');
+
 window.addEventListener('error', (event) => {
-  console.error('Global error:', event.error || event.message);
+  globalLog.error('Global error:', event.error || event.message);
 });
 
 window.addEventListener('unhandledrejection', (event) => {
-  console.error('Unhandled promise rejection:', event.reason);
+  globalLog.error('Unhandled promise rejection:', event.reason);
 });
 
 if (location.protocol === 'file:') {
@@ -79,68 +91,219 @@ const refs = {
   fovSlider: document.getElementById('fovSlider')
 };
 
-const dialogues = {
-  head: ['别摸头啦，发型要乱了！', '指挥官，今天有什么新任务吗？', '嗯？怎么突然摸我头？'],
-  body: ['哇！别突然戳我！', '我在待命状态，系统运转正常。', '机体反馈良好，随时可以出击。'],
-  arm: ['手臂活动一下～感觉关节润滑得不错！', '嘿！别拉我的手！', '装甲臂伸展完毕，战斗准备就绪。'],
-  leg: ['腿部驱动器运转正常！', '别碰我的腿啦，好痒！', '跑步测试？随时可以开始！'],
-  chat: ['收到指令。系统全功率运转中。', '这个赛博空间的感觉不错吧？', '我随时准备执行你的计划。'],
-  idle: ['如果没事的话，我就先挂机休息了哦。', '镜头可以随便转，细节都经得起看。'],
-  record: ['录制功能暂未完全接入流媒体，当前仅作 UI 演示。']
-};
-
+const log = createLogger('App');
+const eventBus = new EventBus();
+const appDisposers = [];
 const store = new LocalConfigStore();
-const llmClient = new LLMClient();
-const ttsService = new TTSService();
+const apiClient = new ApiClient({ timeoutMs: REQUEST_TIMEOUTS.ttsMs });
+const llmClient = new LLMClient('/api/chat', { timeoutMs: REQUEST_TIMEOUTS.llmMs });
+const ttsService = new TTSService('/api/tts', { timeoutMs: REQUEST_TIMEOUTS.ttsMs });
 const runtime = new SceneRuntime(document.getElementById('scene'));
 const characterManager = new CharacterManager(runtime);
 const motionManager = new MotionManager();
 const interactionManager = new InteractionManager(runtime, {
-  onHit: ({ part, motionSlot }) => triggerReaction(part, motionSlot)
+  onHit: ({ part, motionSlot }) => {
+    patchState({ lastInteractionAt: Date.now() }, 'interaction:hit');
+    eventBus.emit(EVENT_NAMES.INTERACTION_HIT, {
+      part,
+      motionSlot,
+      avatarId: state.currentAvatarId
+    });
+  }
 });
 const recognitionService = new SpeechRecognitionService();
-motionManager.onStateChange = ({ to }) => applyAvatarState(to);
-motionManager.onStateComplete = (nextState) => setAvatarState(nextState);
+const dialogueManager = new DialogueManager({
+  llmClient,
+  eventBus,
+  getConfig: () => readLLMFormConfig()
+});
 
-const state = {
+motionManager.onStateChange = ({ to }) => {
+  eventBus.emit(EVENT_NAMES.ANIMATION_STATE, { state: to });
+  applyAvatarState(to);
+};
+motionManager.onStateComplete = (nextState) => setAvatarState(nextState);
+motionManager.onActionStart = (request) => {
+  patchState({
+    isAnimating: true,
+    currentAnimation: request.name
+  }, 'animation:action:start');
+  eventBus.emit(EVENT_NAMES.ANIMATION_ACTION_START, request);
+};
+motionManager.onActionComplete = (request) => {
+  patchState({
+    isAnimating: false,
+    currentAnimation: null
+  }, 'animation:action:complete');
+  eventBus.emit(EVENT_NAMES.ANIMATION_ACTION_COMPLETE, request);
+};
+
+const stateStore = new CompanionStateStore({
+  app: {
+    isReady: false,
+    mode: APP_MODE,
+    error: null
+  },
+  avatar: {
+    currentAvatarId: null,
+    loading: false,
+    loaded: false,
+    meta: null
+  },
+  animation: {
+    currentAnimation: null,
+    state: AvatarState.IDLE,
+    isPlaying: false
+  },
+  dialogue: {
+    input: '',
+    thinking: false,
+    lastResponse: '',
+    error: null
+  },
+  audio: {
+    speaking: false,
+    muted: false,
+    currentVoice: null
+  },
+  interaction: {
+    enabled: true,
+    lastInteractionAt: null
+  },
   currentState: AvatarState.IDLE,
   isMuted: false,
+  isSpeaking: false,
+  isThinking: false,
+  isAnimating: false,
+  currentAnimation: null,
+  animationState: AvatarState.IDLE,
+  lastInteractionAt: null,
   modelLoaded: false,
   speechTimer: null,
   avatarRegistry: null,
   currentAvatarId: null,
-  characterMeta: null
-};
+  characterMeta: null,
+  systemError: null
+}, eventBus);
+const state = stateStore.getState();
 
 let llmConfig = store.loadLLMConfig();
 let ttsConfig = store.loadTTSConfig();
+let avatarSwitchChain = Promise.resolve();
+
+appDisposers.push(eventBus.on(EVENT_NAMES.INTERACTION_HIT, ({ part, motionSlot }) => {
+  if (state.interaction?.enabled === false) return;
+  triggerReaction(part, motionSlot);
+}));
+window.addEventListener('beforeunload', destroyApp);
 
 init();
 
+function patchState(patch, source = 'app') {
+  return stateStore.patch(withLayeredStatePatch(patch), source);
+}
+
+function withLayeredStatePatch(patch) {
+  const layered = { ...patch };
+
+  if ('systemError' in patch) {
+    layered.app = {
+      ...state.app,
+      error: patch.systemError || null
+    };
+  }
+  if ('currentAvatarId' in patch || 'characterMeta' in patch || 'modelLoaded' in patch) {
+    layered.avatar = {
+      ...state.avatar,
+      currentAvatarId: patch.currentAvatarId ?? state.currentAvatarId,
+      meta: patch.characterMeta ?? state.characterMeta,
+      loaded: patch.modelLoaded ?? state.modelLoaded,
+      loading: patch.modelLoaded === false ? true : patch.modelLoaded === true ? false : state.avatar?.loading
+    };
+  }
+  if ('currentState' in patch || 'animationState' in patch || 'currentAnimation' in patch || 'isAnimating' in patch) {
+    layered.animation = {
+      ...state.animation,
+      state: patch.animationState ?? patch.currentState ?? state.animationState,
+      currentAnimation: patch.currentAnimation ?? state.currentAnimation,
+      isPlaying: patch.isAnimating ?? state.isAnimating
+    };
+  }
+  if ('isSpeaking' in patch || 'isMuted' in patch) {
+    layered.audio = {
+      ...state.audio,
+      speaking: patch.isSpeaking ?? state.isSpeaking,
+      muted: patch.isMuted ?? state.isMuted,
+      currentVoice: ttsConfig?.browserVoice || ttsConfig?.openaiVoice || ttsConfig?.minimaxVoice || null
+    };
+  }
+  if ('isThinking' in patch || 'lastAssistantMessage' in patch || 'lastUserMessage' in patch || 'dialogueError' in patch) {
+    layered.dialogue = {
+      ...state.dialogue,
+      input: patch.lastUserMessage ?? state.dialogue?.input ?? '',
+      thinking: patch.isThinking ?? state.isThinking,
+      lastResponse: patch.lastAssistantMessage ?? state.dialogue?.lastResponse ?? '',
+      error: patch.dialogueError ?? null
+    };
+  }
+  if ('lastInteractionAt' in patch) {
+    layered.interaction = {
+      ...state.interaction,
+      lastInteractionAt: patch.lastInteractionAt
+    };
+  }
+
+  return layered;
+}
+
+function requestAvatarSwitch(avatarId) {
+  avatarSwitchChain = avatarSwitchChain
+    .catch(() => {})
+    .then(() => switchAvatar(avatarId));
+  return avatarSwitchChain;
+}
+
 async function init() {
   try {
+    eventBus.emit(EVENT_NAMES.APP_INIT, {});
+    const configValidation = validateRuntimeConfig();
+    if (!configValidation.ok) {
+      log.warn('运行配置校验警告:', configValidation.errors.join('；'));
+    }
     localStorage.removeItem('llm_api_key');
     prepareLLMKeyUI();
 
-    state.avatarRegistry = await characterManager.loadRegistry();
+    const avatarRegistry = await characterManager.loadRegistry();
+    patchState({ avatarRegistry }, 'app:init');
     const savedAvatarId = store.loadAvatarId(characterManager.getDefaultAvatarId());
     const hasSavedAvatar = characterManager.listAvatars().some((avatar) => avatar.id === savedAvatarId);
-    state.currentAvatarId = hasSavedAvatar ? savedAvatarId : characterManager.getDefaultAvatarId();
-    state.characterMeta = await characterManager.loadMeta(state.currentAvatarId);
+    const currentAvatarId = hasSavedAvatar ? savedAvatarId : characterManager.getDefaultAvatarId();
+    const characterMeta = await characterManager.loadMeta(currentAvatarId);
+    patchState({ currentAvatarId, characterMeta }, 'app:init');
 
     runtime.init(state.characterMeta);
     bindEvents();
     runtime.render((delta) => motionManager.update(delta));
 
     await switchAvatar(state.currentAvatarId);
+    patchState({ app: { ...state.app, isReady: true } }, 'app:ready');
+    eventBus.emit(EVENT_NAMES.APP_READY, { avatarId: state.currentAvatarId });
   } catch (error) {
-    console.error('[App] 初始化失败:', error);
-    showLoadingError(error.message);
+    const appError = handleAppError(error, {
+      eventBus,
+      stateStore,
+      source: 'app:init',
+      code: ERROR_CODES.CONFIG_INVALID,
+      userMessage: error.message
+    });
+    showLoadingError(appError.message);
   }
 }
 
 async function switchAvatar(avatarId) {
   try {
+    eventBus.emit(EVENT_NAMES.AVATAR_SWITCH_START, { avatarId });
+    patchState({ modelLoaded: false, systemError: null }, 'avatar:switch');
     refs.loaderProgress.style.width = '0%';
     motionManager.unload();
 
@@ -148,9 +311,11 @@ async function switchAvatar(avatarId) {
       refs.loaderProgress.style.width = `${percent}%`;
     });
 
-    state.currentAvatarId = result.id;
-    state.characterMeta = result.meta;
-    state.modelLoaded = true;
+    patchState({
+      currentAvatarId: result.id,
+      characterMeta: result.meta,
+      modelLoaded: true
+    }, 'avatar:switch');
     store.saveAvatarId(result.id);
     updateAvatarMetaStatus(result.meta);
     interactionManager.setCharacter(result.meta);
@@ -164,18 +329,32 @@ async function switchAvatar(avatarId) {
     setAvatarState(AvatarState.BOOT);
     setTimeout(() => {
       if (state.currentState === AvatarState.BOOT) setAvatarState(AvatarState.IDLE);
-    }, 4000);
+    }, UI_TIMING.bootFallbackMs);
     setTimeout(() => {
       refs.loading.style.opacity = '0';
       setTimeout(() => {
         refs.loading.style.display = 'none';
-      }, 500);
+      }, UI_TIMING.loadingFadeMs);
       showDialogue('[SYSTEM] 模型装载完毕，交互系统已激活。');
-    }, 500);
+    }, UI_TIMING.loadingFadeDelayMs);
+    eventBus.emit(EVENT_NAMES.AVATAR_SWITCH_COMPLETE, {
+      avatarId: result.id,
+      meta: result.meta
+    });
   } catch (error) {
-    console.error('[ResourceLoader] 系统资源加载中断:', error);
+    const appError = handleAppError(error, {
+      eventBus,
+      stateStore,
+      source: 'avatar:switch',
+      code: ERROR_CODES.AVATAR_LOAD_FAILED,
+      userMessage: error.message
+    });
+    eventBus.emit(EVENT_NAMES.AVATAR_SWITCH_ERROR, {
+      avatarId,
+      message: appError.message
+    });
     characterManager.createFallback();
-    showLoadingError(error.message);
+    showLoadingError(appError.message);
   }
 }
 
@@ -190,7 +369,7 @@ function bindEvents() {
   });
 
   refs.muteBtn.addEventListener('click', () => {
-    state.isMuted = !state.isMuted;
+    patchState({ isMuted: !state.isMuted }, 'audio:mute');
     refs.muteBtn.style.color = state.isMuted ? 'var(--muted)' : 'var(--text)';
     showDialogue(state.isMuted ? '语音播报已静音。' : '语音播报已开启。');
   });
@@ -256,7 +435,7 @@ function bindAvatarControls() {
   refs.avatarSelect.addEventListener('change', async (event) => {
     refs.loading.style.display = 'flex';
     refs.loading.style.opacity = '1';
-    await switchAvatar(event.target.value);
+    await requestAvatarSwitch(event.target.value);
   });
   refs.uploadAvatarBtn.addEventListener('click', handleAvatarUpload);
 }
@@ -313,20 +492,20 @@ async function handleAvatarUpload() {
   refs.uploadAvatarBtn.disabled = true;
   showAvatarUploadStatus('loading', '正在上传角色资源...');
   try {
-    const response = await fetch('/api/avatars', {
+    const payload = await apiClient.json('/api/avatars', {
       method: 'POST',
-      body: formData
+      body: formData,
+      source: 'avatar:upload',
+      timeoutMs: REQUEST_TIMEOUTS.ttsMs
     });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
 
     await characterManager.loadRegistry({ force: true });
-    state.avatarRegistry = characterManager.registry;
+    patchState({ avatarRegistry: characterManager.registry }, 'avatar:upload');
     populateAvatarSelect();
 
     refs.loading.style.display = 'flex';
     refs.loading.style.opacity = '1';
-    await switchAvatar(payload.avatar.id);
+    await requestAvatarSwitch(payload.avatar.id);
     refs.avatarSelect.value = payload.avatar.id;
     showAvatarUploadStatus('success', `已上传并切换到 ${payload.avatar.name}。`);
   } catch (error) {
@@ -337,7 +516,7 @@ async function handleAvatarUpload() {
 }
 
 function isAllowedAvatarModel(filename) {
-  return /\.(vrm|glb|gltf)$/i.test(filename || '');
+  return isAllowedAvatarModelFileName(filename);
 }
 
 function showAvatarUploadStatus(type, message) {
@@ -346,7 +525,7 @@ function showAvatarUploadStatus(type, message) {
   if (type === 'success') {
     setTimeout(() => {
       refs.avatarUploadStatus.className = 'llm-status';
-    }, 5000);
+    }, UI_TIMING.successStatusMs);
   }
 }
 
@@ -479,7 +658,7 @@ function bindInteractionControls() {
       refs.promptInput.value = transcript;
       handleChat();
     },
-    onError: (event) => console.warn('[Speech] 识别错误:', event.error)
+    onError: (event) => log.warn('Speech 识别错误:', event.error)
   });
 
   interactionManager.bindPointer(runtime.renderer.domElement);
@@ -503,17 +682,11 @@ function setMood(mood) {
     document.querySelectorAll('[id^="mood"]').forEach((el) => el.classList.remove('active'));
     const el = document.getElementById(`mood${mood.charAt(0).toUpperCase() + mood.slice(1)}`);
     if (el) el.classList.add('active');
-    const moodDialogues = {
-      energe: '元气回路全开！今天有什么想做的吗～',
-      think: '...嗯，让我想想。',
-      angry: '哼！你刚才那个操作让我有点不高兴！',
-      shy: '...才、才没有什么嘛。'
-    };
-    showDialogue(moodDialogues[mood] || '嗯...');
+    showDialogue(MOOD_DIALOGUES[mood] || '嗯...');
 }
 
 function triggerReaction(type, motionSlot = interactionManager.getMotionSlotForPart(type)) {
-    const pool = dialogues[type] || dialogues.idle;
+    const pool = DEFAULT_DIALOGUES[type] || DEFAULT_DIALOGUES.idle;
     const text = pool[Math.floor(Math.random() * pool.length)];
     setAvatarState(motionManager.getStateForSlot(motionSlot));
     showDialogue(text);
@@ -525,15 +698,28 @@ async function handleChat() {
 
   refs.promptInput.value = '';
   refs.sendBtn.disabled = true;
+  patchState({
+    isThinking: true,
+    lastUserMessage: text,
+    dialogueError: null
+  }, 'dialogue:user');
   setAvatarState(AvatarState.THINKING);
 
   try {
     llmConfig = readLLMFormConfig();
-    const reply = await llmClient.chat(text, llmConfig);
+    const reply = await dialogueManager.send(text, llmConfig);
+    patchState({
+      isThinking: false,
+      lastAssistantMessage: reply
+    }, 'dialogue:assistant');
     setAvatarState(AvatarState.SPEAKING);
     speakText(reply);
   } catch (error) {
-    console.error('[LLM] 调用失败:', error);
+    log.error('LLM 调用失败:', error);
+    patchState({
+      isThinking: false,
+      dialogueError: error.message
+    }, 'dialogue:error');
     setAvatarState(AvatarState.SPEAKING);
     speakText('抱歉，连接出现问题。请确认后端服务已启动，并配置了对应模型的 API Key。');
   } finally {
@@ -558,7 +744,10 @@ function setAvatarState(newState) {
 }
 
 function applyAvatarState(newState) {
-  state.currentState = newState;
+  patchState({
+    currentState: newState,
+    animationState: newState
+  }, 'animation:state');
   refs.statusText.textContent = `ONLINE / ${newState.toUpperCase()}`;
   refs.statusBadge.className = 'status-badge';
   if (newState === AvatarState.THINKING) {
@@ -579,7 +768,7 @@ function showDialogue(text) {
 function speakText(text) {
   if (state.speechTimer) clearTimeout(state.speechTimer);
 
-  const estimatedDuration = Math.max(3000, text.length * 150);
+  const estimatedDuration = Math.max(UI_TIMING.speechMinMs, text.length * UI_TIMING.speechMsPerChar);
   state.speechTimer = setTimeout(resetSpeakingState, estimatedDuration);
   let usedFallbackVoice = false;
   if (ttsConfig.engine !== 'browser') {
@@ -588,17 +777,37 @@ function speakText(text) {
 
   ttsService.speak(text, ttsConfig, {
     muted: state.isMuted,
+    onStart: () => {
+      patchState({ isSpeaking: true }, 'audio:start');
+      eventBus.emit(EVENT_NAMES.AUDIO_START, {
+        engine: ttsConfig.engine
+      });
+    },
     onEnd: () => {
       resetSpeakingState();
+      patchState({ isSpeaking: false }, 'audio:end');
+      eventBus.emit(EVENT_NAMES.AUDIO_END, {
+        engine: ttsConfig.engine,
+        fallback: usedFallbackVoice
+      });
       if (ttsConfig.engine !== 'browser' && !usedFallbackVoice) {
         showTTSStatus('success', `${getTTSEngineName(ttsConfig.engine)} 语音播放完成。`);
       }
     },
     onFallback: (error) => {
       usedFallbackVoice = true;
+      eventBus.emit(EVENT_NAMES.AUDIO_FALLBACK, {
+        engine: ttsConfig.engine,
+        message: error.message
+      });
       showTTSStatus('error', `${formatTTSError(error)} 已自动使用免费本机语音兜底。`);
     },
     onError: (error) => {
+      patchState({ isSpeaking: false }, 'audio:error');
+      eventBus.emit(EVENT_NAMES.AUDIO_ERROR, {
+        engine: ttsConfig.engine,
+        message: error.message
+      });
       showTTSStatus('error', formatTTSError(error));
       resetSpeakingState();
     }
@@ -611,6 +820,7 @@ function resetSpeakingState() {
     state.speechTimer = null;
   }
   if (state.currentState === AvatarState.SPEAKING) setAvatarState(AvatarState.IDLE);
+  patchState({ isSpeaking: false }, 'audio:reset');
 }
 
 function populateVoices() {
@@ -708,7 +918,7 @@ function showTTSStatus(type, message) {
   if (type === 'success') {
     setTimeout(() => {
       refs.ttsStatus.className = 'llm-status';
-    }, 4000);
+    }, UI_TIMING.statusResetMs);
   }
 }
 
@@ -718,7 +928,7 @@ function showLLMStatus(type, message) {
   if (type !== 'loading') {
     setTimeout(() => {
       refs.llmStatus.className = 'llm-status';
-    }, 4000);
+    }, UI_TIMING.statusResetMs);
   }
 }
 
@@ -733,13 +943,22 @@ function prepareLLMKeyUI() {
 
 function showLoadingError(message) {
   refs.loaderProgress.style.backgroundColor = 'red';
-  refs.loading.innerHTML = `
-    <div style="color: red; margin-bottom: 12px;">SYSTEM ERROR: FAILED TO LOAD ASSETS</div>
-    <div style="font-size: 12px; color: #888; max-width: 80%; text-align: center;">
-      ${message || '资源加载失败'}<br><br>
-      请确认使用本地服务器运行，并检查模型、动作和 manifest 路径。
-    </div>
-  `;
+  refs.loading.replaceChildren();
+
+  const title = document.createElement('div');
+  title.style.color = 'red';
+  title.style.marginBottom = '12px';
+  title.textContent = 'SYSTEM ERROR: FAILED TO LOAD ASSETS';
+
+  const detail = document.createElement('div');
+  detail.style.fontSize = '12px';
+  detail.style.color = '#888';
+  detail.style.maxWidth = '80%';
+  detail.style.textAlign = 'center';
+  detail.textContent = `${message || '资源加载失败'}\n\n请确认使用本地服务器运行，并检查模型、动作和 manifest 路径。`;
+  detail.style.whiteSpace = 'pre-line';
+
+  refs.loading.append(title, detail);
 }
 
 function initSmoothDetails() {
@@ -810,4 +1029,16 @@ function initButtonRipple() {
       setTimeout(() => ripple.remove(), 600);
     });
   });
+}
+
+function destroyApp() {
+  appDisposers.splice(0).forEach((dispose) => dispose());
+  window.removeEventListener('beforeunload', destroyApp);
+  interactionManager.unbindPointer();
+  recognitionService.destroy?.();
+  ttsService.destroy?.();
+  motionManager.destroy?.();
+  runtime.destroy?.();
+  stateStore.destroy();
+  eventBus.destroy();
 }

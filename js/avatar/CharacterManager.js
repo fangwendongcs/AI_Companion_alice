@@ -1,10 +1,14 @@
 import { loadJson } from '../core/loadJson.js';
+import { AVATAR_REGISTRY_URL } from '../config/appConfig.js';
+import { validateAvatarMeta, validateAvatarRegistry } from '../config/validateConfig.js';
+import { ResourceResolver } from '../core/resources/ResourceResolver.js';
 import { AvatarLoader } from './AvatarLoader.js';
 
 export class CharacterManager {
-  constructor(runtime, { registryUrl = 'public/avatars/registry.json' } = {}) {
+  constructor(runtime, { registryUrl = AVATAR_REGISTRY_URL } = {}) {
     this.runtime = runtime;
     this.registryUrl = registryUrl;
+    this.resourceResolver = new ResourceResolver();
     this.avatarLoader = new AvatarLoader(runtime);
     this.registry = null;
     this.current = null;
@@ -14,6 +18,10 @@ export class CharacterManager {
     if (this.registry && !force) return this.registry;
     const url = this.withCacheBuster(this.registryUrl);
     this.registry = await loadJson(url);
+    const validation = validateAvatarRegistry(this.registry);
+    if (!validation.ok) {
+      throw new Error(`Avatar registry 配置错误：${validation.errors.join('；')}`);
+    }
     return this.registry;
   }
 
@@ -30,7 +38,12 @@ export class CharacterManager {
     const entry = this.listAvatars().find((avatar) => avatar.id === avatarId);
     const metaUrl = entry?.meta || `public/avatars/${avatarId}/meta.json`;
     const meta = await loadJson(this.withCacheBuster(metaUrl));
-    return this.normalizeMeta(meta, entry);
+    const normalized = this.normalizeMeta(meta, entry);
+    const validation = validateAvatarMeta(normalized);
+    if (!validation.ok) {
+      throw new Error(`Avatar meta 配置错误：${validation.errors.join('；')}`);
+    }
+    return normalized;
   }
 
   async switchCharacter(avatarId, onProgress) {
@@ -57,6 +70,8 @@ export class CharacterManager {
 
   normalizeMeta(meta, registryEntry = null) {
     const id = meta.id || registryEntry?.id;
+    const motionManifest = meta.motionManifest || meta.animations?.manifest || meta.actionManifest;
+    const skeletonMap = meta.skeletonMap || meta.skeleton?.map;
     const model = typeof meta.model === 'string'
       ? { url: meta.model, format: this.inferModelFormat(meta.model) }
       : {
@@ -68,6 +83,7 @@ export class CharacterManager {
       ...meta,
       id,
       name: meta.name || registryEntry?.name || id,
+      thumbnail: meta.thumbnail || registryEntry?.thumbnail || '',
       type: meta.type || 'humanoid-gltf',
       model,
       transform: {
@@ -76,7 +92,17 @@ export class CharacterManager {
         rotation: meta.transform?.rotation || meta.orientation || { x: 0, y: 0, z: 0 },
         scale: meta.transform?.scale || 1
       },
-      motionManifest: meta.motionManifest || meta.actionManifest,
+      motionManifest,
+      skeletonMap,
+      skeleton: meta.skeleton || {
+        type: 'humanoid',
+        map: skeletonMap
+      },
+      animations: meta.animations || {
+        manifest: motionManifest,
+        standardSlots: true
+      },
+      voice: meta.voice || meta.integrations?.tts || {},
       hitRegions: meta.hitRegions || {},
       interactions: meta.interactions || {},
       camera: meta.camera || {}
@@ -84,10 +110,8 @@ export class CharacterManager {
   }
 
   inferModelFormat(url) {
-    const ext = String(url).split('.').pop()?.toLowerCase();
-    if (ext === 'vrm') return 'vrm';
-    if (ext === 'glb') return 'glb';
-    if (ext === 'gltf') return 'gltf';
+    const ext = this.resourceResolver.inferModelFormat(url);
+    if (ext) return ext;
     return 'gltf';
   }
 

@@ -6,8 +6,17 @@
     "url": "public/avatars/osa_shiro/model.vrm",
     "format": "vrm"
   },
+  "thumbnail": "",
   "motionManifest": "public/avatars/osa_shiro/motions.json",
   "skeletonMap": "public/avatars/osa_shiro/skeleton.mixamo.json",
+  "skeleton": {
+    "type": "humanoid",
+    "map": "public/avatars/osa_shiro/skeleton.mixamo.json"
+  },
+  "animations": {
+    "manifest": "public/avatars/osa_shiro/motions.json",
+    "standardSlots": true
+  },
   "transform": {
     "targetHeight": 128,
     "position": { "x": 0, "y": 0, "z": 0 },
@@ -42,6 +51,9 @@
     "tts": {
       "engine": "browser"
     }
+  },
+  "voice": {
+    "defaultEngine": "browser"
   },
   "license": {
     "name": "CC0",
