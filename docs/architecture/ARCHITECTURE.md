@@ -12,7 +12,7 @@ index.html
         -> UIController
           -> AvatarSelectorController
           -> ChatPanelController / SettingsController
-          -> TTS / LLM / Interaction 面板控制器
+          -> TTS / LLM / Interaction / AudioStatus 面板控制器
         -> SceneRuntime
         -> CharacterManager / AvatarLoader
         -> MotionManager / AnimationController
@@ -32,7 +32,7 @@ backend/server.js
 
 ## 核心原则
 
-- 角色资源通过 `public/avatars/registry.json` 和 `meta.json` 配置加载。
+- 角色资源通过 `public/avatars/registry.json` 和 `manifest.json` 配置加载，旧 `meta.json` 只作为兼容 fallback。
 - 动作通过标准槽位管理，不在 UI 中写具体 FBX 文件名。
 - 模块间优先通过 EventBus、StateStore 或明确 Manager 接口协作。
 - API Key 只允许在后端环境变量中出现。
@@ -44,7 +44,7 @@ backend/server.js
 js/
   app/            bootstrap 与 AppController，负责主流程装配
   animation/      动作槽位、状态机、队列、注册表、工厂、重定向、混合播放
-  avatar/         角色注册表、meta 加载、模型加载与切换
+  avatar/         角色注册表、manifest 加载、模型加载与切换
   config/         前端运行配置、台词、provider、配置校验
   core/           EventBus、错误、日志、生命周期、资源路径解析/静态资源加载
   dialogue/       对话管理薄封装

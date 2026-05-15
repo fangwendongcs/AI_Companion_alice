@@ -34,8 +34,7 @@ backend/  本地后端服务
 css/      前端样式
 docs/     架构、指南、产品与重构文档
 js/       前端源码
-models/   当前运行时模型与动作资源
-public/   可替换角色资源
+public/   可替换角色资源与运行时静态模型资源
 scripts/  检查与 smoke 脚本
 archive/  历史配置、旧脚本、原始素材归档
 ```

@@ -1,5 +1,10 @@
 import { readFile } from 'node:fs/promises';
-import { validateAvatarManifest, validateAvatarRegistry, validateRuntimeConfig } from '../js/config/validateConfig.js';
+import {
+  summarizeAvatarRegistryCompatibility,
+  validateAvatarManifest,
+  validateAvatarRegistry,
+  validateRuntimeConfig
+} from '../js/config/validateConfig.js';
 
 const registryPath = 'public/avatars/registry.json';
 const errors = [];
@@ -10,6 +15,7 @@ if (!runtimeValidation.ok) errors.push(...runtimeValidation.errors);
 const registry = await readJson(registryPath);
 const registryValidation = validateAvatarRegistry(registry);
 if (!registryValidation.ok) errors.push(...registryValidation.errors);
+const registryCompatibility = summarizeAvatarRegistryCompatibility(registry);
 
 for (const avatar of registry.avatars || []) {
   const manifest = await readJson(avatar.manifest || avatar.meta);
@@ -21,6 +27,10 @@ if (errors.length) {
   console.error('[check-config] 配置校验失败:');
   errors.forEach((error) => console.error(`- ${error}`));
   process.exit(1);
+}
+
+if (registryCompatibility.legacyMetaOnly.length) {
+  console.warn(`[check-config] legacy meta-only avatars remain supported until 2026-08-15: ${registryCompatibility.legacyMetaOnly.join(', ')}`);
 }
 
 console.log('[check-config] ok');

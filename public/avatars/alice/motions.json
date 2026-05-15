@@ -2,7 +2,7 @@
   "version": 1,
   "slots": {
     "intro": {
-      "file": "models/animations/boot.fbx",
+      "file": "public/models/animations/boot.fbx",
       "loop": "once",
       "priority": 20,
       "layer": "gesture",
@@ -12,7 +12,7 @@
       "tags": ["startup"]
     },
     "idle": {
-      "file": "models/animations/idle.fbx",
+      "file": "public/models/animations/idle.fbx",
       "loop": "repeat",
       "priority": 0,
       "layer": "base",
@@ -22,7 +22,7 @@
       "tags": ["base"]
     },
     "headTap": {
-      "file": "models/animations/head.fbx",
+      "file": "public/models/animations/head.fbx",
       "loop": "once",
       "priority": 10,
       "layer": "gesture",
@@ -32,7 +32,7 @@
       "tags": ["interaction", "head"]
     },
     "legTap": {
-      "file": "models/animations/leg.fbx",
+      "file": "public/models/animations/leg.fbx",
       "loop": "once",
       "priority": 10,
       "layer": "gesture",
@@ -42,7 +42,7 @@
       "tags": ["interaction", "lower_body"]
     },
     "armTap": {
-      "file": "models/animations/arm_stretch.fbx",
+      "file": "public/models/animations/arm_stretch.fbx",
       "loop": "once",
       "priority": 10,
       "layer": "gesture",

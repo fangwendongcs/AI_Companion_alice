@@ -43,7 +43,7 @@ Likely structure may include some of the following:
 - `css/`
 - `js/`
 - `assets/`
-- `models/`
+- `public/models/`
 - `backend/`
 - `config/`
 - `config/actions`

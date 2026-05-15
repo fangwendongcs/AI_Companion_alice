@@ -4,20 +4,17 @@
     {
       "id": "alice",
       "name": "Alice",
-      "manifest": "public/avatars/alice/manifest.json",
-      "meta": "public/avatars/alice/meta.json"
+      "manifest": "public/avatars/alice/manifest.json"
     },
     {
       "id": "osa_shiro",
       "name": "Shiro（CC0 动漫风）",
-      "manifest": "public/avatars/osa_shiro/manifest.json",
-      "meta": "public/avatars/osa_shiro/meta.json"
+      "manifest": "public/avatars/osa_shiro/manifest.json"
     },
     {
       "id": "osa_wambo",
       "name": "Wambo（CC0 风格化）",
-      "manifest": "public/avatars/osa_wambo/manifest.json",
-      "meta": "public/avatars/osa_wambo/meta.json"
+      "manifest": "public/avatars/osa_wambo/manifest.json"
     }
   ]
 }

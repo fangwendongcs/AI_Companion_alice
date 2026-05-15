@@ -17,9 +17,20 @@
 ```json
 {
   "defaultAvatarId": "alice",
-  "avatars": []
+  "avatars": [
+    {
+      "id": "alice",
+      "name": "Alice",
+      "manifest": "public/avatars/alice/manifest.json"
+    }
+  ]
 }
 ```
+
+说明：
+
+- 新角色条目只使用 `manifest` 字段。
+- 旧条目如果仍只有 `meta`，前端会继续兼容读取，但新流程不会再新增 `meta`。
 
 ### POST /api/avatars
 
@@ -27,7 +38,11 @@
 
 ```json
 {
-  "avatar": {},
+  "avatar": {
+    "id": "avatar_id",
+    "name": "Avatar Name",
+    "manifest": "public/avatars/avatar_id/manifest.json"
+  },
   "registry": {}
 }
 ```

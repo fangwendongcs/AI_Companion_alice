@@ -19,6 +19,7 @@ export const EVENT_NAMES = {
   DIALOGUE_ASSISTANT: 'dialogue:assistant',
   DIALOGUE_RESPONSE: 'dialogue:response',
   DIALOGUE_ERROR: 'dialogue:error',
+  AUDIO_REQUEST: 'audio:request',
   AUDIO_START: 'audio:start',
   AUDIO_END: 'audio:end',
   AUDIO_FALLBACK: 'audio:fallback',

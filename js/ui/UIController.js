@@ -1,5 +1,6 @@
 import { DisposableRegistry } from '../core/lifecycle/DisposableRegistry.js';
 import { AvatarSelectorController } from './AvatarSelectorController.js';
+import { AudioStatusController } from './AudioStatusController.js';
 import { ChatPanelController } from './ChatPanelController.js';
 import { DomEffectsController } from './DomEffectsController.js';
 import { ErrorView } from './ErrorView.js';
@@ -24,6 +25,11 @@ export class UIController {
     });
     this.controllers = [
       new SettingsController({ refs: this.refs, registry: this.registry }),
+      new AudioStatusController({
+        eventBus: deps.eventBus,
+        registry: this.registry,
+        statusView: this.statusView
+      }),
       new ChatPanelController({ refs: this.refs, registry: this.registry, actions: deps.actions }),
       new SceneControlsController({ ...deps, registry: this.registry }),
       this.avatarPanel,

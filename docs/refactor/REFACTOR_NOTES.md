@@ -544,6 +544,56 @@ InteractionManager
 
 ## 24. 入口流拆分核对与补齐
 
+---
+
+日期：2026-05-15  
+目标：按阶段验收标准补齐第一阶段“项目结构治理”的最后缺口。
+
+## 25. 阶段验收补齐：运行时资源收口
+
+### 发现的问题
+
+- 根目录虽然已经完成文档与旧素材归档，但当前真正被运行时引用的 `models/` 目录仍停留在根目录。
+- 这与“旧模型、动画资源统一归档到 `assets/models` 或 `public/models`”的阶段标准仍有一处不一致。
+
+### 本轮改动
+
+- 将当前运行时模型和动作目录从 `models/` 迁入 `public/models/`
+- 同步修复 Alice 的 `manifest.json`、`meta.json`、`motions.json` 静态资源路径
+- 同步修复上传新角色时生成的默认动作路径
+- 更新 `README.md`、`docs/README.md`、`AVATAR_ARCHITECTURE.md`、`ANIMATION_ARCHITECTURE.md`、`PROJECT_REVIEW_REPORT.md`、`AGENTS.md` 中的目录说明
+- 删除根目录残留 `.DS_Store`
+
+### 移动清单
+
+- `models/animations/` -> `public/models/animations/`
+- `models/characters/` -> `public/models/characters/`
+- `models/environments/` -> `public/models/environments/`
+- `models/objects/` -> `public/models/objects/`
+
+### 风险与处理
+
+- **静态资源路径变化风险**：已同步修改 Alice 现有 manifest / motions 与新上传角色默认动作模板，避免加载 404。
+- **历史文档失真风险**：当前架构文档与 README 已同步更新；旧归档材料保持原样，不再作为运行时真相来源。
+- **业务行为回归风险**：本轮只迁移目录和修复引用，不改变动画、交互、TTS 逻辑。
+
+### 结果
+
+- 根目录继续只保留项目级文件、入口和目录。
+- 运行时可公开访问的模型/动画资源统一位于 `public/models/`。
+- 第一阶段结构治理标准现已完整闭环。
+
+### 验证
+
+- `npm run check` 通过
+- `npm run check:config` 通过
+- `npm run check:assets` 通过
+- `npm run smoke` 通过（在本地服务启动后执行）
+- `GET /public/models/characters/avatar_v2.glb` 返回 `200`
+- `GET /public/models/animations/boot.fbx` 返回 `200`
+- 浏览器页面可正常启动，Alice 可从 `BOOT` 自动回到 `IDLE`
+- `/api/avatars` 仍返回 Alice / Shiro / Wambo
+
 前端新增/调整：
 
 - `js/ui/SettingsController.js`
@@ -628,7 +678,7 @@ TTS 传输统一：
 - `CharacterManager` 通过 `ResourceResolver.resolveAvatarManifestPath()` 优先读取 manifest。
 - 新增 `validateAvatarManifest()`，旧 `validateAvatarMeta()` 保持兼容转发。
 - `check-config`、`check-assets` 改为优先校验 manifest。
-- `AvatarService` 上传新角色时同时生成 `manifest.json` 与兼容副本 `meta.json`，并在返回 registry 前读取 manifest 补全角色名称。
+- `AvatarService` 上传新角色时生成 `manifest.json`，并在返回 registry 前读取 manifest 补全角色名称。
 
 收益：
 
@@ -660,6 +710,92 @@ TTS 传输统一：
 - `AudioManager` 不操作 DOM。
 - 对话、语音、动画之间的协作点已经集中到 EventBus，而不是继续把状态跳转散落到聊天处理函数里。
 - 后续接 RAG、n8n、更多 TTS provider 时，可以继续挂在 `DialogueManager` / `AudioManager` 外围，不需要重写 UI。
+
+---
+
+日期：2026-05-15  
+目标：继续收口角色兼容层，并把剩余音频 UI 逻辑从装配层下沉。
+
+## 28. Manifest 兼容层收口
+
+角色配置：
+
+- 内置 registry 条目只保留 `manifest`，不再把 `meta` 作为并列主字段。
+- `CharacterManager.loadManifest()` 成为主入口，旧 `loadMeta()` 仅保留兼容代理。
+- 运行时先读 `manifest`；只有旧 registry 条目仍声明了 `meta` 且 manifest 不可用时，才会走 fallback。
+- `AvatarService` 的新上传流程只生成 `manifest.json`，新角色不再新增 `meta.json`。
+
+音频 UI：
+
+- 新增 `AudioStatusController`。
+- 新增 `audio:request` 事件。
+- `AppController` 不再负责拼 TTS 状态文案；成功、fallback、错误提示都由 UI controller 消费音频事件后展示。
+
+收益：
+
+- 新旧角色配置的边界更清楚，后续删除 legacy `meta.json` 依赖会更容易。
+- 新角色新增流程已经完全固定到 manifest。
+- `AppController` 更接近装配层职责，语音 UI 和语音业务的边界更干净。
+
+---
+
+日期：2026-05-15  
+目标：为 legacy `meta.json` fallback 补充可执行回归，并给兼容层设置明确退场时间。
+
+## 29. Legacy Meta 回归与退场计划
+
+新增：
+
+- `js/avatar/AvatarManifestLoader.js`
+- `scripts/check-legacy-avatar-compat.mjs`
+- `tests/fixtures/avatars/legacy-meta-only/*`
+- `docs/refactor/AVATAR_META_DEPRECATION_PLAN.md`
+
+改动：
+
+- `CharacterManager` 改为复用独立的 `AvatarManifestLoader`，生产代码与回归脚本共用同一段 fallback 逻辑。
+- `loadMeta()` 标注为 deprecated：`2026-05-15` 起废弃，`2026-08-16` 起满足条件后可删除。
+- `npm run check` 现在会自动包含 `npm run check:legacy-avatar`。
+- 当运行时真的走到 legacy `meta` fallback，会输出带截止日期的 warning。
+
+结果：
+
+- legacy 兼容不再只是“代码还没删”，而是有了真实 fixture 和回归检查。
+- 删除窗口已经明确：支持到 `2026-08-15`，`2026-08-16` 起按文档条件清理。
+
+### 本阶段收口补强
+
+- `check:legacy-avatar` 现在除了验证 fallback 顺序，还会验证 fallback 后的配置能通过 avatar manifest schema。
+- `validateAvatarRegistry()` 现在拒绝 `manifest + meta` 双轨条目，避免新配置重新长回两套入口。
+- `check:config` 会对仍存在的 `meta`-only 历史角色输出兼容截止日期提示，方便迁移跟踪。
+
+---
+
+日期：2026-05-15  
+目标：按新的阶段提示词复核 Avatar Manifest 标准化是否仍有未完成工作。
+
+## 30. Avatar Manifest 阶段复核
+
+逐项确认：
+
+- 每个内置角色都已拥有独立 `manifest.json`。
+- `model / skeleton / animations / interactions / voice` 已全部进入 manifest。
+- 新增角色主流程只需要新增资源和 manifest，不需要改核心代码。
+- `/api/avatars` 返回 Alice / Shiro / Wambo，并使用 manifest-only registry 输出。
+- `AvatarService` 已读取 manifest，`ResourceResolver` 负责路径解析。
+- `validateAvatarManifest()` 和 `check:config` 已负责 manifest 校验。
+- 新增角色流程已经写入 `docs/guides/CONFIG_GUIDE.md`。
+
+本轮没有重复改造以下内容：
+
+- 没有为了贴合示例目录而搬移 Alice 的旧模型二进制资源。
+- 没有为了示例扩展名而把 Shiro / Wambo 的 `.vrm` 强行改名或重导出。
+- 没有虚构 thumbnail 资源；字段已配置，真实缩略图可在后续 UI 需要时再补。
+
+原因：
+
+- 这些属于资源整理或体验增强，不是 Manifest 标准化的功能缺口。
+- 继续强行搬资产会增加二进制改动和回归风险，收益低于当前阶段目标。
 
 ## 15. 验证
 

@@ -28,6 +28,9 @@ export function validateAvatarRegistry(registry) {
   avatars.forEach((avatar, index) => {
     if (!avatar.id) errors.push(`avatars[${index}] 缺少 id。`);
     if (!avatar.manifest && !avatar.meta) errors.push(`avatars[${index}] 缺少 manifest 或 meta 路径。`);
+    if (avatar.manifest && avatar.meta) {
+      errors.push(`avatars[${index}] 同时存在 manifest 与 meta；新条目只能使用 manifest，历史条目应仅保留 meta fallback。`);
+    }
     if (ids.has(avatar.id)) errors.push(`重复 avatar id：${avatar.id}`);
     ids.add(avatar.id);
   });
@@ -37,6 +40,20 @@ export function validateAvatarRegistry(registry) {
   }
 
   return toValidationResult(errors);
+}
+
+export function summarizeAvatarRegistryCompatibility(registry) {
+  const avatars = Array.isArray(registry?.avatars) ? registry.avatars : [];
+  return avatars.reduce((summary, avatar) => {
+    if (avatar.manifest && avatar.meta) summary.dualTrack.push(avatar.id);
+    else if (!avatar.manifest && avatar.meta) summary.legacyMetaOnly.push(avatar.id);
+    else if (avatar.manifest) summary.manifestOnly.push(avatar.id);
+    return summary;
+  }, {
+    manifestOnly: [],
+    legacyMetaOnly: [],
+    dualTrack: []
+  });
 }
 
 export function validateAvatarManifest(manifest) {

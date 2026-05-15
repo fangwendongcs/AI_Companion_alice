@@ -120,6 +120,7 @@ export class AppController {
   createUIDeps() {
     return {
       refs: this.refs,
+      eventBus: this.eventBus,
       store: this.store,
       apiClient: this.apiClient,
       llmClient: this.llmClient,
@@ -215,17 +216,11 @@ export class AppController {
         replacePending: false
       });
     }));
-    this.registry.add(this.eventBus.on(EVENT_NAMES.AUDIO_END, ({ fallback }) => {
+    this.registry.add(this.eventBus.on(EVENT_NAMES.AUDIO_END, () => {
       this.resetSpeakingState();
       this.motionManager.requestSlot(MotionSlot.IDLE, {
         replacePending: false
       });
-      if (this.ttsConfig.engine !== 'browser' && !fallback) {
-        this.ui.statusView.showTTS('success', `${this.getTTSEngineName(this.ttsConfig.engine)} 语音播放完成。`);
-      }
-    }));
-    this.registry.add(this.eventBus.on(EVENT_NAMES.AUDIO_FALLBACK, ({ error }) => {
-      this.ui.statusView.showTTS('error', `${this.formatTTSError(error)} 已自动使用免费本机语音兜底。`);
     }));
     this.registry.add(this.eventBus.on(EVENT_NAMES.AUDIO_ERROR, ({ error }) => {
       this.patchState({ isSpeaking: false }, EVENT_NAMES.AUDIO_ERROR);
@@ -236,7 +231,6 @@ export class AppController {
         code: error?.code || ERROR_CODES.API_REQUEST_FAILED,
         userMessage: error?.message || '音频播放失败。'
       });
-      this.ui.statusView.showTTS('error', this.formatTTSError(error));
       this.resetSpeakingState();
       this.motionManager.requestSlot(MotionSlot.IDLE, {
         replacePending: false
@@ -258,7 +252,7 @@ export class AppController {
       const savedAvatarId = this.store.loadAvatarId(this.characterManager.getDefaultAvatarId());
       const hasSavedAvatar = this.characterManager.listAvatars().some((avatar) => avatar.id === savedAvatarId);
       const currentAvatarId = hasSavedAvatar ? savedAvatarId : this.characterManager.getDefaultAvatarId();
-      const characterMeta = await this.characterManager.loadMeta(currentAvatarId);
+      const characterMeta = await this.characterManager.loadManifest(currentAvatarId);
       this.patchState({ currentAvatarId, characterMeta }, 'app:init');
 
       this.runtime.init(this.state.characterMeta);
@@ -485,9 +479,6 @@ export class AppController {
 
     const estimatedDuration = Math.max(UI_TIMING.speechMinMs, text.length * UI_TIMING.speechMsPerChar);
     this.state.speechTimer = this.registry.addTimeout(() => this.resetSpeakingState(), estimatedDuration);
-    if (this.ttsConfig.engine !== 'browser') {
-      this.ui.statusView.showTTS('loading', `正在请求 ${this.getTTSEngineName(this.ttsConfig.engine)} 语音服务...`);
-    }
     this.audioManager.speak(text, {
       muted: this.state.isMuted
     });
@@ -499,29 +490,6 @@ export class AppController {
       this.state.speechTimer = null;
     }
     this.patchState({ isSpeaking: false }, 'audio:reset');
-  }
-
-  getTTSEngineName(engine) {
-    if (engine === 'minimax') return 'MiniMax';
-    if (engine === 'openai') return 'OpenAI';
-    return '浏览器原生';
-  }
-
-  formatTTSError(error) {
-    const message = error?.message || '未知错误';
-    if (message.includes('501') || message.includes('404')) {
-      return 'TTS 后端没有接通。请不要用 python3 -m http.server 试听高级声线，改用 npm run dev 后访问 http://localhost:3000。';
-    }
-    if (message.includes('MINIMAX_API_KEY')) {
-      return 'MiniMax 没有配置 API Key。请用 MINIMAX_API_KEY=你的key npm run dev 启动。';
-    }
-    if (message.includes('Invalid API key format')) {
-      return 'API Key 格式无效。请确认环境变量里是真实 Key，不是中文占位文本，并且不要带空格或换行。';
-    }
-    if (message.includes('OPENAI_API_KEY')) {
-      return 'OpenAI 没有配置 API Key。请用 OPENAI_API_KEY=你的key npm run dev 启动。';
-    }
-    return `TTS 请求失败：${message.slice(0, 160)}`;
   }
 
   destroy() {

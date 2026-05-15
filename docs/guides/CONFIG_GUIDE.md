@@ -29,7 +29,7 @@ js/config/validateConfig.js
 ```text
 public/avatars/{avatarId}/
   manifest.json
-  meta.json              # 旧兼容文件，当前仍保留
+  meta.json              # 可选 legacy fallback，不再由新流程生成
   motions.json
   skeleton.mixamo.json
   model.vrm | model.glb | model.gltf
@@ -59,9 +59,12 @@ public/avatars/{avatarId}/
 
 当前规则：
 
-- `manifest.json` 是新角色配置主入口。
-- `meta.json` 仍保留为兼容文件，避免旧上传角色和旧链接立即失效。
-- `registry.json` 优先读取 `manifest` 字段，缺失时回退到旧 `meta` 字段。
+- `manifest.json` 是新角色配置唯一主入口。
+- 新增角色流程只写 `manifest.json`，不再新增 `meta.json`。
+- `meta.json` 只保留给历史角色配置使用；旧 registry 条目只有 `meta` 时，运行时会 fallback。
+- `registry.json` 的新条目只写 `manifest` 字段。
+- `manifest + meta` 双轨条目不再允许；`check:config` 会直接拦截。
+- `meta.json` 与 `loadMeta()` 的兼容窗口为 `2026-05-15` 至 `2026-08-15`；`2026-08-16` 起满足迁移条件后可删除，详见 [AVATAR_META_DEPRECATION_PLAN.md](../refactor/AVATAR_META_DEPRECATION_PLAN.md)。
 - 旧字段 `motionManifest` 和 `skeletonMap` 暂时保留，便于现有运行时代码平滑过渡。
 
 ## 新增角色
@@ -79,7 +82,7 @@ public/avatars/{avatarId}/
 }
 ```
 
-如果需要兼容旧流程，也可以同时保留：
+历史角色如果还没有迁移，旧 registry 仍可暂时保留：
 
 ```json
 {
@@ -99,6 +102,7 @@ npm run check:assets
 ```bash
 npm run check:config
 npm run check:assets
+npm run check:legacy-avatar
 ```
 
 配置错误会在开发模式或检查脚本里给出明确提示。

@@ -59,17 +59,17 @@ OpenAI 请求可额外传入 `instructions`，后端会使用 `gpt-4o-mini-tts` 
     {
       "id": "alice",
       "name": "Alice",
-      "meta": "public/avatars/alice/meta.json"
+      "manifest": "public/avatars/alice/manifest.json"
     },
     {
       "id": "osa_shiro",
       "name": "Shiro（CC0 动漫风）",
-      "meta": "public/avatars/osa_shiro/meta.json"
+      "manifest": "public/avatars/osa_shiro/manifest.json"
     },
     {
       "id": "osa_wambo",
       "name": "Wambo（CC0 风格化）",
-      "meta": "public/avatars/osa_wambo/meta.json"
+      "manifest": "public/avatars/osa_wambo/manifest.json"
     }
   ]
 }
@@ -89,13 +89,13 @@ OpenAI 请求可额外传入 `instructions`，后端会使用 `gpt-4o-mini-tts` 
 - `targetHeight`：可选，默认 `120`
 - `motions`：可选，`motions.json`
 - `skeleton`：可选，`skeleton.mixamo.json`
-- `llmProvider` / `llmModel` / `ttsEngine`：可选，仅写入角色 meta 的接口关联信息，不修改 API Key
+- `llmProvider` / `llmModel` / `ttsEngine`：可选，仅写入角色 manifest 的接口关联信息，不修改 API Key
 
 上传成功后，后端会写入：
 
 ```text
 public/avatars/{avatarId}/model.{vrm|glb|gltf}
-public/avatars/{avatarId}/meta.json
+public/avatars/{avatarId}/manifest.json
 public/avatars/{avatarId}/motions.json
 public/avatars/{avatarId}/skeleton.mixamo.json
 ```

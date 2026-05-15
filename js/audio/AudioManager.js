@@ -9,10 +9,15 @@ export class AudioManager {
 
   async speak(text, { muted = false } = {}) {
     const config = this.getConfig?.() || {};
+    if (muted) return;
     let usedFallbackVoice = false;
 
+    this.eventBus?.emit(EVENT_NAMES.AUDIO_REQUEST, {
+      engine: config.engine
+    });
+
     await this.ttsService.speak(text, config, {
-      muted,
+      muted: false,
       onStart: () => {
         this.eventBus?.emit(EVENT_NAMES.AUDIO_START, {
           engine: config.engine

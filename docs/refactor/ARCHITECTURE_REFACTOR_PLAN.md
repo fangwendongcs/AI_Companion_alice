@@ -106,7 +106,7 @@ backend/
 职责：
 
 - 读取 `public/avatars/registry.json`
-- 加载角色 `meta.json`
+- 加载角色 `manifest.json`
 - 卸载当前角色
 - 切换角色
 - 应用角色相机配置
@@ -117,7 +117,7 @@ backend/
 ```json
 {
   "id": "osa_shiro",
-  "meta": "public/avatars/osa_shiro/meta.json"
+  "manifest": "public/avatars/osa_shiro/manifest.json"
 }
 ```
 
@@ -446,12 +446,12 @@ POST /api/workflows/n8n
 4. 加入 Playwright 回归：角色列表、切换三角色、点击 head/body/arm/leg、TTS fallback。
 5. 根据部署方式决定是否迁移 Vite/TypeScript。
 
-## 9. 新增角色流程保持不变
+## 9. 新增角色流程
 
-新增角色仍然只需要：
+新增角色现在只需要：
 
 1. 放入 `public/avatars/{avatarId}/model.vrm` 或上传。
-2. 写 `meta.json`。
+2. 写 `manifest.json`。
 3. 写 `motions.json`。
 4. 写 `skeleton.mixamo.json`。
 5. 在 `registry.json` 追加角色。

@@ -21,6 +21,7 @@ dialogue:assistant
 dialogue:response
 dialogue:error
 audio:start
+audio:request
 audio:end
 audio:fallback
 audio:error

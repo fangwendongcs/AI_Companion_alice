@@ -11,6 +11,7 @@
 当前明确拆出的 UI 子控制器：
 
 - `SettingsController`：侧边栏打开/关闭
+- `AudioStatusController`：监听 audio 事件并展示 TTS 状态
 - `ChatPanelController`：聊天发送、回车、静音按钮
 - `AvatarSelectorController`：角色选择与上传
 - `LLMSettingsController` / `TTSSettingsController`：各自 provider 设置
@@ -88,6 +89,7 @@ InteractionManager -> MotionSlot -> MotionManager.requestSlot()
 
 - 后端 TTS 请求统一走 `ApiClient.response()`，共享 timeout、错误模型和 HTTP 解析。
 - 音频播放仍保留 `Response -> Blob -> Audio` 的二进制播放流程，不把二进制内容误塞进 JSON 流程。
+- TTS 状态文案由 `AudioStatusController` 消费 `audio:*` 事件后展示，`AppController` 不再直接拼接 UI 文案。
 
 ## Dialogue
 

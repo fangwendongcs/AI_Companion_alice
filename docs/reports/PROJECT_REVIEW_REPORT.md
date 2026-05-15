@@ -54,11 +54,11 @@
 │       ├── alice/
 │       ├── osa_shiro/
 │       └── osa_wambo/
-├── models/
-│   ├── animations/
-│   ├── characters/
-│   ├── environments/
-│   └── objects/
+│   └── models/
+│       ├── animations/
+│       ├── characters/
+│       ├── environments/
+│       └── objects/
 ├── docs/
 ├── scripts/
 │   └── check-js.mjs

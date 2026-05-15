@@ -1,0 +1,10 @@
+{
+  "defaultAvatarId": "legacy_fixture",
+  "avatars": [
+    {
+      "id": "legacy_fixture",
+      "name": "Legacy Fixture",
+      "meta": "tests/fixtures/avatars/legacy-meta-only/meta.json"
+    }
+  ]
+}

@@ -3,7 +3,7 @@
   "name": "Alice",
   "type": "humanoid-gltf",
   "model": {
-    "url": "models/characters/avatar_v2.glb",
+    "url": "public/models/characters/avatar_v2.glb",
     "format": "glb"
   },
   "thumbnail": "",

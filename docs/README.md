@@ -34,6 +34,7 @@
 - [ARCHITECTURE_REFACTOR_PLAN.md](./refactor/ARCHITECTURE_REFACTOR_PLAN.md): 架构重构方案
 - [REFACTOR_NOTES.md](./refactor/REFACTOR_NOTES.md): 实际重构记录
 - [CHANGESET_BOUNDARIES.md](./refactor/CHANGESET_BOUNDARIES.md): 当前综合 diff 的逻辑边界与建议提交顺序
+- [AVATAR_META_DEPRECATION_PLAN.md](./refactor/AVATAR_META_DEPRECATION_PLAN.md): `meta.json` 兼容窗口与删除计划
 
 ## Process And Security
 
@@ -48,8 +49,8 @@
 index.html
 css/
 js/
-models/
-public/
+public/avatars/
+public/models/
 backend/
 scripts/
 ```

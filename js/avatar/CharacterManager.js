@@ -2,13 +2,24 @@ import { loadJson } from '../core/loadJson.js';
 import { AVATAR_REGISTRY_URL } from '../config/appConfig.js';
 import { validateAvatarManifest, validateAvatarRegistry } from '../config/validateConfig.js';
 import { ResourceResolver } from '../core/resources/ResourceResolver.js';
+import { createLogger } from '../core/logger.js';
 import { AvatarLoader } from './AvatarLoader.js';
+import {
+  AvatarManifestLoader,
+  LEGACY_AVATAR_META_DEPRECATION
+} from './AvatarManifestLoader.js';
+
+const log = createLogger('CharacterManager');
 
 export class CharacterManager {
   constructor(runtime, { registryUrl = AVATAR_REGISTRY_URL } = {}) {
     this.runtime = runtime;
     this.registryUrl = registryUrl;
     this.resourceResolver = new ResourceResolver();
+    this.manifestLoader = new AvatarManifestLoader({
+      resourceResolver: this.resourceResolver,
+      decoratePath: (path) => this.withCacheBuster(path)
+    });
     this.avatarLoader = new AvatarLoader(runtime);
     this.registry = null;
     this.current = null;
@@ -33,11 +44,16 @@ export class CharacterManager {
     return this.registry?.defaultAvatarId || this.listAvatars()[0]?.id || 'alice';
   }
 
-  async loadMeta(avatarId) {
+  async loadManifest(avatarId) {
     if (!this.registry) await this.loadRegistry();
     const entry = this.listAvatars().find((avatar) => avatar.id === avatarId);
-    const manifestUrl = this.resourceResolver.resolveAvatarManifestPath(avatarId, entry);
-    const manifest = await loadJson(this.withCacheBuster(manifestUrl));
+    const result = await this.manifestLoader.load(avatarId, entry);
+    const manifest = result.manifest;
+    if (result.source === 'legacy-meta') {
+      log.warn(
+        `角色 ${avatarId} 仍在使用 legacy meta fallback；支持窗口到 ${LEGACY_AVATAR_META_DEPRECATION.supportedThrough}，之后请迁移到 manifest.json。`
+      );
+    }
     const normalized = this.normalizeMeta(manifest, entry);
     const validation = validateAvatarManifest(normalized);
     if (!validation.ok) {
@@ -46,9 +62,14 @@ export class CharacterManager {
     return normalized;
   }
 
+  async loadMeta(avatarId) {
+    // @deprecated since 2026-05-15. Remove on/after 2026-08-16 once no production registry entry uses `meta`.
+    return this.loadManifest(avatarId);
+  }
+
   async switchCharacter(avatarId, onProgress) {
     this.unloadCurrent();
-    const meta = await this.loadMeta(avatarId);
+    const meta = await this.loadManifest(avatarId);
     this.runtime.applyCameraConfig(meta.camera);
     const loaded = await this.avatarLoader.load(meta, onProgress);
     this.current = {

@@ -69,13 +69,11 @@ export class AvatarService {
       ttsEngine: form.fields.ttsEngine
     });
     await writeFile(join(avatarDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
-    await writeFile(join(avatarDir, 'meta.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 
     const registry = await this.upsertRegistry({
       id: avatarId,
       name: avatarName,
-      manifest: `public/avatars/${avatarId}/manifest.json`,
-      meta: `public/avatars/${avatarId}/meta.json`
+      manifest: `public/avatars/${avatarId}/manifest.json`
     });
 
     return {
@@ -83,7 +81,6 @@ export class AvatarService {
         id: avatarId,
         name: avatarName,
         manifest: `public/avatars/${avatarId}/manifest.json`,
-        meta: `public/avatars/${avatarId}/meta.json`,
         model: manifest.model,
         motionManifest: manifest.motionManifest,
         skeletonMap: manifest.skeletonMap
@@ -119,14 +116,15 @@ export class AvatarService {
 
   async hydrateRegistry(registry) {
     const avatars = await Promise.all((registry.avatars || []).map(async (entry) => {
-      const manifestPath = entry.manifest || entry.meta || `public/avatars/${entry.id}/manifest.json`;
-      const manifest = await this.readJsonFile(join(rootDir, manifestPath), null);
-      return {
+      const configPath = entry.manifest || entry.meta || `public/avatars/${entry.id}/manifest.json`;
+      const manifest = await this.readJsonFile(join(rootDir, configPath), null);
+      const hydrated = {
         ...entry,
-        name: manifest?.name || entry.name || entry.id,
-        manifest: manifestPath,
-        meta: entry.meta || ''
+        name: manifest?.name || entry.name || entry.id
       };
+      if (entry.manifest) hydrated.manifest = entry.manifest;
+      if (entry.meta) hydrated.meta = entry.meta;
+      return hydrated;
     }));
 
     return {
@@ -210,7 +208,7 @@ function createDefaultMotionManifest() {
     version: 1,
     slots: {
       intro: {
-        file: 'models/animations/boot.fbx',
+        file: 'public/models/animations/boot.fbx',
         loop: 'once',
         priority: 20,
         layer: 'gesture',
@@ -220,7 +218,7 @@ function createDefaultMotionManifest() {
         tags: ['startup']
       },
       idle: {
-        file: 'models/animations/idle.fbx',
+        file: 'public/models/animations/idle.fbx',
         loop: 'repeat',
         priority: 0,
         layer: 'base',
@@ -229,9 +227,9 @@ function createDefaultMotionManifest() {
         fadeOut: 0.25,
         tags: ['base']
       },
-      headTap: createDefaultGestureMotion('models/animations/head.fbx', ['interaction', 'head']),
-      legTap: createDefaultGestureMotion('models/animations/leg.fbx', ['interaction', 'lower_body']),
-      armTap: createDefaultGestureMotion('models/animations/arm_stretch.fbx', ['interaction', 'upper_body']),
+      headTap: createDefaultGestureMotion('public/models/animations/head.fbx', ['interaction', 'head']),
+      legTap: createDefaultGestureMotion('public/models/animations/leg.fbx', ['interaction', 'lower_body']),
+      armTap: createDefaultGestureMotion('public/models/animations/arm_stretch.fbx', ['interaction', 'upper_body']),
       bodyTap: { fallbackSlot: 'headTap', tags: ['interaction', 'body'] },
       chat: { fallbackSlot: 'armTap', tags: ['interaction', 'chat'] },
       speaking: { fallbackSlot: 'idle', loop: 'repeat', layer: 'base', tags: ['speech'] },

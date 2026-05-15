@@ -10,20 +10,20 @@ public/
     registry.json
     alice/
       manifest.json
-      meta.json
+      meta.json              # 仅保留给旧链路兼容，不再作为新增角色必需文件
       motions.json
       skeleton.mixamo.json
-      model.vrm            # 新角色推荐放这里；Alice 当前复用 models/characters/avatar_v2.glb
+      model.vrm            # 新角色推荐放这里；Alice 当前复用 public/models/characters/avatar_v2.glb
     osa_shiro/
       model.vrm            # Open Source Avatars / 100Avatars, CC0
       manifest.json
-      meta.json
+      meta.json              # 旧兼容文件
       motions.json
       skeleton.mixamo.json
     osa_wambo/
       model.vrm            # Open Source Avatars / 100Avatars, CC0
       manifest.json
-      meta.json
+      meta.json              # 旧兼容文件
       motions.json
       skeleton.mixamo.json
 
@@ -149,12 +149,13 @@ idle, intro, headTap, legTap, speaking, listening
 {
   "id": "new_avatar",
   "name": "New Avatar",
-  "manifest": "public/avatars/new_avatar/manifest.json",
-  "meta": "public/avatars/new_avatar/meta.json"
+  "manifest": "public/avatars/new_avatar/manifest.json"
 }
 ```
 
-`manifest.json` 是新的主配置文件，`meta.json` 目前仅作为兼容旧角色和旧上传流程的保留字段。运行时优先读取 `manifest`，没有时才回退 `meta`。
+`manifest.json` 是新的主配置文件。运行时优先读取 `manifest`；只有旧 registry 条目仍然只有 `meta` 时，才会走 legacy fallback。
+
+legacy fallback 的支持窗口、删除条件和删除步骤见 [AVATAR_META_DEPRECATION_PLAN.md](../refactor/AVATAR_META_DEPRECATION_PLAN.md)。
 
 ## 前端上传角色
 
@@ -175,18 +176,18 @@ idle, intro, headTap, legTap, speaking, listening
 1. 保存模型到 `public/avatars/{avatarId}/model.*`
 2. 生成或保存 `motions.json`
 3. 生成或保存 `skeleton.mixamo.json`
-4. 生成 `manifest.json`，并同步保留一份 `meta.json` 兼容副本
+4. 生成 `manifest.json`
 5. 更新 `public/avatars/registry.json`
 6. 前端刷新角色列表并切换到新角色
 
 如果没有上传动作配置，后端会生成默认动作槽位，沿用当前 Alice 的动作文件：
 
 ```text
-intro -> models/animations/boot.fbx
-idle -> models/animations/idle.fbx
-headTap -> models/animations/head.fbx
-legTap -> models/animations/leg.fbx
-armTap -> models/animations/arm_stretch.fbx
+intro -> public/models/animations/boot.fbx
+idle -> public/models/animations/idle.fbx
+headTap -> public/models/animations/head.fbx
+legTap -> public/models/animations/leg.fbx
+armTap -> public/models/animations/arm_stretch.fbx
 ```
 
 `manifest.json` 会同时记录接口关联信息：

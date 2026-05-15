@@ -19,6 +19,7 @@ npm run check
 npm run check:js
 npm run check:config
 npm run check:assets
+npm run check:legacy-avatar
 ```
 
 本地服务启动后可以运行：
@@ -116,7 +117,9 @@ npm run check:config
 npm run check:assets
 ```
 
-确认 `public/avatars/registry.json` 和对应 `meta.json` 路径正确。
+确认 `public/avatars/registry.json` 和对应 `manifest.json` 路径正确；只有旧角色才会 fallback 到 `meta.json`。
+
+`npm run check:legacy-avatar` 会使用测试 fixture 验证 legacy `meta.json` fallback 仍然可用；它不是生产角色扫描器，而是兼容链路回归测试。
 
 ### 动作不播放
 

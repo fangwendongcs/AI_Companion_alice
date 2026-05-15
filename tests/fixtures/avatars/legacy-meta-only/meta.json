@@ -1,0 +1,24 @@
+{
+  "id": "legacy_fixture",
+  "name": "Legacy Fixture",
+  "type": "humanoid-gltf",
+  "model": {
+    "url": "tests/fixtures/avatars/legacy-meta-only/model.glb",
+    "format": "glb"
+  },
+  "motionManifest": "tests/fixtures/avatars/legacy-meta-only/motions.json",
+  "skeletonMap": "tests/fixtures/avatars/legacy-meta-only/skeleton.mixamo.json",
+  "animations": {
+    "manifest": "tests/fixtures/avatars/legacy-meta-only/motions.json",
+    "standardSlots": true
+  },
+  "interactions": {
+    "head": { "motionSlot": "headTap" },
+    "body": { "motionSlot": "bodyTap" },
+    "arm": { "motionSlot": "armTap" },
+    "leg": { "motionSlot": "legTap" }
+  },
+  "voice": {
+    "defaultEngine": "browser"
+  }
+}

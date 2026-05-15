@@ -12,8 +12,14 @@ export class ResourceResolver {
   resolveAvatarManifestPath(avatarId, entry = {}) {
     return this.normalizePublicPath(
       entry.manifest ||
-      entry.meta ||
       `public/avatars/${avatarId}/manifest.json`
+    );
+  }
+
+  resolveLegacyAvatarMetaPath(avatarId, entry = {}) {
+    return this.normalizePublicPath(
+      entry.meta ||
+      `public/avatars/${avatarId}/meta.json`
     );
   }
 
