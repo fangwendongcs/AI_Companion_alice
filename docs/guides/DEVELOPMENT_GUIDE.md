@@ -20,6 +20,7 @@ npm run check:js
 npm run check:config
 npm run check:assets
 npm run check:legacy-avatar
+npm run check:regression
 ```
 
 本地服务启动后可以运行：
@@ -27,6 +28,27 @@ npm run check:legacy-avatar
 ```bash
 npm run smoke
 ```
+
+## 阶段验收回归
+
+当前有两层回归保护：
+
+```text
+npm run check:regression
+  -> boot -> idle 状态机链路
+  -> 动作队列 cooldown / interrupt / duplicate-loop
+  -> Alice / Shiro / Wambo registry + manifest 主入口
+  -> 关键动作能力存在（显式 slot 或 procedural fallback）
+  -> TTS provider / browser fallback 配置完整
+
+npm run smoke
+  -> /api/health
+  -> /api/avatars
+  -> 每个角色 manifest 可通过 HTTP 读取
+  -> model / motions / skeleton 静态资源可通过 HTTP 访问
+```
+
+`check:regression` 适合每次改动画、角色配置或语音配置后快速执行；`smoke` 需要先启动本地服务，适合在页面联调前后补一遍运行态确认。
 
 ## 前端主流程
 

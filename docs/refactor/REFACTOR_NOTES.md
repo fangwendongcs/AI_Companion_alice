@@ -594,6 +594,38 @@ InteractionManager
 - 浏览器页面可正常启动，Alice 可从 `BOOT` 自动回到 `IDLE`
 - `/api/avatars` 仍返回 Alice / Shiro / Wambo
 
+---
+
+日期：2026-05-15  
+目标：把四阶段达标项固化为可重复执行的 smoke / regression 验收。
+
+## 31. 阶段验收自动化
+
+### 新增检查
+
+- 新增 `scripts/check-regression.mjs`
+  - 校验 `idle -> boot -> idle`
+  - 校验动作队列的 `cooldown`、高优先级打断、循环动作去重
+  - 校验 Alice / Shiro / Wambo 都继续走 `manifest.json`
+  - 校验每个角色具备 `intro / idle / headTap / armTap / legTap` 动作能力，兼容显式 slot 与 procedural fallback
+  - 校验 TTS 默认仍是 `browser`，未知 provider 会 fallback 到 `browser`
+  - 校验前端默认 TTS 配置中不出现 API key 字段
+
+- 增强 `scripts/smoke-test.mjs`
+  - 除 `/api/health`、`/api/avatars` 外，继续通过 HTTP 校验每个角色的 `manifest`
+  - 校验 `model / motionManifest / skeletonMap` 静态资源可访问
+  - 校验关键动作槽位在运行态 manifest 链路中可读取
+
+### npm scripts
+
+- 新增 `npm run check:regression`
+- `npm run check` 现在会把 regression check 一并纳入总检查
+
+### 目的
+
+- 以后继续改 Agent、RAG、口型同步或更换角色时，先把已经稳定的主流程保护住。
+- 让“能跑”从人工记忆变成可重复的工程断言。
+
 前端新增/调整：
 
 - `js/ui/SettingsController.js`

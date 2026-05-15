@@ -24,6 +24,7 @@ http://localhost:3000
 
 ```bash
 npm run check
+npm run check:regression
 npm run smoke
 ```
 

@@ -5,11 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "node backend/server.js",
-    "check": "npm run check:js && npm run check:config && npm run check:assets && npm run check:legacy-avatar",
+    "check": "npm run check:js && npm run check:config && npm run check:assets && npm run check:legacy-avatar && npm run check:regression",
     "check:js": "node scripts/check-js.mjs",
     "check:config": "node scripts/check-config.mjs",
     "check:assets": "node scripts/check-assets.mjs",
     "check:legacy-avatar": "node scripts/check-legacy-avatar-compat.mjs",
+    "check:regression": "node scripts/check-regression.mjs",
     "smoke": "node scripts/smoke-test.mjs"
   }
 }
