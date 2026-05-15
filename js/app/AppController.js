@@ -1,5 +1,6 @@
 import { LLMClient } from '../ai/LLMClient.js';
-import { AvatarState, MotionManager } from '../animation/MotionManager.js';
+import { AvatarState, MotionManager, MotionSlot } from '../animation/MotionManager.js';
+import { AudioManager } from '../audio/AudioManager.js';
 import { CharacterManager } from '../avatar/CharacterManager.js';
 import { APP_MODE, EVENT_NAMES, REQUEST_TIMEOUTS, UI_TIMING } from '../config/appConfig.js';
 import { DEFAULT_DIALOGUES, MOOD_DIALOGUES } from '../config/dialogues.js';
@@ -30,6 +31,11 @@ export class AppController {
     this.apiClient = new ApiClient({ timeoutMs: REQUEST_TIMEOUTS.ttsMs });
     this.llmClient = new LLMClient('/api/chat', { timeoutMs: REQUEST_TIMEOUTS.llmMs });
     this.ttsService = new TTSService('/api/tts', { timeoutMs: REQUEST_TIMEOUTS.ttsMs });
+    this.audioManager = new AudioManager({
+      ttsService: this.ttsService,
+      eventBus: this.eventBus,
+      getConfig: () => this.ttsConfig
+    });
     this.runtime = new SceneRuntime(documentRef.getElementById('scene'));
     this.characterManager = new CharacterManager(this.runtime);
     this.motionManager = new MotionManager();
@@ -168,6 +174,73 @@ export class AppController {
     this.registry.add(this.eventBus.on(EVENT_NAMES.INTERACTION_HIT, ({ part, motionSlot }) => {
       if (this.state.interaction?.enabled === false) return;
       this.triggerReaction(part, motionSlot);
+    }));
+
+    this.registry.add(this.eventBus.on(EVENT_NAMES.DIALOGUE_USER, ({ text }) => {
+      this.patchState({
+        lastUserMessage: text,
+        dialogueError: null
+      }, EVENT_NAMES.DIALOGUE_USER);
+    }));
+    this.registry.add(this.eventBus.on(EVENT_NAMES.DIALOGUE_THINKING, ({ active }) => {
+      this.patchState({ isThinking: active }, EVENT_NAMES.DIALOGUE_THINKING);
+      if (active) {
+        this.setAvatarState(AvatarState.THINKING);
+      } else if (this.state.currentState === AvatarState.THINKING) {
+        this.motionManager.requestSlot(MotionSlot.IDLE);
+      }
+    }));
+    this.registry.add(this.eventBus.on(EVENT_NAMES.DIALOGUE_ASSISTANT, ({ text }) => {
+      this.patchState({
+        lastAssistantMessage: text,
+        dialogueError: null
+      }, EVENT_NAMES.DIALOGUE_ASSISTANT);
+    }));
+    this.registry.add(this.eventBus.on(EVENT_NAMES.DIALOGUE_ERROR, ({ error, message }) => {
+      this.patchState({
+        dialogueError: message
+      }, EVENT_NAMES.DIALOGUE_ERROR);
+      handleAppError(error || new Error(message), {
+        eventBus: this.eventBus,
+        stateStore: this.stateStore,
+        source: EVENT_NAMES.DIALOGUE_ERROR,
+        code: error?.code || ERROR_CODES.API_REQUEST_FAILED,
+        userMessage: message
+      });
+    }));
+
+    this.registry.add(this.eventBus.on(EVENT_NAMES.AUDIO_START, () => {
+      this.patchState({ isSpeaking: true }, EVENT_NAMES.AUDIO_START);
+      this.motionManager.requestSlot(MotionSlot.SPEAKING, {
+        replacePending: false
+      });
+    }));
+    this.registry.add(this.eventBus.on(EVENT_NAMES.AUDIO_END, ({ fallback }) => {
+      this.resetSpeakingState();
+      this.motionManager.requestSlot(MotionSlot.IDLE, {
+        replacePending: false
+      });
+      if (this.ttsConfig.engine !== 'browser' && !fallback) {
+        this.ui.statusView.showTTS('success', `${this.getTTSEngineName(this.ttsConfig.engine)} 语音播放完成。`);
+      }
+    }));
+    this.registry.add(this.eventBus.on(EVENT_NAMES.AUDIO_FALLBACK, ({ error }) => {
+      this.ui.statusView.showTTS('error', `${this.formatTTSError(error)} 已自动使用免费本机语音兜底。`);
+    }));
+    this.registry.add(this.eventBus.on(EVENT_NAMES.AUDIO_ERROR, ({ error }) => {
+      this.patchState({ isSpeaking: false }, EVENT_NAMES.AUDIO_ERROR);
+      handleAppError(error || new Error('Audio playback failed'), {
+        eventBus: this.eventBus,
+        stateStore: this.stateStore,
+        source: EVENT_NAMES.AUDIO_ERROR,
+        code: error?.code || ERROR_CODES.API_REQUEST_FAILED,
+        userMessage: error?.message || '音频播放失败。'
+      });
+      this.ui.statusView.showTTS('error', this.formatTTSError(error));
+      this.resetSpeakingState();
+      this.motionManager.requestSlot(MotionSlot.IDLE, {
+        replacePending: false
+      });
     }));
   }
 
@@ -356,29 +429,13 @@ export class AppController {
 
     this.refs.promptInput.value = '';
     this.refs.sendBtn.disabled = true;
-    this.patchState({
-      isThinking: true,
-      lastUserMessage: text,
-      dialogueError: null
-    }, 'dialogue:user');
-    this.setAvatarState(AvatarState.THINKING);
 
     try {
       this.llmConfig = this.readLLMFormConfig();
       const reply = await this.dialogueManager.send(text, this.llmConfig);
-      this.patchState({
-        isThinking: false,
-        lastAssistantMessage: reply
-      }, 'dialogue:assistant');
-      this.setAvatarState(AvatarState.SPEAKING);
       this.speakText(reply);
     } catch (error) {
       this.log.error('LLM 调用失败:', error);
-      this.patchState({
-        isThinking: false,
-        dialogueError: error.message
-      }, 'dialogue:error');
-      this.setAvatarState(AvatarState.SPEAKING);
       this.speakText('抱歉，连接出现问题。请确认后端服务已启动，并配置了对应模型的 API Key。');
     } finally {
       this.refs.sendBtn.disabled = false;
@@ -428,47 +485,11 @@ export class AppController {
 
     const estimatedDuration = Math.max(UI_TIMING.speechMinMs, text.length * UI_TIMING.speechMsPerChar);
     this.state.speechTimer = this.registry.addTimeout(() => this.resetSpeakingState(), estimatedDuration);
-    let usedFallbackVoice = false;
     if (this.ttsConfig.engine !== 'browser') {
       this.ui.statusView.showTTS('loading', `正在请求 ${this.getTTSEngineName(this.ttsConfig.engine)} 语音服务...`);
     }
-
-    this.ttsService.speak(text, this.ttsConfig, {
-      muted: this.state.isMuted,
-      onStart: () => {
-        this.patchState({ isSpeaking: true }, 'audio:start');
-        this.eventBus.emit(EVENT_NAMES.AUDIO_START, {
-          engine: this.ttsConfig.engine
-        });
-      },
-      onEnd: () => {
-        this.resetSpeakingState();
-        this.patchState({ isSpeaking: false }, 'audio:end');
-        this.eventBus.emit(EVENT_NAMES.AUDIO_END, {
-          engine: this.ttsConfig.engine,
-          fallback: usedFallbackVoice
-        });
-        if (this.ttsConfig.engine !== 'browser' && !usedFallbackVoice) {
-          this.ui.statusView.showTTS('success', `${this.getTTSEngineName(this.ttsConfig.engine)} 语音播放完成。`);
-        }
-      },
-      onFallback: (error) => {
-        usedFallbackVoice = true;
-        this.eventBus.emit(EVENT_NAMES.AUDIO_FALLBACK, {
-          engine: this.ttsConfig.engine,
-          message: error.message
-        });
-        this.ui.statusView.showTTS('error', `${this.formatTTSError(error)} 已自动使用免费本机语音兜底。`);
-      },
-      onError: (error) => {
-        this.patchState({ isSpeaking: false }, 'audio:error');
-        this.eventBus.emit(EVENT_NAMES.AUDIO_ERROR, {
-          engine: this.ttsConfig.engine,
-          message: error.message
-        });
-        this.ui.statusView.showTTS('error', this.formatTTSError(error));
-        this.resetSpeakingState();
-      }
+    this.audioManager.speak(text, {
+      muted: this.state.isMuted
     });
   }
 
@@ -477,7 +498,6 @@ export class AppController {
       clearTimeout(this.state.speechTimer);
       this.state.speechTimer = null;
     }
-    if (this.state.currentState === AvatarState.SPEAKING) this.setAvatarState(AvatarState.IDLE);
     this.patchState({ isSpeaking: false }, 'audio:reset');
   }
 
@@ -511,7 +531,7 @@ export class AppController {
     this.motionManager.destroy?.();
     this.interactionManager.unbindPointer?.();
     this.recognitionService.destroy?.();
-    this.ttsService.destroy?.();
+    this.audioManager.destroy?.();
     this.runtime.destroy?.();
     this.eventBus.destroy();
     this.stateStore.destroy();

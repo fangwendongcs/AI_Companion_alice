@@ -16,7 +16,9 @@ animation:state
 animation:action:start
 animation:action:complete
 dialogue:user
+dialogue:thinking
 dialogue:assistant
+dialogue:response
 dialogue:error
 audio:start
 audio:end
@@ -32,7 +34,7 @@ Pointer event
   -> InteractionManager
   -> HitTestController
   -> eventBus.emit(interaction:hit)
-  -> script.js reaction listener
+  -> AppController reaction listener
   -> MotionManager slot/state
   -> AnimationController
   -> animation:action:start
@@ -45,13 +47,30 @@ Pointer event
 ```text
 用户输入
   -> DialogueManager
+  -> dialogue:user
+  -> dialogue:thinking(active=true)
   -> LLMClient
   -> /api/chat
-  -> dialogue:assistant
+  -> dialogue:assistant / dialogue:response
+  -> dialogue:thinking(active=false)
+  -> AppController.speakText()
+  -> AudioManager
   -> TTSService
   -> audio:start
+  -> MotionManager.requestSlot(speaking)
+  -> AnimationController
   -> audio:end
+  -> MotionManager.requestSlot(idle)
   -> idle
+```
+
+错误路径：
+
+```text
+LLMClient / TTSService error
+  -> AppError
+  -> dialogue:error / audio:error
+  -> errorHandler / StateStore
 ```
 
 ## 生命周期要求

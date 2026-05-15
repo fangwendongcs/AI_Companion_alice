@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { validateAvatarMeta, validateAvatarRegistry, validateRuntimeConfig } from '../js/config/validateConfig.js';
+import { validateAvatarManifest, validateAvatarRegistry, validateRuntimeConfig } from '../js/config/validateConfig.js';
 
 const registryPath = 'public/avatars/registry.json';
 const errors = [];
@@ -12,9 +12,9 @@ const registryValidation = validateAvatarRegistry(registry);
 if (!registryValidation.ok) errors.push(...registryValidation.errors);
 
 for (const avatar of registry.avatars || []) {
-  const meta = await readJson(avatar.meta);
-  const metaValidation = validateAvatarMeta(meta);
-  if (!metaValidation.ok) errors.push(...metaValidation.errors.map((error) => `${avatar.id}: ${error}`));
+  const manifest = await readJson(avatar.manifest || avatar.meta);
+  const manifestValidation = validateAvatarManifest(manifest);
+  if (!manifestValidation.ok) errors.push(...manifestValidation.errors.map((error) => `${avatar.id}: ${error}`));
 }
 
 if (errors.length) {

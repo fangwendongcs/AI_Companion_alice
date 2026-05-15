@@ -46,6 +46,9 @@
 - 局部 DOM 状态、临时变量、Three.js 内部对象不放入全局状态。
 - 状态变更通过 `patchState()` 或 `stateStore.patch()`。
 - `state:changed` 可用于未来调试面板。
+- `dialogue:thinking` 负责驱动 `dialogue.thinking / isThinking`。
+- `audio:start / audio:end / audio:error` 负责驱动 `audio.speaking / isSpeaking`。
+- 动画层通过事件联动得到 `speaking -> idle` 切换，不再依赖对话代码直接操作底层动作。
 
 ## 兼容字段
 

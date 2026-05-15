@@ -1,0 +1,66 @@
+{
+  "id": "alice",
+  "name": "Alice",
+  "type": "humanoid-gltf",
+  "model": {
+    "url": "models/characters/avatar_v2.glb",
+    "format": "glb"
+  },
+  "thumbnail": "",
+  "motionManifest": "public/avatars/alice/motions.json",
+  "skeletonMap": "public/avatars/alice/skeleton.mixamo.json",
+  "skeleton": {
+    "type": "humanoid",
+    "map": "public/avatars/alice/skeleton.mixamo.json"
+  },
+  "animations": {
+    "manifest": "public/avatars/alice/motions.json",
+    "standardSlots": true
+  },
+  "transform": {
+    "targetHeight": 120,
+    "position": { "x": 0, "y": 0, "z": 0 },
+    "rotation": { "x": 0, "y": 0, "z": 0 },
+    "scale": 1
+  },
+  "camera": {
+    "targetY": 90,
+    "minDistance": 100,
+    "maxDistance": 600
+  },
+  "hitRegions": {
+    "head": ["head", "neck"],
+    "arm": ["arm", "hand", "shoulder"],
+    "leg": ["leg", "foot", "toe"]
+  },
+  "interactions": {
+    "head": { "motionSlot": "headTap" },
+    "leg": { "motionSlot": "legTap" },
+    "arm": { "motionSlot": "armTap" },
+    "body": { "motionSlot": "bodyTap" },
+    "chat": { "motionSlot": "chat" }
+  },
+  "retargeting": {
+    "adapter": "mixamoHumanoidMap"
+  },
+  "voice": {
+    "defaultEngine": "browser"
+  },
+  "skins": [
+    {
+      "id": "festival",
+      "name": "帝皇帝皇 (祭典皮肤)",
+      "active": true
+    },
+    {
+      "id": "school",
+      "name": "校园休闲",
+      "active": false
+    },
+    {
+      "id": "tactical",
+      "name": "机能战衣",
+      "active": false
+    }
+  ]
+}

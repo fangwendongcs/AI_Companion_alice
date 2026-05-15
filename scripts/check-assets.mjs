@@ -4,12 +4,12 @@ const registry = await readJson('public/avatars/registry.json');
 const missing = [];
 
 for (const avatar of registry.avatars || []) {
-  const meta = await readJson(avatar.meta);
-  await assertLocalFile(meta.model?.url, `${avatar.id}.model`);
-  await assertLocalFile(meta.motionManifest || meta.animations?.manifest, `${avatar.id}.motions`);
-  await assertLocalFile(meta.skeletonMap || meta.skeleton?.map, `${avatar.id}.skeleton`);
+  const manifest = await readJson(avatar.manifest || avatar.meta);
+  await assertLocalFile(manifest.model?.url, `${avatar.id}.model`);
+  await assertLocalFile(manifest.motionManifest || manifest.animations?.manifest, `${avatar.id}.motions`);
+  await assertLocalFile(manifest.skeletonMap || manifest.skeleton?.map, `${avatar.id}.skeleton`);
 
-  const motionsPath = meta.motionManifest || meta.animations?.manifest;
+  const motionsPath = manifest.motionManifest || manifest.animations?.manifest;
   if (motionsPath && isLocalAsset(motionsPath)) {
     const motions = await readJson(motionsPath);
     for (const [slot, entry] of Object.entries(motions.slots || {})) {

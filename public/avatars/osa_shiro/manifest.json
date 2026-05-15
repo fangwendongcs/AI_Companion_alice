@@ -1,0 +1,66 @@
+{
+  "id": "osa_shiro",
+  "name": "Shiro（CC0 动漫风）",
+  "type": "humanoid-vrm",
+  "model": {
+    "url": "public/avatars/osa_shiro/model.vrm",
+    "format": "vrm"
+  },
+  "thumbnail": "",
+  "motionManifest": "public/avatars/osa_shiro/motions.json",
+  "skeletonMap": "public/avatars/osa_shiro/skeleton.mixamo.json",
+  "skeleton": {
+    "type": "humanoid",
+    "map": "public/avatars/osa_shiro/skeleton.mixamo.json"
+  },
+  "animations": {
+    "manifest": "public/avatars/osa_shiro/motions.json",
+    "standardSlots": true
+  },
+  "transform": {
+    "targetHeight": 128,
+    "position": { "x": 0, "y": 0, "z": 0 },
+    "rotation": { "x": 0, "y": 3.141592653589793, "z": 0 },
+    "scale": 1
+  },
+  "camera": {
+    "targetY": 92,
+    "minDistance": 100,
+    "maxDistance": 600
+  },
+  "hitRegions": {
+    "head": ["head", "neck", "headtop"],
+    "arm": ["arm", "hand", "shoulder", "forearm"],
+    "leg": ["leg", "foot", "toe", "upleg"]
+  },
+  "interactions": {
+    "head": { "motionSlot": "headTap" },
+    "leg": { "motionSlot": "legTap" },
+    "arm": { "motionSlot": "armTap" },
+    "body": { "motionSlot": "bodyTap" },
+    "chat": { "motionSlot": "chat" }
+  },
+  "retargeting": {
+    "adapter": "mixamoHumanoidMap"
+  },
+  "integrations": {
+    "llm": {
+      "provider": "openai",
+      "model": "gpt-4o-mini"
+    },
+    "tts": {
+      "engine": "browser"
+    }
+  },
+  "voice": {
+    "defaultEngine": "browser"
+  },
+  "license": {
+    "name": "CC0",
+    "source": "Open Source Avatars / 100Avatars",
+    "url": "https://github.com/ToxSam/open-source-avatars",
+    "originalTitle": "Shiro",
+    "author": "Polygonal Mind",
+    "modelSource": "https://arweave.net/7skrWhSd_4mrqe-tiqMfCL746xu8UWghRh1dZm7irzM"
+  }
+}

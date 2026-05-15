@@ -609,6 +609,58 @@ TTS 传输统一：
 - 把当前多轮改动按入口拆分、动画链路、目录治理、资源/TTS 统一 4 组写清楚。
 - 当前没有自动提交；如果后续需要拆提交，可按文档中的建议顺序执行。
 
+---
+
+日期：2026-05-15  
+目标：在不重复重做动画系统的前提下，完成角色配置主入口标准化。
+
+## 26. Avatar Manifest 标准化
+
+已确认：
+
+- 动画系统工程化已完成主体拆分，当前没有必要为了目录名再次重构。
+- 角色体系此前仍以 `meta.json` 为主，尚未达到“每个角色一个 `manifest.json`”的目标。
+
+本轮改动：
+
+- 为 `alice`、`osa_shiro`、`osa_wambo` 新增 `manifest.json`。
+- `registry.json` 新增 `manifest` 字段，同时保留旧 `meta` 字段。
+- `CharacterManager` 通过 `ResourceResolver.resolveAvatarManifestPath()` 优先读取 manifest。
+- 新增 `validateAvatarManifest()`，旧 `validateAvatarMeta()` 保持兼容转发。
+- `check-config`、`check-assets` 改为优先校验 manifest。
+- `AvatarService` 上传新角色时同时生成 `manifest.json` 与兼容副本 `meta.json`，并在返回 registry 前读取 manifest 补全角色名称。
+
+收益：
+
+- 新增角色时已经可以把模型、动作、骨骼、交互、声音统一放进单一 manifest。
+- 旧角色和旧上传流程仍然可用，没有引入破坏式迁移。
+- 后续若要逐步删除旧 `meta.json` 依赖，只需要继续缩小兼容层，不需要再改核心装载链路。
+
+---
+
+日期：2026-05-15  
+目标：把“对话 -> 语音 -> 动画”主链路从装配层直连，收口为事件驱动流程。
+
+## 27. Dialogue-Audio-Animation 联动
+
+新增：
+
+- `js/audio/AudioManager.js`
+
+调整：
+
+- `DialogueManager` 改为统一使用 `EVENT_NAMES`，并补齐 `dialogue:thinking` / `dialogue:response`。
+- `AppController` 通过事件监听更新 dialogue/audio 状态。
+- `audio:start` 触发 `speaking` 槽位，`audio:end` / `audio:error` 触发 `idle` 槽位。
+- `LLM` 错误进入 `handleAppError()`，继续保留可恢复的语音兜底文本。
+
+结果：
+
+- `DialogueManager` 不操作 DOM。
+- `AudioManager` 不操作 DOM。
+- 对话、语音、动画之间的协作点已经集中到 EventBus，而不是继续把状态跳转散落到聊天处理函数里。
+- 后续接 RAG、n8n、更多 TTS provider 时，可以继续挂在 `DialogueManager` / `AudioManager` 外围，不需要重写 UI。
+
 ## 15. 验证
 
 已运行：

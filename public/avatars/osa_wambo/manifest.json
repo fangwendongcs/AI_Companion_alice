@@ -1,0 +1,66 @@
+{
+  "id": "osa_wambo",
+  "name": "Wambo（CC0 风格化）",
+  "type": "humanoid-vrm",
+  "model": {
+    "url": "public/avatars/osa_wambo/model.vrm",
+    "format": "vrm"
+  },
+  "thumbnail": "",
+  "motionManifest": "public/avatars/osa_wambo/motions.json",
+  "skeletonMap": "public/avatars/osa_wambo/skeleton.mixamo.json",
+  "skeleton": {
+    "type": "humanoid",
+    "map": "public/avatars/osa_wambo/skeleton.mixamo.json"
+  },
+  "animations": {
+    "manifest": "public/avatars/osa_wambo/motions.json",
+    "standardSlots": true
+  },
+  "transform": {
+    "targetHeight": 132,
+    "position": { "x": 0, "y": 0, "z": 0 },
+    "rotation": { "x": 0, "y": 3.141592653589793, "z": 0 },
+    "scale": 1
+  },
+  "camera": {
+    "targetY": 92,
+    "minDistance": 100,
+    "maxDistance": 620
+  },
+  "hitRegions": {
+    "head": ["head", "neck", "headtop"],
+    "arm": ["arm", "hand", "shoulder", "forearm"],
+    "leg": ["leg", "foot", "toe", "upleg"]
+  },
+  "interactions": {
+    "head": { "motionSlot": "headTap" },
+    "leg": { "motionSlot": "legTap" },
+    "arm": { "motionSlot": "armTap" },
+    "body": { "motionSlot": "bodyTap" },
+    "chat": { "motionSlot": "chat" }
+  },
+  "retargeting": {
+    "adapter": "mixamoHumanoidMap"
+  },
+  "integrations": {
+    "llm": {
+      "provider": "openai",
+      "model": "gpt-4o-mini"
+    },
+    "tts": {
+      "engine": "browser"
+    }
+  },
+  "voice": {
+    "defaultEngine": "browser"
+  },
+  "license": {
+    "name": "CC0",
+    "source": "Open Source Avatars / 100Avatars",
+    "url": "https://github.com/ToxSam/open-source-avatars",
+    "originalTitle": "Wambo",
+    "author": "Polygonal Mind",
+    "modelSource": "https://arweave.net/Z3ixNUKHWV4ur7FBk5wAOYmQgAbsx0vnU0XlNEJgK90"
+  }
+}

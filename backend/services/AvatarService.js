@@ -18,7 +18,8 @@ export class AvatarService {
   }
 
   async getRegistry() {
-    return this.readJsonFile(avatarRegistryPath, { defaultAvatarId: 'alice', avatars: [] });
+    const registry = await this.readJsonFile(avatarRegistryPath, { defaultAvatarId: 'alice', avatars: [] });
+    return this.hydrateRegistry(registry);
   }
 
   async createAvatarFromForm(form) {
@@ -58,7 +59,7 @@ export class AvatarService {
     await writeFile(join(avatarDir, 'motions.json'), `${JSON.stringify(motions, null, 2)}\n`);
     await writeFile(join(avatarDir, 'skeleton.mixamo.json'), `${JSON.stringify(skeletonMap, null, 2)}\n`);
 
-    const meta = createAvatarMeta({
+    const manifest = createAvatarManifest({
       avatarId,
       avatarName,
       modelFileName,
@@ -67,11 +68,13 @@ export class AvatarService {
       llmModel: form.fields.llmModel,
       ttsEngine: form.fields.ttsEngine
     });
-    await writeFile(join(avatarDir, 'meta.json'), `${JSON.stringify(meta, null, 2)}\n`);
+    await writeFile(join(avatarDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
+    await writeFile(join(avatarDir, 'meta.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 
     const registry = await this.upsertRegistry({
       id: avatarId,
       name: avatarName,
+      manifest: `public/avatars/${avatarId}/manifest.json`,
       meta: `public/avatars/${avatarId}/meta.json`
     });
 
@@ -79,10 +82,11 @@ export class AvatarService {
       avatar: {
         id: avatarId,
         name: avatarName,
+        manifest: `public/avatars/${avatarId}/manifest.json`,
         meta: `public/avatars/${avatarId}/meta.json`,
-        model: meta.model,
-        motionManifest: meta.motionManifest,
-        skeletonMap: meta.skeletonMap
+        model: manifest.model,
+        motionManifest: manifest.motionManifest,
+        skeletonMap: manifest.skeletonMap
       },
       registry
     };
@@ -112,9 +116,27 @@ export class AvatarService {
       return fallback;
     }
   }
+
+  async hydrateRegistry(registry) {
+    const avatars = await Promise.all((registry.avatars || []).map(async (entry) => {
+      const manifestPath = entry.manifest || entry.meta || `public/avatars/${entry.id}/manifest.json`;
+      const manifest = await this.readJsonFile(join(rootDir, manifestPath), null);
+      return {
+        ...entry,
+        name: manifest?.name || entry.name || entry.id,
+        manifest: manifestPath,
+        meta: entry.meta || ''
+      };
+    }));
+
+    return {
+      ...registry,
+      avatars
+    };
+  }
 }
 
-function createAvatarMeta({
+function createAvatarManifest({
   avatarId,
   avatarName,
   modelFileName,

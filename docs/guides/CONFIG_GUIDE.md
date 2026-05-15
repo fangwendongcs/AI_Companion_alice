@@ -28,13 +28,14 @@ js/config/validateConfig.js
 
 ```text
 public/avatars/{avatarId}/
-  meta.json
+  manifest.json
+  meta.json              # 旧兼容文件，当前仍保留
   motions.json
   skeleton.mixamo.json
   model.vrm | model.glb | model.gltf
 ```
 
-`meta.json` 推荐字段：
+`manifest.json` 推荐字段：
 
 ```json
 {
@@ -56,7 +57,42 @@ public/avatars/{avatarId}/
 }
 ```
 
-旧字段 `motionManifest` 和 `skeletonMap` 暂时保留。
+当前规则：
+
+- `manifest.json` 是新角色配置主入口。
+- `meta.json` 仍保留为兼容文件，避免旧上传角色和旧链接立即失效。
+- `registry.json` 优先读取 `manifest` 字段，缺失时回退到旧 `meta` 字段。
+- 旧字段 `motionManifest` 和 `skeletonMap` 暂时保留，便于现有运行时代码平滑过渡。
+
+## 新增角色
+
+1. 新建 `public/avatars/{avatarId}/`
+2. 放入模型与资源文件。
+3. 新增 `manifest.json`，填写 `model`、`animations`、`skeleton`、`interactions`、`voice`。
+4. 在 `registry.json` 中新增：
+
+```json
+{
+  "id": "avatar_id",
+  "name": "Avatar Name",
+  "manifest": "public/avatars/avatar_id/manifest.json"
+}
+```
+
+如果需要兼容旧流程，也可以同时保留：
+
+```json
+{
+  "meta": "public/avatars/avatar_id/meta.json"
+}
+```
+
+新增角色后优先运行：
+
+```bash
+npm run check:config
+npm run check:assets
+```
 
 ## 检查命令
 

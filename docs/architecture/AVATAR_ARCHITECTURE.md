@@ -1,6 +1,6 @@
 # 可替换人物模型架构
 
-当前项目已经从“写死 Alice 模型”改为“通过角色注册表 + 角色 meta 配置加载”。旧交互方式保留：点击头部、腿部、手臂、身体仍然触发对应动作和台词。
+当前项目已经从“写死 Alice 模型”改为“通过角色注册表 + 角色 manifest 配置加载”。旧交互方式保留：点击头部、腿部、手臂、身体仍然触发对应动作和台词。
 
 ## 目录结构
 
@@ -9,17 +9,20 @@ public/
   avatars/
     registry.json
     alice/
+      manifest.json
       meta.json
       motions.json
       skeleton.mixamo.json
       model.vrm            # 新角色推荐放这里；Alice 当前复用 models/characters/avatar_v2.glb
     osa_shiro/
       model.vrm            # Open Source Avatars / 100Avatars, CC0
+      manifest.json
       meta.json
       motions.json
       skeleton.mixamo.json
     osa_wambo/
       model.vrm            # Open Source Avatars / 100Avatars, CC0
+      manifest.json
       meta.json
       motions.json
       skeleton.mixamo.json
@@ -137,7 +140,7 @@ idle, intro, headTap, legTap, speaking, listening
 
 1. 新建目录：`public/avatars/{avatarId}/`
 2. 放入模型：推荐 `model.vrm`，也支持 humanoid `model.glb` / `model.gltf`
-3. 写 `meta.json`：声明模型路径、缩放、位置、命中区域、动作配置路径
+3. 写 `manifest.json`：声明模型路径、缩放、位置、命中区域、动作配置路径
 4. 写 `motions.json`：把动作文件映射到标准槽位
 5. 如果动作来源骨骼和模型骨骼不同，写 `skeleton.mixamo.json`
 6. 在 `public/avatars/registry.json` 里追加：
@@ -146,9 +149,12 @@ idle, intro, headTap, legTap, speaking, listening
 {
   "id": "new_avatar",
   "name": "New Avatar",
+  "manifest": "public/avatars/new_avatar/manifest.json",
   "meta": "public/avatars/new_avatar/meta.json"
 }
 ```
+
+`manifest.json` 是新的主配置文件，`meta.json` 目前仅作为兼容旧角色和旧上传流程的保留字段。运行时优先读取 `manifest`，没有时才回退 `meta`。
 
 ## 前端上传角色
 
@@ -169,7 +175,7 @@ idle, intro, headTap, legTap, speaking, listening
 1. 保存模型到 `public/avatars/{avatarId}/model.*`
 2. 生成或保存 `motions.json`
 3. 生成或保存 `skeleton.mixamo.json`
-4. 生成 `meta.json`
+4. 生成 `manifest.json`，并同步保留一份 `meta.json` 兼容副本
 5. 更新 `public/avatars/registry.json`
 6. 前端刷新角色列表并切换到新角色
 
@@ -183,7 +189,7 @@ legTap -> models/animations/leg.fbx
 armTap -> models/animations/arm_stretch.fbx
 ```
 
-`meta.json` 会同时记录接口关联信息：
+`manifest.json` 会同时记录接口关联信息：
 
 ```json
 {

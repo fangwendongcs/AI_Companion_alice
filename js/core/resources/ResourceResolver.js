@@ -9,6 +9,14 @@ export class ResourceResolver {
     return this.normalizePublicPath(`public/avatars/${avatarId}/${filename}`);
   }
 
+  resolveAvatarManifestPath(avatarId, entry = {}) {
+    return this.normalizePublicPath(
+      entry.manifest ||
+      entry.meta ||
+      `public/avatars/${avatarId}/manifest.json`
+    );
+  }
+
   resolveAnimationPath(path) {
     return this.normalizePublicPath(path);
   }

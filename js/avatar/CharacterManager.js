@@ -1,6 +1,6 @@
 import { loadJson } from '../core/loadJson.js';
 import { AVATAR_REGISTRY_URL } from '../config/appConfig.js';
-import { validateAvatarMeta, validateAvatarRegistry } from '../config/validateConfig.js';
+import { validateAvatarManifest, validateAvatarRegistry } from '../config/validateConfig.js';
 import { ResourceResolver } from '../core/resources/ResourceResolver.js';
 import { AvatarLoader } from './AvatarLoader.js';
 
@@ -36,12 +36,12 @@ export class CharacterManager {
   async loadMeta(avatarId) {
     if (!this.registry) await this.loadRegistry();
     const entry = this.listAvatars().find((avatar) => avatar.id === avatarId);
-    const metaUrl = entry?.meta || `public/avatars/${avatarId}/meta.json`;
-    const meta = await loadJson(this.withCacheBuster(metaUrl));
-    const normalized = this.normalizeMeta(meta, entry);
-    const validation = validateAvatarMeta(normalized);
+    const manifestUrl = this.resourceResolver.resolveAvatarManifestPath(avatarId, entry);
+    const manifest = await loadJson(this.withCacheBuster(manifestUrl));
+    const normalized = this.normalizeMeta(manifest, entry);
+    const validation = validateAvatarManifest(normalized);
     if (!validation.ok) {
-      throw new Error(`Avatar meta 配置错误：${validation.errors.join('；')}`);
+      throw new Error(`Avatar manifest 配置错误：${validation.errors.join('；')}`);
     }
     return normalized;
   }

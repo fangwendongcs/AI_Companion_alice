@@ -1,3 +1,5 @@
+import { EVENT_NAMES } from '../core/events/eventNames.js';
+
 export class DialogueManager {
   constructor({ llmClient, eventBus = null, getConfig = null } = {}) {
     this.llmClient = llmClient;
@@ -10,17 +12,22 @@ export class DialogueManager {
     if (!text) return '';
 
     const resolvedConfig = config || this.getConfig?.() || {};
-    this.eventBus?.emit('dialogue:user', { text });
+    this.eventBus?.emit(EVENT_NAMES.DIALOGUE_USER, { text });
+    this.eventBus?.emit(EVENT_NAMES.DIALOGUE_THINKING, { active: true, text });
 
     try {
       const reply = await this.llmClient.chat(text, resolvedConfig);
-      this.eventBus?.emit('dialogue:assistant', { text: reply });
+      this.eventBus?.emit(EVENT_NAMES.DIALOGUE_ASSISTANT, { text: reply });
+      this.eventBus?.emit(EVENT_NAMES.DIALOGUE_RESPONSE, { text: reply });
       return reply;
     } catch (error) {
-      this.eventBus?.emit('dialogue:error', {
-        message: error?.message || 'Dialogue request failed'
+      this.eventBus?.emit(EVENT_NAMES.DIALOGUE_ERROR, {
+        message: error?.message || 'Dialogue request failed',
+        error
       });
       throw error;
+    } finally {
+      this.eventBus?.emit(EVENT_NAMES.DIALOGUE_THINKING, { active: false });
     }
   }
 }

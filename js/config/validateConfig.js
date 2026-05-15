@@ -27,7 +27,7 @@ export function validateAvatarRegistry(registry) {
   const ids = new Set();
   avatars.forEach((avatar, index) => {
     if (!avatar.id) errors.push(`avatars[${index}] 缺少 id。`);
-    if (!avatar.meta) errors.push(`avatars[${index}] 缺少 meta 路径。`);
+    if (!avatar.manifest && !avatar.meta) errors.push(`avatars[${index}] 缺少 manifest 或 meta 路径。`);
     if (ids.has(avatar.id)) errors.push(`重复 avatar id：${avatar.id}`);
     ids.add(avatar.id);
   });
@@ -39,23 +39,23 @@ export function validateAvatarRegistry(registry) {
   return toValidationResult(errors);
 }
 
-export function validateAvatarMeta(meta) {
+export function validateAvatarManifest(manifest) {
   const errors = [];
-  const id = meta?.id || '(unknown)';
-  if (!meta?.id) errors.push('avatar meta 缺少 id。');
-  if (!meta?.name) errors.push(`${id} 缺少 name。`);
-  if (!meta?.model?.url) errors.push(`${id} 缺少 model.url。`);
+  const id = manifest?.id || '(unknown)';
+  if (!manifest?.id) errors.push('avatar manifest 缺少 id。');
+  if (!manifest?.name) errors.push(`${id} 缺少 name。`);
+  if (!manifest?.model?.url) errors.push(`${id} 缺少 model.url。`);
 
-  const format = meta?.model?.format || String(meta?.model?.url || '').split('.').pop();
+  const format = manifest?.model?.format || String(manifest?.model?.url || '').split('.').pop();
   if (format && !VALID_MODEL_FORMATS.includes(String(format).toLowerCase())) {
     errors.push(`${id} model.format 无效：${format}`);
   }
 
-  if (!meta?.motionManifest && !meta?.animations?.manifest) {
+  if (!manifest?.motionManifest && !manifest?.animations?.manifest) {
     errors.push(`${id} 缺少 motionManifest 或 animations.manifest。`);
   }
 
-  const interactions = meta?.interactions || {};
+  const interactions = manifest?.interactions || {};
   ['head', 'body', 'arm', 'leg'].forEach((part) => {
     if (!interactions[part]?.motionSlot) {
       errors.push(`${id} interactions.${part}.motionSlot 缺失。`);
@@ -63,6 +63,10 @@ export function validateAvatarMeta(meta) {
   });
 
   return toValidationResult(errors);
+}
+
+export function validateAvatarMeta(meta) {
+  return validateAvatarManifest(meta);
 }
 
 function validateTimeout(name, value, errors) {
