@@ -8,6 +8,7 @@ node_modules/
 dist/
 build/
 .cache/
+coverage/
 
 # 环境变量
 .env
@@ -15,6 +16,7 @@ build/
 !.env.example
 
 # 日志与本地测试缓存
+logs/
 *.log
 .playwright-cli/
 
