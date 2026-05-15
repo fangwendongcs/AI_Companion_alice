@@ -1,12 +1,15 @@
 import { getTTSProvider } from './TTSProviderRegistry.js';
 import { createLogger } from '../core/logger.js';
+import { ERROR_CODES } from '../core/errors/errorCodes.js';
+import { ApiClient } from '../services/api/ApiClient.js';
 
 const log = createLogger('TTS');
 
 export class TTSService {
-  constructor(endpoint = '/api/tts', { timeoutMs = 45000 } = {}) {
+  constructor(endpoint = '/api/tts', { timeoutMs = 45000, apiClient = null } = {}) {
     this.endpoint = endpoint;
     this.timeoutMs = timeoutMs;
+    this.apiClient = apiClient || new ApiClient({ timeoutMs });
     this.currentAudio = null;
   }
 
@@ -43,28 +46,26 @@ export class TTSService {
       await this.speakWithBrowser(text, config);
       onEnd?.();
     } catch (error) {
-      log.error('语音合成失败:', error);
+      const normalizedError = isBackendEngine ? formatTTSTransportError(error) : error;
       if (isBackendEngine) {
-        onFallback?.(error);
+        log.info('后端语音不可用，切换到浏览器兜底:', normalizedError.message);
+        onFallback?.(normalizedError);
         await this.speakWithBrowser(text, config);
         onEnd?.();
         return;
       }
-      onError?.(error);
+      log.error('语音合成失败:', normalizedError);
+      onError?.(normalizedError);
     }
   }
 
   async speakWithBackend(text, config, provider = getTTSProvider(config.engine)) {
-    const response = await this.fetchWithTimeout(this.endpoint, {
+    const response = await this.apiClient.response(this.endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(provider.createPayload(text, config))
+      source: 'tts',
+      timeoutMs: this.timeoutMs,
+      body: provider.createPayload(text, config)
     });
-
-    if (!response.ok) {
-      const body = await response.text();
-      throw new Error(`TTS HTTP ${response.status}: ${body}`);
-    }
 
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
@@ -80,24 +81,6 @@ export class TTSService {
     } finally {
       URL.revokeObjectURL(url);
       this.currentAudio = null;
-    }
-  }
-
-  async fetchWithTimeout(url, options = {}) {
-    const controller = new AbortController();
-    const timeout = globalThis.setTimeout(() => controller.abort(), this.timeoutMs);
-    try {
-      return await fetch(url, {
-        ...options,
-        signal: controller.signal
-      });
-    } catch (error) {
-      if (error?.name === 'AbortError') {
-        throw new Error('TTS 请求超时，已准备切换到免费本机语音兜底。');
-      }
-      throw error;
-    } finally {
-      globalThis.clearTimeout(timeout);
     }
   }
 
@@ -151,4 +134,11 @@ export class TTSService {
       }
     });
   }
+}
+
+export function formatTTSTransportError(error) {
+  if (error?.code === ERROR_CODES.API_TIMEOUT) {
+    return new Error('TTS 请求超时，已准备切换到免费本机语音兜底。', { cause: error });
+  }
+  return error;
 }

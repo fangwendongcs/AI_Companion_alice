@@ -429,13 +429,13 @@ POST /api/workflows/n8n
 
 ### 本轮执行
 
-1. 写 `PROJECT_REVIEW_REPORT.md`
-2. 写 `ARCHITECTURE_REFACTOR_PLAN.md`
+1. 写 `docs/reports/PROJECT_REVIEW_REPORT.md`
+2. 写 `docs/refactor/ARCHITECTURE_REFACTOR_PLAN.md`
 3. 新增前端配置和状态/事件基座
 4. 修复错误渲染和上传校验
 5. 增加请求超时
 6. 增加 Dialogue/Memory/RAG/n8n 薄接口
-7. 写 `REFACTOR_NOTES.md`
+7. 写 `docs/refactor/REFACTOR_NOTES.md`
 8. 运行 `npm run check` 和服务健康检查
 
 ### 后续建议

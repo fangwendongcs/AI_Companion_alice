@@ -49,3 +49,15 @@ http://localhost:3000
 - 单次上传体积上限为 80MB
 
 如果后续部署公网，需要在该接口前增加鉴权、来源限制和更严格的文件扫描。
+
+## 部署安全
+
+当前服务默认面向本地开发，不建议直接暴露公网。部署前请先完成：
+
+- CORS 白名单
+- 接口鉴权
+- 上传限流和文件安全扫描
+- 日志脱敏
+- API Key 只保留在后端环境变量或密钥管理系统中
+
+详细清单见 [docs/security/DEPLOYMENT_SECURITY.md](../docs/security/DEPLOYMENT_SECURITY.md)。

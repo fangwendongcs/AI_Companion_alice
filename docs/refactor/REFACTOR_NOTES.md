@@ -7,9 +7,9 @@
 
 新增：
 
-- `PROJECT_REVIEW_REPORT.md`
-- `ARCHITECTURE_REFACTOR_PLAN.md`
-- `REFACTOR_NOTES.md`
+- `docs/reports/PROJECT_REVIEW_REPORT.md`
+- `docs/refactor/ARCHITECTURE_REFACTOR_PLAN.md`
+- `docs/refactor/REFACTOR_NOTES.md`
 
 这三份文档分别对应项目现状审查、目标架构方案、实际改动记录。
 
@@ -258,6 +258,357 @@
 - 当前首要目标是稳住已可运行的数字人链路，并建立可扩展基座。
 - 过早大拆会增加 Alice/Shiro/Wambo 动作和上传功能的回归风险。
 
+---
+
+日期：2026-05-14  
+目标：第二轮后续技术债收口，聚焦主流程拆分、后端服务层拆分、API 响应兼容和 DOM 生命周期管理。
+
+## 15. 前端主流程拆分
+
+新增：
+
+- `js/app/bootstrap.js`
+- `js/app/AppController.js`
+- `js/ui/UIController.js`
+- `js/ui/domRefs.js`
+- `js/ui/ErrorView.js`
+- `js/ui/StatusView.js`
+- `js/ui/ShellController.js`
+- `js/ui/SceneControlsController.js`
+- `js/ui/AvatarSelectorController.js`
+- `js/ui/LLMSettingsController.js`
+- `js/ui/TTSSettingsController.js`
+- `js/ui/InteractionPanelController.js`
+- `js/ui/DomEffectsController.js`
+
+修改：
+
+- `js/script.js`
+
+改动内容：
+
+- `script.js` 收口为入口文件，只调用 `bootstrap()`。
+- `AppController` 接管 Runtime、Manager、EventBus、StateStore、Dialogue/TTS 和 UI 的装配。
+- `UIController` 负责装配侧边栏、角色、TTS、LLM、交互、场景控制等子控制器。
+- DOM 查询集中到 `domRefs.js`，减少散落查询和重复绑定。
+
+影响范围：
+
+- 保留原页面加载、Alice/Shiro/Wambo 切换、点击交互、聊天输入和 TTS 试听主流程。
+- 以后新增 UI 面板时优先新增独立 UI Controller，不再继续膨胀入口文件。
+
+## 16. DOM 生命周期管理
+
+新增：
+
+- `js/core/lifecycle/DisposableRegistry.js`
+
+改动内容：
+
+- 支持统一记录 DOM listener、timeout、interval、AbortController 和自定义 dispose。
+- `AppController` 管理全局 resize、事件订阅和主流程延时。
+- `UIController` 与各子 UI Controller 使用 registry 管理 DOM listener。
+- `AppController.destroy()` 同时释放语音识别服务，避免 voice button 监听残留。
+
+影响范围：
+
+- 降低重复初始化造成事件重复触发的风险。
+- 页面卸载或后续组件化挂载时，有统一清理入口。
+
+## 17. API 响应兼容层
+
+修改：
+
+- `js/services/api/ApiClient.js`
+
+改动内容：
+
+- 新增 `normalizeApiResponse()`。
+- 兼容旧响应对象/数组、新响应 `{ ok: true, data }`、新错误 `{ ok: false, error }`。
+- `ApiClient` 统一把 `{ ok: false }` 转成 `AppError`。
+- 请求超时和外部 AbortSignal 统一收口到内部 AbortController。
+
+影响范围：
+
+- 当前旧接口无需立刻改响应格式。
+- 后续新接口可以逐步采用 `{ ok, data, error }`。
+
+## 18. JSON 与资源加载封装
+
+修改：
+
+- `js/core/loadJson.js`
+
+改动内容：
+
+- JSON 路径先经过 `ResourceResolver` 标准化。
+- JSON 加载失败会抛出 `AppError`，并通过 logger 输出来源和路径。
+
+影响范围：
+
+- 角色 registry、meta、motions、skeleton 等 JSON 加载错误更容易定位。
+- 不改变成功路径的数据结构。
+
+## 19. 后端 server 拆分
+
+新增：
+
+- `backend/config/serverConfig.js`
+- `backend/routes/healthRoutes.js`
+- `backend/routes/avatarRoutes.js`
+- `backend/routes/dialogueRoutes.js`
+- `backend/routes/ttsRoutes.js`
+- `backend/services/AvatarService.js`
+- `backend/services/UploadValidationService.js`
+- `backend/services/StaticAssetService.js`
+- `backend/utils/httpError.js`
+- `backend/utils/number.js`
+- `backend/utils/request.js`
+- `backend/utils/response.js`
+- `backend/utils/serverLogger.js`
+
+修改：
+
+- `backend/server.js`
+
+改动内容：
+
+- `server.js` 只负责 OPTIONS、路由分发、静态资源兜底、统一错误响应和启动服务。
+- Avatar registry / 上传落盘 / meta 生成迁移到 `AvatarService`。
+- `.vrm/.glb/.gltf` 上传内容校验迁移到 `UploadValidationService`。
+- LLM 与 TTS HTTP 处理拆到 routes。
+- 静态资源服务拆到 `StaticAssetService`。
+- 响应工具增加 `sendOk()` / `sendError()`，但当前旧接口仍保留旧返回结构。
+
+影响范围：
+
+- `/api/health`
+- `/api/avatars`
+- `/api/chat`
+- `/api/tts`
+- 静态资源服务
+
+注意：
+
+- 旧的 `backend/routes/apiRoutes.js`、`backend/controllers/userController.js`、`backend/models/userModel.js` 仍未接入主服务，本轮没有删除，避免误删不确定用途的 scaffold。
+- 当前后端仍是本地开发服务；公网部署前仍需鉴权、CORS 来源限制、上传扫描和限流。
+
+## 20. 文档更新
+
+修改：
+
+- `docs/architecture/ARCHITECTURE.md`
+- `docs/architecture/MODULE_BOUNDARIES.md`
+- `docs/api/API_CONTRACT.md`
+- `docs/guides/DEVELOPMENT_GUIDE.md`
+
+改动内容：
+
+- 记录 `script.js -> bootstrap -> AppController -> UIController` 的前端入口链路。
+- 记录 `backend/server.js -> routes/services/utils` 的后端结构。
+- 说明 API 合约处于兼容迁移期。
+- 说明 DOM listener 生命周期管理方式。
+- 标注下一轮继续拆动画系统时的建议入口。
+
+---
+
+日期：2026-05-14  
+目标：收口上一轮风险点，并启动下一轮动画请求链路优化。
+
+## 21. 风险内容处理
+
+修改：
+
+- `backend/routes/apiRoutes.js`
+- `backend/controllers/userController.js`
+- `backend/models/userModel.js`
+- `backend/config/dbConfig.js`
+- `backend/README.md`
+- `docs/security/DEPLOYMENT_SECURITY.md`
+
+改动内容：
+
+- 对旧 Express scaffold 文件增加 `TODO(legacy-scaffold)` 标记，明确它们没有挂载到当前 `backend/server.js`，新逻辑不要继续写入这些文件。
+- 新增部署安全清单，明确当前后端是本地开发服务，不应直接裸露公网。
+- 在后端 README 中补充 CORS 白名单、接口鉴权、上传限流、文件扫描、日志脱敏和 API Key 管理要求。
+
+影响范围：
+
+- 不改变运行时代码路径。
+- 降低后续误把旧 scaffold 当成主服务入口的风险。
+
+## 22. 动画请求链路优化
+
+新增：
+
+- `js/animation/MotionSlotRegistry.js`
+
+修改：
+
+- `js/animation/MotionManager.js`
+- `js/animation/AnimationController.js`
+- `js/interaction/InteractionManager.js`
+- `js/app/AppController.js`
+- `docs/architecture/ANIMATION_ARCHITECTURE.md`
+- `docs/architecture/MODULE_BOUNDARIES.md`
+- `docs/architecture/ARCHITECTURE.md`
+- `docs/guides/DEVELOPMENT_GUIDE.md`
+
+改动内容：
+
+- 将标准动作槽位、槽位默认参数、`motionSlot -> AvatarState` 映射、`motions.json` 解析逻辑从 `MotionManager` 拆到 `MotionSlotRegistry`。
+- `InteractionManager` 改为直接依赖轻量 `MotionSlotRegistry` 常量，不再为了拿 slot 常量而导入完整 `MotionManager`。
+- `AnimationController` 新增 `requestAction()`，作为动作进入状态机/队列/分层播放前的统一入口。
+- `MotionManager.requestSlot()` 改为请求标准 slot，而不是先把 slot 转成 state 再走 `setState()`。
+- `AppController.triggerReaction()` 改为调用 `motionManager.requestSlot()`，保留原有点击台词和 TTS 逻辑。
+- 如果动作被 cooldown/队列策略忽略，`AnimationController` 会回滚本次尝试进入的临时状态，避免内部状态卡住。
+- gesture slot 默认开启 `replacePending`，快速点击时会保留当前 active 动作和最新 pending 动作，避免播放一长串过期点击动作。
+
+当前主链路：
+
+```text
+InteractionManager
+  -> motionSlot
+  -> MotionManager.requestSlot()
+  -> MotionSlotRegistry
+  -> AnimationController.requestAction()
+  -> AnimationStateMachine
+  -> AnimationQueue
+  -> AnimationBlender
+  -> returnToIdle
+```
+
+影响范围：
+
+- 保留 Alice/Shiro/Wambo 的点击交互和动作 fallback。
+- 为后续新增动作槽位、角色动作差异配置、动作调试面板打基础。
+
+注意：
+
+- `AnimationStateMachine` 里仍保留旧状态到动作计划映射，兼容 `setAvatarState()` 的思考/说话/idle 等状态入口。
+- 下一轮可以继续把 `AnimationController` 的“加载 FBX”和“播放执行”再拆成更小运行时模块。
+
+---
+
+日期：2026-05-15  
+目标：治理项目根目录，收拢文档、归档历史资产，并保持运行时路径清晰。
+
+## 23. 项目文件结构治理
+
+新增：
+
+- `docs/architecture/`
+- `docs/api/`
+- `docs/guides/`
+- `docs/product/`
+- `docs/process/`
+- `docs/refactor/`
+- `docs/reports/`
+- `docs/security/`
+- `archive/README.md`
+- `archive/legacy-config/`
+- `archive/legacy-scripts/`
+- `archive/source-assets/`
+- `archive/unknown/`
+
+搬迁：
+
+- 根目录架构/审查文档迁入 `docs/architecture/`、`docs/refactor/`、`docs/reports/`
+- 原 `docs/` 一级文档按主题拆入 `architecture/api/guides/product/security`
+- `01文档/` 内容迁入 `docs/product/` 与 `docs/process/`
+- 旧 `config/` 迁入 `archive/legacy-config/runtime-config/`
+- 一次性脚本 `scripts/patch_loader_multiple_5.py` 迁入 `archive/legacy-scripts/`
+- 原始模型素材 `02模型/` 迁入 `archive/source-assets/models/02模型/`
+
+清理：
+
+- 移除被 Git 跟踪的 `.DS_Store`
+- `.gitignore` 改为忽略 `archive/source-assets/`，避免原始大素材重新进入待提交列表
+
+文档修复：
+
+- 重写 `docs/README.md` 为新的文档索引
+- 新增 `archive/README.md` 说明归档目录边界
+- 修复 `backend/README.md`、`docs/guides/DEVELOPMENT_GUIDE.md`、`docs/architecture/ARCHITECTURE.md` 的相对链接
+- 更新本文件与 `ARCHITECTURE_REFACTOR_PLAN.md` 中的文档路径引用
+
+结果：
+
+- 根目录只保留项目级文件、HTML 入口和目录。
+- 运行时代码路径未改动，归档内容不会被新代码直接引用。
+
+---
+
+日期：2026-05-15  
+目标：按“split app and server entry flows”清单补齐入口边界、资源加载与兼容层。
+
+## 24. 入口流拆分核对与补齐
+
+前端新增/调整：
+
+- `js/ui/SettingsController.js`
+- `js/ui/ChatPanelController.js`
+- 删除已被拆空的 `js/ui/ShellController.js`
+- `js/ui/UIController.js`
+
+结果：
+
+- `js/script.js` 继续只保留 `bootstrap()` 入口。
+- 侧边栏开关和聊天输入从原先混合 controller 拆成独立 controller。
+- DOM listener 继续统一由 `DisposableRegistry` 管理。
+
+资源加载新增/调整：
+
+- `js/core/resources/StaticAssetLoader.js`
+- `js/core/loadJson.js`
+- `js/services/api/ApiClient.js`
+- `js/avatar/AvatarLoader.js`
+- `js/animation/AnimationController.js`
+
+结果：
+
+- `loadJson()` 现在通过 `ResourceResolver + ApiClient + AppError + logger`。
+- JSON API 仍兼容旧格式、`{ ok: true, data }`、`{ ok: false, error }`。
+- 模型和动画静态资源通过 `StaticAssetLoader` 统一解析路径并包装加载错误。
+
+后端新增/调整：
+
+- `backend/middleware/corsMiddleware.js`
+- `backend/middleware/errorMiddleware.js`
+- `backend/routes/router.js`
+- `backend/server.js`
+
+结果：
+
+- `backend/server.js` 只负责创建 server、挂载顶层 middleware/router、启动监听。
+- 路由分发迁入 `routes/router.js`，CORS 与顶层错误处理迁入 middleware。
+
+---
+
+日期：2026-05-15  
+目标：处理上一轮总结中仍留着的注意事项。
+
+## 25. 风险项收口
+
+TTS 传输统一：
+
+- `js/voice/TTSService.js`
+- `js/services/api/ApiClient.js`
+
+改动内容：
+
+- 后端 TTS 请求不再裸用专用 `fetchWithTimeout()`。
+- 改为统一调用 `ApiClient.response()`，共享 timeout、HTTP error、`AppError` 模型。
+- 音频二进制播放仍保留 `Response -> Blob -> Audio`，不破坏试听链路。
+- 后端超时时继续转换成“已准备切换到免费本机语音兜底”的用户可读错误。
+- 后端 TTS 失败但可自动兜底时只记 info，不再把预期降级写成 console error。
+
+综合 diff 审查边界：
+
+- 新增 `docs/refactor/CHANGESET_BOUNDARIES.md`
+- 把当前多轮改动按入口拆分、动画链路、目录治理、资源/TTS 统一 4 组写清楚。
+- 当前没有自动提交；如果后续需要拆提交，可按文档中的建议顺序执行。
+
 ## 15. 验证
 
 已运行：
@@ -486,7 +837,7 @@ npm run check
 
 新增：
 
-- `ANIMATION_ARCHITECTURE.md`
+- `docs/architecture/ANIMATION_ARCHITECTURE.md`
 
 内容包括：
 
@@ -686,7 +1037,7 @@ npm run check
 
 保留：
 
-- `TTSService` 的音频请求仍保留专用 blob 流程。
+- `TTSService` 的后端请求已统一走 `ApiClient.response()`，音频播放阶段仍保留 `Response -> Blob -> Audio`。
 - `loadJson()` 仍作为静态 JSON 资源加载工具。
 
 ### 生命周期清理
@@ -738,13 +1089,13 @@ npm run check:assets
 
 新增：
 
-- `docs/ARCHITECTURE.md`
-- `docs/MODULE_BOUNDARIES.md`
-- `docs/EVENT_FLOW.md`
-- `docs/STATE_MODEL.md`
-- `docs/CONFIG_GUIDE.md`
-- `docs/API_CONTRACT.md`
-- `docs/DEVELOPMENT_GUIDE.md`
+- `docs/architecture/ARCHITECTURE.md`
+- `docs/architecture/MODULE_BOUNDARIES.md`
+- `docs/architecture/EVENT_FLOW.md`
+- `docs/architecture/STATE_MODEL.md`
+- `docs/guides/CONFIG_GUIDE.md`
+- `docs/api/API_CONTRACT.md`
+- `docs/guides/DEVELOPMENT_GUIDE.md`
 
 ### 暂未改动
 
@@ -752,4 +1103,4 @@ npm run check:assets
 - 没有一次性统一后端 API 响应格式，避免破坏现有前端调用。
 - 没有删除旧 backend scaffold 文件，不确定外部用途。
 - 没有实现复杂 RAG/n8n/长期记忆，只保留 client 和文档入口。
-- 没有改 TTS blob 请求为通用 JSON ApiClient，因为音频二进制链路需要保持稳定。
+- 没有把 TTS 音频内容强行改成 JSON 解析；当前只统一请求传输层，播放层继续保持二进制链路稳定。

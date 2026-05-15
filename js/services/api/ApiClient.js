@@ -32,18 +32,24 @@ export class ApiClient {
     timeoutMs = this.timeoutMs,
     parseAs = 'json',
     source = 'api',
-    signal = null
+    signal = null,
+    fetchOptions = {}
   } = {}) {
     const controller = new AbortController();
+    const forwardAbort = () => controller.abort();
+    if (signal) {
+      if (signal.aborted) controller.abort();
+      else signal.addEventListener('abort', forwardAbort, { once: true });
+    }
     const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
-    const requestSignal = signal || controller.signal;
 
     try {
       const response = await fetch(this.resolveUrl(path), {
+        ...fetchOptions,
         method,
         headers: this.buildHeaders(headers, body),
         body: this.serializeBody(body),
-        signal: requestSignal
+        signal: controller.signal
       });
 
       if (!response.ok) {
@@ -53,7 +59,7 @@ export class ApiClient {
       if (parseAs === 'response') return response;
       if (parseAs === 'text') return response.text();
       if (response.status === 204) return null;
-      return response.json();
+      return normalizeApiResponse(await response.json(), { source });
     } catch (error) {
       if (error?.name === 'AbortError') {
         throw new AppError({
@@ -73,6 +79,7 @@ export class ApiClient {
         cause: error
       });
     } finally {
+      if (signal) signal.removeEventListener('abort', forwardAbort);
       globalThis.clearTimeout(timeout);
     }
   }
@@ -111,7 +118,7 @@ export class ApiClient {
       parsed = null;
     }
 
-    const message = parsed?.error?.message || parsed?.error || raw || `HTTP ${response.status}`;
+    const message = parsed?.error?.message || parsed?.error || parsed?.message || raw || `HTTP ${response.status}`;
     return new AppError({
       code: parsed?.error?.code || ERROR_CODES.API_REQUEST_FAILED,
       message: `HTTP ${response.status}: ${message}`,
@@ -123,4 +130,24 @@ export class ApiClient {
       recoverable: response.status >= 500 || response.status === 408 || response.status === 429
     });
   }
+}
+
+export function normalizeApiResponse(payload, { source = 'api' } = {}) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return payload;
+
+  if (payload.ok === false) {
+    throw new AppError({
+      code: payload.error?.code || ERROR_CODES.API_REQUEST_FAILED,
+      message: payload.error?.message || payload.error || 'API 请求失败。',
+      source,
+      detail: payload,
+      recoverable: true
+    });
+  }
+
+  if (payload.ok === true && Object.prototype.hasOwnProperty.call(payload, 'data')) {
+    return payload.data;
+  }
+
+  return payload;
 }

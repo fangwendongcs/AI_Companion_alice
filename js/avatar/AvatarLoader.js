@@ -1,25 +1,23 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { StaticAssetLoader } from '../core/resources/StaticAssetLoader.js';
 
 export class AvatarLoader {
-  constructor(runtime) {
+  constructor(runtime, { staticAssetLoader = new StaticAssetLoader() } = {}) {
     this.runtime = runtime;
     this.loader = new GLTFLoader();
+    this.staticAssetLoader = staticAssetLoader;
   }
 
   async load(characterManifest, onProgress) {
     const modelUrl = this.getModelUrl(characterManifest);
-    const gltf = await new Promise((resolve, reject) => {
-      this.loader.load(
-        modelUrl,
-        resolve,
-        (xhr) => {
-          if (xhr.lengthComputable && xhr.total > 0) {
-            onProgress?.((xhr.loaded / xhr.total) * 100);
-          }
-        },
-        reject
-      );
+    const gltf = await this.staticAssetLoader.loadWith(this.loader, modelUrl, {
+      kind: 'avatar',
+      onProgress: (xhr) => {
+        if (xhr.lengthComputable && xhr.total > 0) {
+          onProgress?.((xhr.loaded / xhr.total) * 100);
+        }
+      }
     });
 
     const avatar = gltf.scene;

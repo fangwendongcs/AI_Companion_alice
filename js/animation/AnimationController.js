@@ -9,6 +9,7 @@ import { AnimationStateMachine, isTransientAnimationState } from './AnimationSta
 import { AnimationSource } from './animationTypes.js';
 import { AvatarState } from './states.js';
 import { createLogger } from '../core/logger.js';
+import { StaticAssetLoader } from '../core/resources/StaticAssetLoader.js';
 
 export { AvatarState };
 
@@ -17,6 +18,7 @@ const log = createLogger('AnimationController');
 export class AnimationController {
   constructor() {
     this.fbxLoader = new FBXLoader();
+    this.staticAssetLoader = new StaticAssetLoader();
     this.blender = new AnimationBlender();
     this.handleMixerFinished = (event) => this.handleActionFinished(event.action);
     this.onStateChange = null;
@@ -125,9 +127,7 @@ export class AnimationController {
   }
 
   async loadFBXClip(path) {
-    const fbx = await new Promise((resolve, reject) => {
-      this.fbxLoader.load(path, resolve, undefined, reject);
-    });
+    const fbx = await this.staticAssetLoader.loadWith(this.fbxLoader, path, { kind: 'animation' });
     if (!fbx.animations || fbx.animations.length === 0) {
       throw new Error(`FBX has no animations: ${path}`);
     }
@@ -180,16 +180,64 @@ export class AnimationController {
   executeStateAction(actionPlan, context = {}) {
     if (!actionPlan?.action) return;
 
-    if (actionPlan.mode === 'base') {
-      this.playBase(actionPlan.action);
-      return;
-    }
-
-    this.enqueueAction(actionPlan.action, {
+    this.requestAction(actionPlan.action, {
       layer: actionPlan.layer,
       state: context.state,
+      mode: actionPlan.mode,
+      transitionState: false,
       interrupt: actionPlan.mode === 'play'
     });
+  }
+
+  requestAction(name, options = {}) {
+    const meta = this.registry.getMeta(name);
+    if (!meta) return false;
+
+    const layerName = options.layer || meta.layer;
+    const mode = options.mode || (layerName === 'base' ? 'base' : 'enqueue');
+    const plannedState = options.state || null;
+    const previousState = this.currentState;
+    let transitioned = false;
+
+    if (plannedState && options.transitionState !== false) {
+      const result = this.stateMachine.transition(plannedState);
+      if (!result.ok) return false;
+
+      this.currentState = result.to;
+      transitioned = true;
+      const payload = {
+        ...result,
+        actionPlan: {
+          action: name,
+          layer: layerName,
+          mode
+        }
+      };
+      if (mode === 'base') this.onStateChange?.(payload);
+      else this.onStateRequest?.(payload);
+    }
+
+    if (mode === 'base') {
+      const played = this.playBase(name);
+      if (!played && transitioned) this.restoreState(previousState);
+      return played;
+    }
+
+    const accepted = this.enqueueAction(name, {
+      ...options,
+      layer: layerName,
+      state: plannedState,
+      priority: options.priority ?? meta.priority,
+      interrupt: options.interrupt ?? meta.interrupt,
+      returnToIdle: options.returnToIdle ?? meta.returnToIdle
+    });
+    if (!accepted && transitioned) this.restoreState(previousState);
+    return accepted;
+  }
+
+  restoreState(state) {
+    this.stateMachine.current = state;
+    this.currentState = state;
   }
 
   playBase(name) {
@@ -213,6 +261,8 @@ export class AnimationController {
       interrupt: options.interrupt ?? meta.interrupt,
       loop: meta.loop,
       cooldown: meta.cooldown,
+      returnToIdle: options.returnToIdle ?? meta.returnToIdle,
+      replacePending: options.replacePending ?? false,
       state: options.state || null
     });
 
@@ -295,7 +345,7 @@ export class AnimationController {
       return;
     }
 
-    if ((meta?.returnToIdle ?? true) && isTransientAnimationState(this.currentState)) {
+    if ((request.returnToIdle ?? meta?.returnToIdle ?? true) && isTransientAnimationState(this.currentState)) {
       this.requestState(AvatarState.IDLE);
       this.onStateComplete?.(AvatarState.IDLE);
     }

@@ -40,6 +40,7 @@ export class AnimationQueue {
       return { type: 'interrupt', request, interrupted };
     }
 
+    if (request.replacePending) layerQueue.items = [];
     this.enqueuePending(layerQueue, request);
     return { type: 'queued', request };
   }

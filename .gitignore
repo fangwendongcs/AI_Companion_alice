@@ -1,6 +1,5 @@
-# 你的大资源文件夹
-01文档/
-02模型/
+# 原始大资源归档
+archive/source-assets/
 
 # Node
 node_modules/

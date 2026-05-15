@@ -1,5 +1,5 @@
 import { INTERACTION_CONFIG } from '../config/appConfig.js';
-import { MotionSlot } from '../animation/MotionManager.js';
+import { MotionSlot } from '../animation/MotionSlotRegistry.js';
 import { HitTestController } from './HitTestController.js';
 
 const defaultInteractionSlots = {
