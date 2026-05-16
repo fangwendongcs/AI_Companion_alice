@@ -68,7 +68,6 @@ export class CharacterManager {
   }
 
   async switchCharacter(avatarId, onProgress) {
-    this.unloadCurrent();
     const meta = await this.loadManifest(avatarId);
     this.runtime.applyCameraConfig(meta.camera);
     const loaded = await this.avatarLoader.load(meta, onProgress);

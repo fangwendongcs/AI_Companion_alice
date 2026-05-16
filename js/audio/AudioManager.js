@@ -16,35 +16,35 @@ export class AudioManager {
       engine: config.engine
     });
 
-    await this.ttsService.speak(text, config, {
-      muted: false,
-      onStart: () => {
-        this.eventBus?.emit(EVENT_NAMES.AUDIO_START, {
-          engine: config.engine
-        });
-      },
-      onEnd: () => {
-        this.eventBus?.emit(EVENT_NAMES.AUDIO_END, {
-          engine: config.engine,
-          fallback: usedFallbackVoice
-        });
-      },
-      onFallback: (error) => {
-        usedFallbackVoice = true;
-        this.eventBus?.emit(EVENT_NAMES.AUDIO_FALLBACK, {
-          engine: config.engine,
-          message: error.message,
-          error
-        });
-      },
-      onError: (error) => {
-        this.eventBus?.emit(EVENT_NAMES.AUDIO_ERROR, {
-          engine: config.engine,
-          message: error.message,
-          error
-        });
-      }
-    });
+    try {
+      await this.ttsService.speak(text, config, {
+        muted: false,
+        onStart: () => {
+          this.eventBus?.emit(EVENT_NAMES.AUDIO_START, {
+            engine: config.engine
+          });
+        },
+        onEnd: () => {
+          this.eventBus?.emit(EVENT_NAMES.AUDIO_END, {
+            engine: config.engine,
+            fallback: usedFallbackVoice
+          });
+        },
+        onFallback: (error) => {
+          usedFallbackVoice = true;
+          this.eventBus?.emit(EVENT_NAMES.AUDIO_FALLBACK, {
+            engine: config.engine,
+            message: error.message,
+            error
+          });
+        },
+        onError: (error) => {
+          this.emitAudioError(config.engine, error);
+        }
+      });
+    } catch (error) {
+      this.emitAudioError(config.engine, error);
+    }
   }
 
   stop() {
@@ -53,5 +53,13 @@ export class AudioManager {
 
   destroy() {
     this.ttsService?.destroy?.();
+  }
+
+  emitAudioError(engine, error) {
+    this.eventBus?.emit(EVENT_NAMES.AUDIO_ERROR, {
+      engine,
+      message: error?.message || 'Audio playback failed',
+      error
+    });
   }
 }

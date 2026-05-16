@@ -30,6 +30,7 @@ export class AvatarSelectorController {
     this.registry.addEventListener(this.refs.avatarSelect, 'change', async (event) => {
       this.showLoading();
       await this.requestAvatarSwitch(event.target.value);
+      this.refs.avatarSelect.value = this.getState().currentAvatarId;
     });
     this.registry.addEventListener(this.refs.uploadAvatarBtn, 'click', () => this.handleUpload());
   }

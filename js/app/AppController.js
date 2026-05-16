@@ -43,6 +43,7 @@ export class AppController {
     this.llmConfig = this.store.loadLLMConfig();
     this.ttsConfig = this.store.loadTTSConfig();
     this.avatarSwitchChain = Promise.resolve();
+    this.avatarSwitchVersion = 0;
     this.destroyed = false;
 
     this.stateStore = new CompanionStateStore(this.createInitialState(), this.eventBus);
@@ -217,13 +218,9 @@ export class AppController {
       });
     }));
     this.registry.add(this.eventBus.on(EVENT_NAMES.AUDIO_END, () => {
-      this.resetSpeakingState();
-      this.motionManager.requestSlot(MotionSlot.IDLE, {
-        replacePending: false
-      });
+      this.resetSpeakingState(EVENT_NAMES.AUDIO_END);
     }));
     this.registry.add(this.eventBus.on(EVENT_NAMES.AUDIO_ERROR, ({ error }) => {
-      this.patchState({ isSpeaking: false }, EVENT_NAMES.AUDIO_ERROR);
       handleAppError(error || new Error('Audio playback failed'), {
         eventBus: this.eventBus,
         stateStore: this.stateStore,
@@ -231,10 +228,7 @@ export class AppController {
         code: error?.code || ERROR_CODES.API_REQUEST_FAILED,
         userMessage: error?.message || '音频播放失败。'
       });
-      this.resetSpeakingState();
-      this.motionManager.requestSlot(MotionSlot.IDLE, {
-        replacePending: false
-      });
+      this.resetSpeakingState(EVENT_NAMES.AUDIO_ERROR);
     }));
   }
 
@@ -301,7 +295,9 @@ export class AppController {
       layered.animation = {
         ...this.state.animation,
         state: patch.animationState ?? patch.currentState ?? this.state.animationState,
-        currentAnimation: patch.currentAnimation ?? this.state.currentAnimation,
+        currentAnimation: 'currentAnimation' in patch
+          ? patch.currentAnimation
+          : this.state.currentAnimation,
         isPlaying: patch.isAnimating ?? this.state.isAnimating
       };
     }
@@ -340,16 +336,25 @@ export class AppController {
   }
 
   async switchAvatar(avatarId) {
+    const switchVersion = ++this.avatarSwitchVersion;
+    const previousAvatar = this.characterManager.current;
     try {
       this.eventBus.emit(EVENT_NAMES.AVATAR_SWITCH_START, { avatarId });
-      this.patchState({ modelLoaded: false, systemError: null }, 'avatar:switch');
+      this.audioManager.stop();
+      this.resetSpeakingState('avatar:switch');
+      this.patchState({
+        modelLoaded: false,
+        systemError: null,
+        isAnimating: false,
+        currentAnimation: null
+      }, 'avatar:switch');
       this.refs.loaderProgress.style.width = '0%';
-      this.motionManager.unload();
 
       const result = await this.characterManager.switchCharacter(avatarId, (percent) => {
         this.refs.loaderProgress.style.width = `${percent}%`;
       });
 
+      this.motionManager.unload();
       this.patchState({
         currentAvatarId: result.id,
         characterMeta: result.meta,
@@ -367,13 +372,19 @@ export class AppController {
 
       this.setAvatarState(AvatarState.BOOT);
       this.registry.addTimeout(() => {
-        if (this.state.currentState === AvatarState.BOOT) this.setAvatarState(AvatarState.IDLE);
+        if (switchVersion === this.avatarSwitchVersion && this.state.currentState === AvatarState.BOOT) {
+          this.setAvatarState(AvatarState.IDLE);
+        }
       }, UI_TIMING.bootFallbackMs);
       this.ui.errorView.hideLoading({
         registry: this.registry,
         fadeDelayMs: UI_TIMING.loadingFadeDelayMs,
         fadeMs: UI_TIMING.loadingFadeMs,
-        onHidden: () => this.showDialogue('[SYSTEM] 模型装载完毕，交互系统已激活。')
+        onHidden: () => {
+          if (switchVersion === this.avatarSwitchVersion) {
+            this.showDialogue('[SYSTEM] 模型装载完毕，交互系统已激活。');
+          }
+        }
       });
       this.eventBus.emit(EVENT_NAMES.AVATAR_SWITCH_COMPLETE, {
         avatarId: result.id,
@@ -391,7 +402,25 @@ export class AppController {
         avatarId,
         message: appError.message
       });
-      this.characterManager.createFallback();
+      const retainedAvatar = this.characterManager.current || previousAvatar;
+      if (retainedAvatar) {
+        this.runtime.applyCameraConfig(retainedAvatar.meta?.camera);
+        this.patchState({
+          currentAvatarId: retainedAvatar.id,
+          characterMeta: retainedAvatar.meta,
+          modelLoaded: true,
+          isAnimating: false,
+          currentAnimation: null
+        }, 'avatar:switch:error');
+        this.interactionManager.setCharacter(retainedAvatar.meta);
+      } else {
+        this.patchState({
+          modelLoaded: false,
+          isAnimating: false,
+          currentAnimation: null
+        }, 'avatar:switch:error');
+        this.characterManager.createFallback();
+      }
       this.ui.errorView.showLoadingError(appError.message);
     }
   }
@@ -430,7 +459,12 @@ export class AppController {
       this.speakText(reply);
     } catch (error) {
       this.log.error('LLM 调用失败:', error);
-      this.speakText('抱歉，连接出现问题。请确认后端服务已启动，并配置了对应模型的 API Key。');
+      const fallbackReply = '抱歉，连接出现问题。请确认后端服务已启动，并配置了对应模型的 API Key。';
+      this.eventBus.emit(EVENT_NAMES.DIALOGUE_ASSISTANT, {
+        text: fallbackReply,
+        fallback: true
+      });
+      this.speakText(fallbackReply);
     } finally {
       this.refs.sendBtn.disabled = false;
     }
@@ -478,18 +512,23 @@ export class AppController {
     if (this.state.speechTimer) clearTimeout(this.state.speechTimer);
 
     const estimatedDuration = Math.max(UI_TIMING.speechMinMs, text.length * UI_TIMING.speechMsPerChar);
-    this.state.speechTimer = this.registry.addTimeout(() => this.resetSpeakingState(), estimatedDuration);
-    this.audioManager.speak(text, {
+    this.state.speechTimer = this.registry.addTimeout(() => this.resetSpeakingState('audio:timer'), estimatedDuration);
+    void this.audioManager.speak(text, {
       muted: this.state.isMuted
     });
   }
 
-  resetSpeakingState() {
+  resetSpeakingState(source = 'audio:reset') {
     if (this.state.speechTimer) {
       clearTimeout(this.state.speechTimer);
       this.state.speechTimer = null;
     }
-    this.patchState({ isSpeaking: false }, 'audio:reset');
+    this.patchState({ isSpeaking: false }, source);
+    if (this.state.currentState === AvatarState.SPEAKING) {
+      this.motionManager.requestSlot(MotionSlot.IDLE, {
+        replacePending: false
+      });
+    }
   }
 
   destroy() {

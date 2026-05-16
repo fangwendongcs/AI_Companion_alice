@@ -1358,3 +1358,33 @@ npm run check:assets
 - 没有删除旧 backend scaffold 文件，不确定外部用途。
 - 没有实现复杂 RAG/n8n/长期记忆，只保留 client 和文档入口。
 - 没有把 TTS 音频内容强行改成 JSON 解析；当前只统一请求传输层，播放层继续保持二进制链路稳定。
+
+## 33. Phase 2.1 Debug 状态面板
+
+- 新增 `js/ui/DebugPanelController.js`，以只读方式消费 `CompanionStateStore` 与 `EventBus`。
+- `APP_MODE=development` 时默认展示 Debug Panel；`?debug=1` 可强制显示，`?debug=0` 可强制隐藏。
+- 面板默认折叠，展示 app、avatar、animation、dialogue、audio、最近交互、最近错误与最近事件。
+- Debug Panel 统一通过 `textContent` 写入文本，不拼接外部 HTML，不接触 API Key 或敏感配置。
+- `UIController` 将其作为独立子控制器装配，监听器与动态 DOM 统一纳入现有 `DisposableRegistry` 生命周期。
+- 顺手修复分层动画状态在动作结束后无法把 `currentAnimation` 正确清空的问题，避免调试状态残留旧动作名。
+- 本轮没有修改动画核心、后端接口或业务主链路，只补充开发态可观察性。
+
+## 34. Phase 2.2 对话 / 语音 / 动作状态闭环
+
+- `AudioManager` 现在会兜住未预期的 `TTSService` 抛错，并统一收敛为 `audio:error` 事件，避免静默 promise rejection 让状态链路失联。
+- `AppController` 在 LLM 失败时会把本地兜底回复也写入 `dialogue:assistant`，让调试状态与用户实际听到的内容一致。
+- `speakText()` 明确将音频播放作为 fire-and-forget 异步任务，不再让未使用的 Promise 语义含糊。
+- `resetSpeakingState()` 现在在定时兜底触发时也会把动画状态收回 `idle`，修复 fallback 场景下 `isSpeaking=false` 但角色仍停留在 `speaking` 的状态分裂。
+- `DebugPanelController` 对错误对象会优先显示 `message`，避免面板出现 `[object Object]`。
+- 新增 `scripts/check-mvp-flow.mjs`，覆盖对话成功、对话失败、音频成功、静音、fallback、异常收口六条轻量主链路。
+- `npm run check` 已纳入 `check:mvp-flow`，后续改动会自动保护 `thinking -> speaking -> idle` 的事件基础。
+
+## 35. Phase 2.3 角色切换与上传稳定性
+
+- `CharacterManager.switchCharacter()` 不再在加载新角色前提前卸载当前角色；manifest 或模型加载失败时，已有可用角色会被保留。
+- `AppController` 在切换开始时停止旧音频，并用 `avatarSwitchVersion` 防止旧切换的延迟回调污染后续角色状态。
+- 切换失败时会恢复已保留角色的 `currentAvatarId / characterMeta / modelLoaded`，并让交互映射继续指向可用角色。
+- `AvatarSelectorController` 会在切换结束后用真实 `currentAvatarId` 回写下拉框，避免失败时 UI 停留在不可用目标。
+- Debug Panel 新增 `avatar.loading`，可以直接观察角色加载过程。
+- 新增 `scripts/check-avatar-flow.mjs`，覆盖 registry 主入口、manifest/id 一致性、关键资源存在性、动作能力和运行时路径约束。
+- `scripts/smoke-test.mjs` 新增非法上传回归：确认非 `.vrm/.glb/.gltf` 文件会被拒绝，且失败上传不会污染 registry。

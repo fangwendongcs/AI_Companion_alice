@@ -31,6 +31,8 @@ try {
     });
   }
 
+  await assertInvalidUploadRejected(avatarList);
+
   console.log('[smoke] ok');
 } catch (error) {
   console.error(`[smoke] failed: ${error.message}`);
@@ -58,4 +60,23 @@ function toPublicPath(path) {
 
 function hasMotionSupport(motions, slot) {
   return Boolean(motions.slots?.[slot] || motions.proceduralFallbacks?.[slot]);
+}
+
+async function assertInvalidUploadRejected(beforeAvatarList) {
+  const beforeIds = beforeAvatarList.map((avatar) => avatar.id).sort().join(',');
+  const formData = new FormData();
+  formData.append('avatarId', 'smoke_invalid_upload');
+  formData.append('name', 'Smoke Invalid Upload');
+  formData.append('model', new Blob(['not a model'], { type: 'text/plain' }), 'invalid.txt');
+
+  const response = await fetch(`${baseUrl}/api/avatars`, {
+    method: 'POST',
+    body: formData
+  });
+  if (response.ok) throw new Error('invalid avatar upload should be rejected');
+
+  const after = await getJson('/api/avatars');
+  const afterAvatarList = after.data?.avatars || after.avatars || [];
+  const afterIds = afterAvatarList.map((avatar) => avatar.id).sort().join(',');
+  if (afterIds !== beforeIds) throw new Error('invalid avatar upload polluted registry');
 }

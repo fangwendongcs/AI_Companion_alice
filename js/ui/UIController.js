@@ -2,6 +2,7 @@ import { DisposableRegistry } from '../core/lifecycle/DisposableRegistry.js';
 import { AvatarSelectorController } from './AvatarSelectorController.js';
 import { AudioStatusController } from './AudioStatusController.js';
 import { ChatPanelController } from './ChatPanelController.js';
+import { DebugPanelController } from './DebugPanelController.js';
 import { DomEffectsController } from './DomEffectsController.js';
 import { ErrorView } from './ErrorView.js';
 import { InteractionPanelController } from './InteractionPanelController.js';
@@ -49,6 +50,7 @@ export class UIController {
         setConfig: deps.setTTSConfig
       }),
       new InteractionPanelController({ ...deps, registry: this.registry }),
+      new DebugPanelController({ ...deps, registry: this.registry }),
       new DomEffectsController({ refs: this.refs, registry: this.registry })
     ];
   }

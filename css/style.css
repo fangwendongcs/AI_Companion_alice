@@ -140,6 +140,70 @@ body {
   border: 0;
 }
 
+.debug-panel {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 18;
+  width: min(320px, calc(100vw - 32px));
+  max-height: 50vh;
+  display: flex;
+  flex-direction: column;
+  color: var(--text);
+  background: rgba(8, 13, 18, 0.9);
+  border: 1px solid rgba(0, 229, 255, 0.25);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(14px);
+}
+
+.debug-panel.collapsed {
+  width: auto;
+}
+
+.debug-panel__header {
+  width: 100%;
+  border: none;
+  color: var(--accent);
+  background: rgba(0, 229, 255, 0.08);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0;
+  text-align: left;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.debug-panel__body {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  overflow: auto;
+}
+
+.debug-panel.collapsed .debug-panel__body {
+  display: none;
+}
+
+.debug-panel__row {
+  display: grid;
+  grid-template-columns: minmax(112px, 0.8fr) minmax(0, 1.2fr);
+  gap: 10px;
+  align-items: start;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.debug-panel__key {
+  color: rgba(255, 255, 255, 0.56);
+}
+
+.debug-panel__value {
+  min-width: 0;
+  color: rgba(255, 255, 255, 0.9);
+  overflow-wrap: anywhere;
+}
+
 .top-actions {
   display: flex;
   gap: 12px;
@@ -848,6 +912,12 @@ select.custom-input:hover {
 
 /* ===== 响应式适配 ===== */
 @media screen and (max-width: 768px) {
+  .debug-panel {
+    left: 12px;
+    bottom: 84px;
+    width: min(300px, calc(100vw - 24px));
+  }
+
   .side-panel {
     width: 100%;
     border-left: none;
@@ -898,6 +968,11 @@ select.custom-input:hover {
 }
 
 @media screen and (max-width: 480px) {
+  .debug-panel {
+    right: 12px;
+    width: auto;
+  }
+
   .brand-text {
     font-size: 15px;
   }

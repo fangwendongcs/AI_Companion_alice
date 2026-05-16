@@ -8,6 +8,13 @@ export const APP_MODE = hostname === 'localhost' || hostname === '127.0.0.1'
   ? 'development'
   : 'production';
 
+export function shouldShowDebugPanel(search = globalThis.location?.search || '') {
+  const debug = new URLSearchParams(search).get('debug');
+  if (debug === '0') return false;
+  if (debug === '1') return true;
+  return APP_MODE === 'development';
+}
+
 export const AVATAR_REGISTRY_URL = 'public/avatars/registry.json';
 
 export const ALLOWED_AVATAR_MODEL_EXTENSIONS = ['vrm', 'glb', 'gltf'];
