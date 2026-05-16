@@ -24,6 +24,7 @@
 
 - [PRD.md](./product/PRD.md): 产品需求
 - [DESIGN.md](./product/DESIGN.md): 设计说明
+- [MVP_ACCEPTANCE.md](./product/MVP_ACCEPTANCE.md): 阶段 2 MVP 用户链路与验收标准
 - `产品需求文档.docx`
 - `思路和计划文档.docx`
 - `竞品与可行性分析报告.docx`
@@ -39,6 +40,8 @@
 ## Process And Security
 
 - [AGENTS.md](./process/AGENTS.md): Codex 协作约定
+- [CODEX_EXECUTION_STANDARD.md](./process/CODEX_EXECUTION_STANDARD.md): 每轮任务执行标准
+- [NEXT_PHASE_PLAN.md](./process/NEXT_PHASE_PLAN.md): 阶段 2 分期计划
 - [DEPLOYMENT_SECURITY.md](./security/DEPLOYMENT_SECURITY.md): 部署前安全清单
 
 ## Runtime Paths

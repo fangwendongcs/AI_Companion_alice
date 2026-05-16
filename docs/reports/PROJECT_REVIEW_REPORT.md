@@ -1,8 +1,41 @@
 # PROJECT REVIEW REPORT
 
 审查日期：2026-05-14  
+状态更新：2026-05-16  
 项目定位：从 3D 数字人 Demo 演进为 AI Digital Companion System  
-当前结论：项目已经完成了从“单一 Alice 模型”到“可配置角色注册表 + 动作槽位 + 后端 API 代理”的第一阶段升级，但主入口仍然偏重、状态/事件边界还不够清晰，后端上传和前端错误渲染存在需要优先收口的安全与维护风险。
+当前结论：阶段 1 的架构基座已经基本完成；项目已从“主入口偏重的 Demo”推进到“准备进入 MVP 交互闭环与稳定性验收”的状态。
+
+## 0. 2026-05-16 状态更新
+
+以下原始审查正文保留为 2026-05-14 的历史基线；若与本节冲突，以本节为准。
+
+| 原始问题 | 当前状态 |
+| --- | --- |
+| `script.js` 职责过重 | 已处理。当前只保留 `bootstrap()` 入口，主流程由 `AppController` 与 UI 子控制器承接。 |
+| `backend/server.js` 职责过重 | 已处理主体。当前已拆出 `routes / services / middleware / utils`，`server.js` 只保留顶层装配。 |
+| 错误页 `innerHTML` 风险 | 已处理。 |
+| 上传模型只看扩展名 | 已处理基础校验。 |
+| EventBus / StateStore 不成体系 | 已处理基座，后续重点转为 Debug Panel 与 MVP 状态可观测性。 |
+| 角色配置仍以 `meta.json` 为主 | 已处理。当前以 `manifest.json` 为主入口，`meta.json` 仅 legacy fallback。 |
+| 运行时资源仍在根目录 `models/` | 已处理。当前统一位于 `public/models/`。 |
+| RAG / 长期记忆 / n8n / Agent | 仍待后续阶段处理，当前仅保留边界和占位接口。 |
+| MVP 用户链路闭环 | 仍待阶段 2 完成。 |
+
+### 当前已具备的关键能力
+
+- `Alice / Shiro / Wambo` 三角色切换。
+- `manifest.json` 主入口与标准动作槽位。
+- 动画状态机、动作队列、procedural fallback。
+- `DialogueManager / AudioManager / EventBus / CompanionStateStore` 基座。
+- 本地 Node 后端代理与上传基础校验。
+- `npm run check`、`npm run check:regression`、`npm run smoke` 验收链路。
+
+### 当前更适合继续做的事
+
+- 做阶段 2 MVP 用户链路验收。
+- 补开发态 Debug Panel。
+- 强化真实交互链路的自动化回归。
+- 继续保持 RAG / n8n / Agent 在后端边界之外，不抢跑复杂能力。
 
 ## 1. 当前项目结构概览
 
@@ -65,12 +98,18 @@
 └── package.json
 ```
 
-`package.json` 当前只有两个脚本：
+`package.json` 当前脚本已经扩展为：
 
 ```json
 {
   "dev": "node backend/server.js",
-  "check": "node scripts/check-js.mjs"
+  "check": "npm run check:js && npm run check:config && npm run check:assets && npm run check:legacy-avatar && npm run check:regression",
+  "check:js": "node scripts/check-js.mjs",
+  "check:config": "node scripts/check-config.mjs",
+  "check:assets": "node scripts/check-assets.mjs",
+  "check:legacy-avatar": "node scripts/check-legacy-avatar-compat.mjs",
+  "check:regression": "node scripts/check-regression.mjs",
+  "smoke": "node scripts/smoke-test.mjs"
 }
 ```
 
@@ -82,7 +121,8 @@
 
 - `index.html`：承载 Canvas、底部输入栏、右侧控制面板、角色切换/上传、LLM/TTS 配置、快捷动作、记忆档案等 UI。
 - `css/style.css`：所有 UI 样式集中在一个文件，适合当前规模，但后续面板复杂度上升后会变重。
-- `js/script.js`：当前总装配入口。负责应用初始化、UI 绑定、角色加载、动作触发、语音播报、LLM 请求、上传角色、状态徽章、配置读写。职责偏多，是目前最大的耦合点。
+- `js/script.js`：当前只保留入口职责，调用 `bootstrap()`。
+- `js/app/bootstrap.js` 与 `AppController`：负责应用初始化、Manager 装配和主流程协调。
 
 ### 3D 与角色系统
 
@@ -113,7 +153,8 @@
 
 ### 后端
 
-- `backend/server.js`：一个原生 Node HTTP server，同时负责静态资源、`/api/chat`、`/api/tts`、`/api/avatars` 上传、角色 registry 更新。
+- `backend/server.js`：一个原生 Node HTTP server 的薄入口，只负责创建服务、挂载顶层 middleware/router 与启动监听。
+- `backend/routes/`、`services/`、`middleware/`、`utils/`：承接具体 HTTP、业务、错误和基础工具职责。
 - API Key 已迁移到后端环境变量，前端 UI 中的 key 输入框已禁用。
 - `backend/routes/apiRoutes.js`、`controllers/userController.js`、`models/userModel.js`、`config/dbConfig.js` 是旧 Express 风格占位文件，目前未被 `backend/server.js` 使用。
 
@@ -139,7 +180,7 @@
 风险：中低，过严校验可能拒绝少数非标准 glTF。  
 影响范围：`POST /api/avatars`。
 
-### P0/P1：主入口 `js/script.js` 职责过重
+### P0/P1：主入口 `js/script.js` 职责过重（已处理）
 
 `script.js` 同时负责：
 
@@ -245,7 +286,7 @@ LayeredAnimationMixer
 风险：低。  
 影响范围：运行时释放，不影响正常渲染。
 
-### P1：后端 `server.js` 职责过重
+### P1：后端 `server.js` 职责过重（已处理主体）
 
 当前一个文件同时管理：
 
@@ -275,7 +316,7 @@ backend/
 风险：中，暂不建议一次性大拆。  
 影响范围：后端接口。
 
-### P1/P2：LLM 对话还不是 DialogueManager
+### P1/P2：LLM 对话还不是 DialogueManager（已处理基座）
 
 位置：`js/script.js` 的 `handleChat()` 与 `js/ai/LLMClient.js`
 
@@ -297,7 +338,7 @@ user input
 风险：低，先做薄封装。  
 影响范围：聊天链路。
 
-### P2：RAG/长期记忆结构尚未建立
+### P2：RAG/长期记忆结构尚未建立（仍待后续阶段）
 
 当前只有 `LocalConfigStore.saveMemory()` 写入 `localStorage`，没有短期记忆、会话摘要、长期记忆、RAG client、n8n client。考虑项目现阶段，不建议立刻实现复杂 RAG，但需要预留目录和接口。
 
@@ -305,7 +346,7 @@ user input
 风险：低，但不要写大量假逻辑。  
 影响范围：未来对话系统。
 
-### P2：TTS 抽象已有 provider registry，但还缺 AudioManager 语义
+### P2：TTS 抽象已有 provider registry，但还缺 AudioManager 语义（已处理基座，仍待继续增强）
 
 `TTSService` 已能在 OpenAI/MiniMax 失败时回退浏览器语音，这是正确方向。但未来要支持：
 
@@ -318,7 +359,7 @@ user input
 
 建议后续把 `TTSService` 提升为 `AudioManager + TTSProvider` 架构，当前先保留 `TTSService`，补事件和超时即可。
 
-### P2：配置层分散
+### P2：配置层分散（已处理主体）
 
 配置现在分散在：
 
@@ -347,7 +388,7 @@ user input
 
 ### 多角色扩展风险
 
-当前已支持 registry/meta，但角色关联的默认 LLM/TTS/动作包尚未在前端充分消费。后续如果每个角色都有角色设定 prompt、声线、动作包、命中阈值、表情能力，需要扩展 manifest schema。
+当前已支持 manifest-first 角色加载，旧 `meta.json` 仅作为 legacy fallback；但角色关联的默认 LLM/TTS/动作包尚未在前端充分消费。后续如果每个角色都有角色设定 prompt、声线、动作包、命中阈值、表情能力，需要继续扩展 manifest schema。
 
 ### 动作系统扩展风险
 
@@ -426,7 +467,7 @@ backend/
 
 | 能力 | 当前状态 | 差距 |
 | --- | --- | --- |
-| 多人物模型 | 已有 registry/meta/上传 | schema 还不完整，缺少版本校验、角色能力声明 |
+| 多人物模型 | 已有 registry/manifest/上传 | schema 还不完整，缺少版本校验、角色能力声明 |
 | 多动作资源 | 已有 slots + fallback | 缺少独立 AnimationRegistry，动作能力报告不完整 |
 | 点击部位交互 | 已有 head/body/arm/leg | 缺少可配置阈值、冷却、防抖、Hotspot 扩展 |
 | 动作队列/优先级 | 已有 ActionQueue | 需要更明确的中断策略和调试可视化 |
@@ -458,7 +499,8 @@ backend/
 ```text
 js/
   app/
-    CompanionApp.js              # 中期再拆，当前先保留 script.js
+    bootstrap.js
+    AppController.js
   api/
     ApiClient.js
   core/
@@ -483,8 +525,11 @@ js/
     N8nClient.js
   voice/
 backend/
-  server.js                      # 当前保留
-  services/                      # 后续拆
+  server.js                      # 当前薄入口
+  routes/
+  services/
+  middleware/
+  utils/
 ```
 
 ## 9. 改动优先级

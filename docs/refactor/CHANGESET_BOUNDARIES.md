@@ -1,6 +1,12 @@
 # Changeset Boundaries
 
-当前工作区包含多轮连续重构，逻辑上可以拆成以下 4 组，便于审查和后续提交。
+本文件记录的是阶段 1 已完成的一组连续重构边界，便于回看审查逻辑和提交顺序；它不是当前工作区 diff 的实时描述。
+
+## 当前状态
+
+- 入口拆分、动画链路、目录治理、静态资源/TTS 统一都已经完成并进入主分支。
+- 当前阶段已经从“拆分综合 diff”切换到“阶段 2 MVP 闭环与稳定性验收”。
+- 如果需要判断当前真实状态，应优先阅读 `README.md`、`ARCHITECTURE.md`、`MVP_ACCEPTANCE.md` 和最新 `REFACTOR_NOTES.md`。
 
 ## 1. App / Backend Entry Split
 

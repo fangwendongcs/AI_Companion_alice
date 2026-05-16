@@ -3,6 +3,12 @@
 日期：2026-05-14  
 目标：在保留当前 Alice/Shiro/Wambo、点击交互、语音兜底、角色上传能力的基础上，补齐数字伙伴系统的架构基座。
 
+## 当前阶段状态
+
+- 阶段 1“架构基座搭建”已基本完成。
+- 当前项目重点转入阶段 2“MVP 交互闭环与稳定性验收”。
+- 下面较早的记录中仍会保留 `script.js`、`server.js`、`meta.json` 等历史表述；若与当前实现冲突，以最新阶段复核、架构文档和本文件后续更新为准。
+
 ## 1. 文档交付
 
 新增：
@@ -625,6 +631,34 @@ InteractionManager
 
 - 以后继续改 Agent、RAG、口型同步或更换角色时，先把已经稳定的主流程保护住。
 - 让“能跑”从人工记忆变成可重复的工程断言。
+
+---
+
+日期：2026-05-16  
+目标：进入阶段 2 前，补齐 MVP 目标、Codex 执行标准和下一阶段计划，并同步历史文档状态。
+
+## 32. 阶段 2 文档基线
+
+新增：
+
+- `docs/product/MVP_ACCEPTANCE.md`
+- `docs/process/CODEX_EXECUTION_STANDARD.md`
+- `docs/process/NEXT_PHASE_PLAN.md`
+
+同步：
+
+- `README.md`
+- `docs/README.md`
+- `docs/architecture/ARCHITECTURE.md`
+- `docs/reports/PROJECT_REVIEW_REPORT.md`
+- `docs/refactor/CHANGESET_BOUNDARIES.md`
+- `docs/refactor/REFACTOR_NOTES.md`
+
+结果：
+
+- 明确当前已完成阶段 1，下一步进入阶段 2“MVP 交互闭环与稳定性验收”。
+- 为阶段 2 写清楚用户链路、验收标准、执行规范、分期计划和不做事项。
+- 历史审查报告保留原始基线，同时新增“已处理 / 仍待处理”状态更新，避免后续被旧结论误导。
 
 前端新增/调整：
 
