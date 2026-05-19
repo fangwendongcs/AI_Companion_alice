@@ -1406,3 +1406,13 @@ npm run check:assets
 - 新增 `scripts/check-integration-boundaries.mjs`，并纳入 `npm run check`，用于保护前端 secret 边界、后端 dialogue service 边界和 `/api/dialogue` 文档合约。
 - `scripts/smoke-test.mjs` 新增 `/api/dialogue` smoke 验收，确认 boundary stub 稳定返回且 memory / rag / workflow 默认不启用。
 - 新增 `docs/architecture/DIALOGUE_BACKEND_BOUNDARY.md`，同步更新 API 文档、架构索引、MVP 验收与后端 README。
+
+## 38. Phase 2.6 `/api/dialogue` LLM-only 编排
+
+- 新增 `backend/services/LLMService.js`，抽出 `/api/chat` 原有 OpenAI-compatible provider 调用能力，避免 `/api/chat` 与 `/api/dialogue` 复制两套上游请求逻辑。
+- `/api/chat` 继续保留旧响应结构 `{ reply }`，但内部改为复用 `LLMService`。
+- `DialogueOrchestrationService` 现在支持真实 provider 的 `llm_only` 模式；Memory / RAG / Workflow 仍只返回 `disabled / not_configured`。
+- `/api/dialogue` 保留 `provider: "stub" | "local" | "boundary"` 的本地 `llm_stub` 路径，供无 API Key 的 smoke 和边界检查使用，不代表生产 LLM。
+- `scripts/smoke-test.mjs` 补充 `/api/dialogue` 的 stub 成功、optional context not_configured、空消息错误、unsupported provider 错误验收。
+- `scripts/check-integration-boundaries.mjs` 更新为检查 `LLMService`、`llm_only` 和 `llm_stub` 合约。
+- API 文档与 `DIALOGUE_BACKEND_BOUNDARY.md` 已更新：前端主链路尚未切换，真实 RAG / n8n / Memory 仍未接入。

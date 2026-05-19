@@ -57,15 +57,15 @@
 
 ### POST /api/dialogue
 
-未来统一对话编排入口。当前已实现为后端边界 stub，不会请求外部 RAG、n8n 或长期记忆服务。
+未来统一对话编排入口。当前已支持 LLM-only 编排，不会请求外部 RAG、n8n 或长期记忆服务。
 
 请求：
 
 ```json
 {
   "message": "hello",
-  "provider": "boundary",
-  "model": "boundary",
+  "provider": "openai",
+  "model": "gpt-4o-mini",
   "systemPrompt": "optional",
   "options": {
     "useMemory": false,
@@ -86,8 +86,7 @@
     "memory": {
       "used": false,
       "status": "disabled",
-      "summary": "",
-      "items": []
+      "context": []
     },
     "rag": {
       "used": false,
@@ -96,16 +95,57 @@
     },
     "workflow": {
       "used": false,
-      "status": "disabled"
+      "status": "disabled",
+      "result": null
     },
     "meta": {
-      "mode": "boundary_stub"
+      "mode": "llm_only",
+      "provider": "openai",
+      "model": "gpt-4o-mini"
     }
   }
 }
 ```
 
 如果 `options.useMemory / useRag / useWorkflow` 为 `true`，当前仍不会调用外部服务，只会返回 `not_configured` 状态。正式接入时应在后端 service 层实现，不改前端 secret 边界。
+
+无密钥 smoke 可使用 `provider: "stub"`，此时返回：
+
+```json
+{
+  "ok": true,
+  "data": {
+    "meta": {
+      "mode": "llm_stub",
+      "provider": "stub"
+    }
+  }
+}
+```
+
+空消息错误：
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "DIALOGUE_MESSAGE_REQUIRED",
+    "message": "Missing dialogue message."
+  }
+}
+```
+
+缺少真实 provider API Key 时：
+
+```json
+{
+  "ok": false,
+  "error": {
+    "code": "LLM_NOT_CONFIGURED",
+    "message": "Missing API key..."
+  }
+}
+```
 
 ### POST /api/tts
 

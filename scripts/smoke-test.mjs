@@ -96,9 +96,9 @@ async function assertInvalidUploadRejected(beforeAvatarList) {
 
 async function assertDialogueBoundary() {
   const payload = await postJson('/api/dialogue', {
-    message: 'smoke boundary check',
-    provider: 'boundary',
-    model: 'boundary',
+    message: 'smoke llm-only stub check',
+    provider: 'stub',
+    model: 'stub',
     options: {
       useMemory: false,
       useRag: false,
@@ -108,8 +108,49 @@ async function assertDialogueBoundary() {
   const data = payload.data || payload;
   if (payload.ok !== true) throw new Error('/api/dialogue did not return ok=true');
   if (!data.reply) throw new Error('/api/dialogue missing reply');
-  if (data.meta?.mode !== 'boundary_stub') throw new Error('/api/dialogue did not return boundary_stub mode');
+  if (data.meta?.mode !== 'llm_stub') throw new Error('/api/dialogue did not return llm_stub mode');
   if (data.memory?.used !== false || data.rag?.used !== false || data.workflow?.used !== false) {
     throw new Error('/api/dialogue should keep memory/rag/workflow disabled in smoke');
+  }
+
+  const optionalPayload = await postJson('/api/dialogue', {
+    message: 'smoke optional contexts check',
+    provider: 'stub',
+    model: 'stub',
+    options: {
+      useMemory: true,
+      useRag: true,
+      useWorkflow: true
+    }
+  });
+  const optionalData = optionalPayload.data || optionalPayload;
+  if (optionalData.memory?.status !== 'not_configured') throw new Error('/api/dialogue memory should report not_configured');
+  if (optionalData.rag?.status !== 'not_configured') throw new Error('/api/dialogue rag should report not_configured');
+  if (optionalData.workflow?.status !== 'not_configured') throw new Error('/api/dialogue workflow should report not_configured');
+
+  await assertDialogueError('/api/dialogue', {
+    message: '',
+    provider: 'stub',
+    model: 'stub'
+  }, 'DIALOGUE_MESSAGE_REQUIRED');
+
+  await assertDialogueError('/api/dialogue', {
+    message: 'unsupported provider check',
+    provider: 'unsupported-provider',
+    model: 'stub'
+  }, 'LLM_PROVIDER_UNSUPPORTED');
+}
+
+async function assertDialogueError(path, body, expectedCode) {
+  const response = await fetch(`${baseUrl}${toPublicPath(path)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const payload = await response.json();
+  if (response.ok) throw new Error(`${path} should reject invalid dialogue request`);
+  if (payload.ok !== false) throw new Error(`${path} error should use ok=false`);
+  if (payload.error?.code !== expectedCode) {
+    throw new Error(`${path} expected ${expectedCode}, got ${payload.error?.code || 'missing code'}`);
   }
 }

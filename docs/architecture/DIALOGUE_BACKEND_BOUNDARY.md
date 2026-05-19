@@ -2,17 +2,17 @@
 
 ## 目标
 
-Phase 2.5 的目标不是实现真实 RAG、长期记忆、n8n 或 Agent，而是先固定一条清晰的后端边界：
+Phase 2.6 的目标是在 Phase 2.5 后端边界之上，让 `/api/dialogue` 具备真实 LLM-only 编排能力。真实 RAG、长期记忆、n8n 或 Agent 仍然不在本阶段实现。
 
 ```text
 Frontend DialogueManager
-  -> backend /api/chat          当前 MVP 对话入口
-  -> backend /api/dialogue      未来统一对话编排入口
+  -> backend /api/chat          当前 MVP 兼容入口
+  -> backend /api/dialogue      新统一对话编排入口
       -> DialogueOrchestrationService
         -> MemoryService
         -> RagService
         -> N8nWorkflowService
-        -> LLM provider service
+        -> LLMService
 ```
 
 前端只负责提交用户输入、可见 provider/model 选项和非密钥开关。RAG 检索、长期记忆、workflow secret、向量库凭据、prompt 编排都应该留在后端。
@@ -29,7 +29,7 @@ Frontend DialogueManager
 
 ### `/api/chat`
 
-当前 MVP 的真实对话入口。前端 `LLMClient` 继续调用该接口，后端读取环境变量并代理 OpenAI-compatible LLM 请求。
+当前 MVP 的兼容对话入口。前端 `LLMClient` 继续调用该接口，后端读取环境变量并代理 OpenAI-compatible LLM 请求。
 
 保持原则：
 
@@ -39,19 +39,20 @@ Frontend DialogueManager
 
 ### `/api/dialogue`
 
-未来统一对话编排入口。本轮已经新增稳定 stub，用于固定合约和 smoke 验收。
+未来统一对话编排入口。当前已经支持 LLM-only 编排，但前端主链路尚未切换。
 
 当前行为：
 
 - 返回 `{ ok: true, data }`。
-- `data.meta.mode = "boundary_stub"`。
+- 真实 provider 配置完整时，`data.meta.mode = "llm_only"`。
+- `provider = "stub" / "local" / "boundary"` 时，返回本地 `llm_stub`，只用于 smoke 和本地边界检查。
 - `memory.used = false`。
 - `rag.used = false`。
 - `workflow.used = false`。
 - 不连接 Qdrant。
 - 不请求 n8n webhook。
-- 不读取真实 secret。
-- 不产生外部网络请求。
+- 不读取 RAG / n8n / memory secret。
+- 只有真实 LLM provider 配置完整时才访问上游 LLM。
 
 未来接入时，优先在 `DialogueOrchestrationService` 内逐步接入真实服务，而不是把逻辑塞进 `AppController`、UI Controller 或前端 `DialogueManager`。
 
@@ -62,7 +63,14 @@ Frontend DialogueManager
 - 接收 `message / provider / model / systemPrompt / options`。
 - 编排 memory、RAG、workflow 与 LLM。
 - 返回统一响应：`reply / sources / memory / rag / workflow / meta`。
-- 当前阶段只返回 `boundary_stub`，不做外部调用。
+- 当前阶段支持 `llm_only`，但 Memory / RAG / Workflow 仍返回 `disabled / not_configured`。
+
+### `LLMService`
+
+- 复用 `/api/chat` 的 OpenAI-compatible provider 调用能力。
+- 从后端环境变量读取 API Key 和 Base URL。
+- 统一处理 unsupported provider、missing key、invalid key、upstream error 和 invalid response。
+- 不被前端直接调用。
 
 ### `MemoryService`
 
@@ -110,10 +118,10 @@ Frontend DialogueManager
 
 ## 后续接入顺序
 
-1. 保持 `/api/chat` MVP 链路稳定。
-2. 为 `/api/dialogue` 增加后端 PromptBuilder，不改前端 UI。
-3. 接入 MemoryService 的短期会话摘要。
-4. 接入 RagService 的只读检索，返回 `sources`。
-5. 接入 N8nWorkflowService 的受控 workflow。
-6. 将前端 `LLMClient` 从 `/api/chat` 迁移到 `/api/dialogue`。
+1. 保持 `/api/chat` 兼容入口稳定。
+2. 单独验收前端 `LLMClient` 从 `/api/chat` 迁移到 `/api/dialogue`。
+3. 为 `/api/dialogue` 增加后端 PromptBuilder，不改 UI Controller。
+4. 接入 MemoryService 的短期会话摘要。
+5. 接入 RagService 的只读检索，返回 `sources`。
+6. 接入 N8nWorkflowService 的受控 workflow。
 7. 增加鉴权、限流、审计日志和可观测性。

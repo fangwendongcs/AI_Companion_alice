@@ -25,15 +25,15 @@
 
 ### POST /api/dialogue
 
-未来统一对话编排入口，用于承载 Memory、RAG、n8n workflow 与 Agent orchestration。本阶段只建立后端边界，不接真实 RAG / n8n / 长期记忆，也不替换当前前端 `/api/chat` 主链路。
+未来统一对话编排入口，用于承载 Memory、RAG、n8n workflow 与 Agent orchestration。当前已支持 LLM-only 编排；Memory / RAG / Workflow 仍保持 disabled / not_configured，不接真实外部服务，也不替换当前前端 `/api/chat` 主链路。
 
 请求：
 
 ```json
 {
   "message": "你好",
-  "provider": "boundary",
-  "model": "boundary",
+  "provider": "openai",
+  "model": "gpt-4o-mini",
   "systemPrompt": "你是 Alice...",
   "options": {
     "useMemory": false,
@@ -43,19 +43,18 @@
 }
 ```
 
-当前响应：
+真实 provider 配置完整时响应：
 
 ```json
 {
   "ok": true,
   "data": {
-    "reply": "Dialogue backend boundary is ready. Real Memory, RAG, and workflow integrations are not configured in this phase.",
+    "reply": "你好呀！",
     "sources": [],
     "memory": {
       "used": false,
       "status": "disabled",
-      "summary": "",
-      "items": []
+      "context": []
     },
     "rag": {
       "used": false,
@@ -64,10 +63,13 @@
     },
     "workflow": {
       "used": false,
-      "status": "disabled"
+      "status": "disabled",
+      "result": null
     },
     "meta": {
-      "mode": "boundary_stub"
+      "mode": "llm_only",
+      "provider": "openai",
+      "model": "gpt-4o-mini"
     }
   }
 }
@@ -75,8 +77,10 @@
 
 说明：
 
-- `/api/dialogue` 当前是 `boundary_stub`，只用于固定后端扩展边界和自动化验收。
-- 真实 LLM 对话仍由 `/api/chat` 承载。
+- `/api/dialogue` 使用 `LLMService` 复用现有 OpenAI-compatible provider 能力。
+- 如果 provider 未配置或缺少 API Key，会返回 `{ "ok": false, "error": { "code": "LLM_NOT_CONFIGURED", "message": "..." } }`。
+- `provider` 为 `stub`、`local` 或 `boundary` 时，会返回本地 `llm_stub`，仅用于 smoke 和本地边界检查，不代表生产 LLM。
+- 当前前端真实聊天主链路仍由 `/api/chat` 承载。
 - 真实 RAG、n8n、长期记忆不得直接放到前端。
 
 ### POST /api/tts

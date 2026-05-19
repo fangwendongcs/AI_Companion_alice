@@ -94,6 +94,7 @@ async function checkFrontendIntegrationClients() {
 async function checkBackendDialogueBoundary() {
   const requiredFiles = [
     'backend/services/DialogueOrchestrationService.js',
+    'backend/services/LLMService.js',
     'backend/services/MemoryService.js',
     'backend/services/RagService.js',
     'backend/services/N8nWorkflowService.js'
@@ -112,7 +113,9 @@ async function checkBackendDialogueBoundary() {
   assert(dialogueRoutes.includes('handleDialogue'), 'dialogueRoutes 必须导出 handleDialogue。');
   assert(dialogueRoutes.includes('sendOk'), '/api/dialogue 必须使用兼容期新响应格式 { ok, data }。');
   assert(!/fetchWithTimeout/.test(orchestration), 'DialogueOrchestrationService 当前阶段不应产生外部网络请求。');
-  assert(orchestration.includes('boundary_stub'), 'DialogueOrchestrationService 必须明确标记当前是 boundary stub。');
+  assert(orchestration.includes('llmService'), 'DialogueOrchestrationService 必须通过 LLMService 复用 LLM provider 能力。');
+  assert(orchestration.includes('llm_only'), 'DialogueOrchestrationService 必须支持 llm_only 编排模式。');
+  assert(orchestration.includes('llm_stub'), 'DialogueOrchestrationService 必须保留本地 stub 以支持无密钥 smoke。');
 }
 
 async function checkDocsBoundary() {

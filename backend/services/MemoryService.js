@@ -3,8 +3,7 @@ export class MemoryService {
     return {
       used: false,
       status: enabled ? 'not_configured' : 'disabled',
-      summary: '',
-      items: []
+      context: []
     };
   }
 
