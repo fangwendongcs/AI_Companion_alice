@@ -185,4 +185,12 @@ export class DebugPanelController {
     if (!event) return '-';
     return `${event.name} @ ${this.formatTimestamp(event.at)}`;
   }
+
+  destroy() {
+    this.panel?.remove();
+    this.panel = null;
+    this.body = null;
+    this.toggleButton = null;
+    this.valueNodes.clear();
+  }
 }

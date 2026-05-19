@@ -28,7 +28,24 @@ http://localhost:3000
 npm run check
 npm run check:regression
 npm run smoke
+npm run check:browser-capability
 ```
+
+完整本地验收建议：
+
+```bash
+npm run check
+npm run dev
+npm run smoke
+```
+
+然后打开：
+
+```text
+http://localhost:3000?debug=1
+```
+
+按 [BROWSER_ACCEPTANCE_CHECKLIST.md](./docs/process/BROWSER_ACCEPTANCE_CHECKLIST.md) 完成浏览器手动验收。当前浏览器级快速连切、真实点击命中和控制台观察仍是手动验收项，不应宣称已经全自动覆盖。
 
 ## Main Directories
 
@@ -49,3 +66,4 @@ archive/  历史配置、旧脚本、原始素材归档
 - [MVP_ACCEPTANCE.md](./docs/product/MVP_ACCEPTANCE.md)
 - [CODEX_EXECUTION_STANDARD.md](./docs/process/CODEX_EXECUTION_STANDARD.md)
 - [NEXT_PHASE_PLAN.md](./docs/process/NEXT_PHASE_PLAN.md)
+- [BROWSER_ACCEPTANCE_CHECKLIST.md](./docs/process/BROWSER_ACCEPTANCE_CHECKLIST.md)

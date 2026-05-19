@@ -42,6 +42,7 @@
 - [AGENTS.md](./process/AGENTS.md): Codex 协作约定
 - [CODEX_EXECUTION_STANDARD.md](./process/CODEX_EXECUTION_STANDARD.md): 每轮任务执行标准
 - [NEXT_PHASE_PLAN.md](./process/NEXT_PHASE_PLAN.md): 阶段 2 分期计划
+- [BROWSER_ACCEPTANCE_CHECKLIST.md](./process/BROWSER_ACCEPTANCE_CHECKLIST.md): 浏览器手动验收清单与自动化覆盖矩阵
 - [DEPLOYMENT_SECURITY.md](./security/DEPLOYMENT_SECURITY.md): 部署前安全清单
 
 ## Runtime Paths

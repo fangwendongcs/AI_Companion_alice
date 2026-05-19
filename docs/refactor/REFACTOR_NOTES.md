@@ -1388,3 +1388,12 @@ npm run check:assets
 - Debug Panel 新增 `avatar.loading`，可以直接观察角色加载过程。
 - 新增 `scripts/check-avatar-flow.mjs`，覆盖 registry 主入口、manifest/id 一致性、关键资源存在性、动作能力和运行时路径约束。
 - `scripts/smoke-test.mjs` 新增非法上传回归：确认非 `.vrm/.glb/.gltf` 文件会被拒绝，且失败上传不会污染 registry。
+
+## 36. Phase 2.4 自动化回归补强与浏览器验收沉淀
+
+- 新增 `scripts/check-runtime-contracts.mjs`，覆盖事件名、EventBus、CompanionStateStore、Debug Panel 与 AppController 关键收口合约。
+- `npm run check` 已纳入 `check:runtime-contracts`，进一步保护 MVP 主链路的运行时边界。
+- 新增 `scripts/check-browser-capability.mjs`，只检测本地是否已有 Playwright，不联网安装，不纳入强制 check。
+- 新增 `docs/process/BROWSER_ACCEPTANCE_CHECKLIST.md`，沉淀角色连切、点击交互、对话/TTS fallback、非法上传和控制台检查的浏览器手动验收清单。
+- `README.md` 与 `docs/README.md` 已补充验收入口，明确浏览器级验收仍需手动执行。
+- `DebugPanelController` 增加 `destroy()`，与运行时生命周期合约保持一致。
