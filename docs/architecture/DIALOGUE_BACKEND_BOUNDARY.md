@@ -6,8 +6,8 @@ Phase 2.6 的目标是在 Phase 2.5 后端边界之上，让 `/api/dialogue` 具
 
 ```text
 Frontend DialogueManager
-  -> backend /api/chat          当前 MVP 兼容入口
-  -> backend /api/dialogue      新统一对话编排入口
+  -> backend /api/dialogue      当前前端主对话入口
+  -> backend /api/chat          旧兼容入口
       -> DialogueOrchestrationService
         -> MemoryService
         -> RagService
@@ -29,17 +29,17 @@ Frontend DialogueManager
 
 ### `/api/chat`
 
-当前 MVP 的兼容对话入口。前端 `LLMClient` 继续调用该接口，后端读取环境变量并代理 OpenAI-compatible LLM 请求。
+旧兼容对话入口。后端仍保留该接口，并继续复用 `LLMService` 返回旧格式 `{ reply }`。
 
 保持原则：
 
-- 不破坏现有对话主链路。
-- 不在本轮切换前端调用。
+- 不破坏旧调用方。
+- 不作为当前前端默认入口。
 - API Key 仍只从后端环境变量读取。
 
 ### `/api/dialogue`
 
-未来统一对话编排入口。当前已经支持 LLM-only 编排，但前端主链路尚未切换。
+统一对话编排入口。当前已经支持 LLM-only 编排，并已成为前端默认对话入口。
 
 当前行为：
 
@@ -119,7 +119,7 @@ Frontend DialogueManager
 ## 后续接入顺序
 
 1. 保持 `/api/chat` 兼容入口稳定。
-2. 单独验收前端 `LLMClient` 从 `/api/chat` 迁移到 `/api/dialogue`。
+2. 按浏览器验收清单验证 `/api/dialogue` 主链路的 thinking / speaking / idle。
 3. 为 `/api/dialogue` 增加后端 PromptBuilder，不改 UI Controller。
 4. 接入 MemoryService 的短期会话摘要。
 5. 接入 RagService 的只读检索，返回 `sources`。

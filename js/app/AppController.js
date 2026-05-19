@@ -29,7 +29,7 @@ export class AppController {
     this.eventBus = new EventBus();
     this.store = new LocalConfigStore();
     this.apiClient = new ApiClient({ timeoutMs: REQUEST_TIMEOUTS.ttsMs });
-    this.llmClient = new LLMClient('/api/chat', { timeoutMs: REQUEST_TIMEOUTS.llmMs });
+    this.llmClient = new LLMClient('/api/dialogue', { timeoutMs: REQUEST_TIMEOUTS.llmMs });
     this.ttsService = new TTSService('/api/tts', { timeoutMs: REQUEST_TIMEOUTS.ttsMs });
     this.audioManager = new AudioManager({
       ttsService: this.ttsService,

@@ -156,6 +156,7 @@ http://localhost:3000?debug=1
 操作步骤：
 
 - 输入一句测试文本，例如：`你好，做一次状态测试。`
+- 当前前端主链路会调用 `/api/dialogue`。
 - 如果后端没有配置真实 LLM/TTS key，允许进入错误与 fallback 链路。
 
 预期 Debug Panel：
@@ -177,6 +178,9 @@ http://localhost:3000?debug=1
 失败优先检查：
 
 - `js/dialogue/DialogueManager.js`
+- `js/ai/LLMClient.js`
+- `backend/routes/dialogueRoutes.js`
+- `backend/services/DialogueOrchestrationService.js`
 - `js/audio/AudioManager.js`
 - `js/voice/TTSService.js`
 - `js/app/AppController.js`

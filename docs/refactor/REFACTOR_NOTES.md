@@ -1416,3 +1416,11 @@ npm run check:assets
 - `scripts/smoke-test.mjs` 补充 `/api/dialogue` 的 stub 成功、optional context not_configured、空消息错误、unsupported provider 错误验收。
 - `scripts/check-integration-boundaries.mjs` 更新为检查 `LLMService`、`llm_only` 和 `llm_stub` 合约。
 - API 文档与 `DIALOGUE_BACKEND_BOUNDARY.md` 已更新：前端主链路尚未切换，真实 RAG / n8n / Memory 仍未接入。
+
+## 39. Phase 2.7 前端主链路切换到 `/api/dialogue`
+
+- `AppController` 的 `LLMClient` 默认 endpoint 从 `/api/chat` 切换为 `/api/dialogue`。
+- `LLMClient` 默认 endpoint 同步改为 `/api/dialogue`，但仍可显式传入 `/api/chat` 作为回退兼容。
+- `scripts/check-mvp-flow.mjs` 补充 LLMClient 对 `{ ok: true, data: { reply } }`、旧 `{ reply }`、`{ ok: false, error }` 的解析回归。
+- `scripts/check-runtime-contracts.mjs` 增加 AppController 默认调用 `/api/dialogue` 的静态合约。
+- 文档同步说明：前端主链路已切换，`/api/chat` 仍保留兼容，Memory / RAG / Workflow 仍未启用。

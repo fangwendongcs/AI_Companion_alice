@@ -35,7 +35,7 @@ http://localhost:3000
 ## 接口
 
 - `POST /api/chat`
-- `POST /api/dialogue`：未来统一对话编排入口，当前为 boundary stub
+- `POST /api/dialogue`：当前前端主对话入口，支持 LLM-only 编排；Memory / RAG / Workflow 仍未启用
 - `POST /api/tts`
 - `GET /api/avatars`
 - `POST /api/avatars`

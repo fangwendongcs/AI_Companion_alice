@@ -4,13 +4,14 @@ import { AppError } from '../core/errors/AppError.js';
 import { ApiClient } from '../services/api/ApiClient.js';
 
 export class LLMClient {
-  constructor(endpoint = '/api/chat', { timeoutMs = REQUEST_TIMEOUTS.llmMs, apiClient = null } = {}) {
+  constructor(endpoint = '/api/dialogue', { timeoutMs = REQUEST_TIMEOUTS.llmMs, apiClient = null } = {}) {
     this.endpoint = endpoint;
     this.timeoutMs = timeoutMs;
     this.apiClient = apiClient || new ApiClient({ timeoutMs });
   }
 
   async chat(userMessage, config, options = {}) {
+    const resolvedConfig = config || {};
     try {
       const data = await this.apiClient.json(this.endpoint, {
         method: 'POST',
@@ -18,12 +19,13 @@ export class LLMClient {
         source: 'dialogue',
         body: {
           message: userMessage,
-          provider: config.provider,
-          model: config.model,
-          systemPrompt: config.systemPrompt
+          provider: resolvedConfig.provider,
+          model: resolvedConfig.model,
+          systemPrompt: resolvedConfig.systemPrompt,
+          options: resolvedConfig.options
         }
       });
-      return data.reply?.trim() || '（Alice 陷入了沉默...）';
+      return extractReply(data);
     } catch (error) {
       if (error?.code === ERROR_CODES.API_TIMEOUT) {
         throw new AppError({
@@ -44,4 +46,10 @@ export class LLMClient {
     });
     return reply;
   }
+}
+
+function extractReply(data) {
+  if (typeof data === 'string') return data.trim() || '（Alice 陷入了沉默...）';
+  if (typeof data?.reply === 'string') return data.reply.trim() || '（Alice 陷入了沉默...）';
+  return '（Alice 陷入了沉默...）';
 }

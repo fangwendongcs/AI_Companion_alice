@@ -12,7 +12,7 @@
   -> 用户可切换 Shiro / Wambo
   -> 点击 head / body / arm / leg 触发交互反馈
   -> 用户输入一句话
-  -> 前端经后端 /api/chat 发起对话
+  -> 前端经后端 /api/dialogue 发起对话
   -> 数字人进入 thinking
   -> 回复返回后进入 speaking
   -> TTS 播放或回退到 browser 语音
@@ -27,7 +27,8 @@
 - 点击 head、arm、leg、body 可触发对应动作槽位或已定义 fallback。
 - 用户可输入文本并触发对话链路。
 - 输入提交后系统能进入 `thinking`，回复产生后进入 `speaking`。
-- 当前 MVP 对话主链路继续使用 `/api/chat`；`/api/dialogue` 只作为未来 RAG / Memory / n8n / Agent 后端边界 stub。
+- 当前 MVP 对话主链路使用 `/api/dialogue`；`/api/chat` 仍保留为兼容入口。
+- `/api/dialogue` 当前只启用 LLM-only 编排；Memory / RAG / Workflow 仍为 `disabled / not_configured`。
 - TTS 成功时可播放音频；后端 TTS 失败时会回退到浏览器语音。
 - 播放结束后系统回到 `idle`。
 - 失败场景有明确提示，不应卡死在 thinking / speaking。

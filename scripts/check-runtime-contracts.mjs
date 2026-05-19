@@ -169,6 +169,7 @@ async function checkAppControllerContract() {
   });
 
   assert(source.includes('resetSpeakingState'), 'AppController 必须保留 resetSpeakingState()。');
+  assert(source.includes("new LLMClient('/api/dialogue'"), 'AppController 前端主对话链路必须默认调用 /api/dialogue。');
   assert(
     /resetSpeakingState[\s\S]*MotionSlot\.IDLE/.test(source),
     'resetSpeakingState() 必须确保 speaking 结束后能请求 idle。'

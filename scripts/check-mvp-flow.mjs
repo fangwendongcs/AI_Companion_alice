@@ -2,11 +2,16 @@ import { AudioManager } from '../js/audio/AudioManager.js';
 import { DialogueManager } from '../js/dialogue/DialogueManager.js';
 import { EventBus } from '../js/core/EventBus.js';
 import { EVENT_NAMES } from '../js/core/events/eventNames.js';
+import { LLMClient } from '../js/ai/LLMClient.js';
+import { normalizeApiResponse } from '../js/services/api/ApiClient.js';
 
 const failures = [];
 
 await checkDialogueSuccessFlow();
 await checkDialogueErrorFlow();
+await checkLLMClientDialogueResponseFlow();
+await checkLLMClientLegacyResponseFlow();
+await checkLLMClientDialogueErrorFlow();
 await checkAudioSuccessFlow();
 await checkAudioMutedFlow();
 await checkAudioFallbackFlow();
@@ -80,6 +85,72 @@ async function checkDialogueErrorFlow() {
   ], 'DialogueManager 错误链路事件顺序异常。');
   assert(events[1]?.detail?.active === true, 'DialogueManager 错误链路必须先进入 thinking。');
   assert(events.at(-1)?.detail?.active === false, 'DialogueManager 错误链路必须退出 thinking。');
+}
+
+async function checkLLMClientDialogueResponseFlow() {
+  const client = new LLMClient('/api/dialogue', {
+    apiClient: createFakeApiClient({
+      ok: true,
+      data: {
+        reply: '统一入口回复',
+        meta: { mode: 'llm_stub' }
+      }
+    })
+  });
+
+  const reply = await client.chat('你好', {
+    provider: 'stub',
+    model: 'stub',
+    systemPrompt: ''
+  });
+  assert(reply === '统一入口回复', 'LLMClient 必须能解析 /api/dialogue 的 { ok, data.reply }。');
+}
+
+async function checkLLMClientLegacyResponseFlow() {
+  const client = new LLMClient('/api/chat', {
+    apiClient: createFakeApiClient({
+      reply: '旧入口回复'
+    })
+  });
+
+  const reply = await client.chat('你好', {
+    provider: 'stub',
+    model: 'stub',
+    systemPrompt: ''
+  });
+  assert(reply === '旧入口回复', 'LLMClient 必须继续兼容 /api/chat 的 { reply }。');
+}
+
+async function checkLLMClientDialogueErrorFlow() {
+  const client = new LLMClient('/api/dialogue', {
+    apiClient: createFakeApiClient({
+      ok: false,
+      error: {
+        code: 'LLM_NOT_CONFIGURED',
+        message: 'Missing API key.'
+      }
+    })
+  });
+
+  let error = null;
+  try {
+    await client.chat('你好', {
+      provider: 'openai',
+      model: 'gpt-4o-mini',
+      systemPrompt: ''
+    });
+  } catch (caught) {
+    error = caught;
+  }
+
+  assert(error?.code === 'LLM_NOT_CONFIGURED', 'LLMClient 必须把 { ok:false, error } 转成稳定错误。');
+  assert(error?.message === 'Missing API key.', 'LLMClient 错误消息不应变成 [object Object]。');
+}
+
+function createFakeApiClient(payload) {
+  return {
+    json: async (_endpoint, _options) => normalizeApiResponse(payload, { source: 'dialogue' })
+  };
 }
 
 async function checkAudioSuccessFlow() {

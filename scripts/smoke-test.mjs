@@ -7,6 +7,7 @@ try {
   if (health.ok !== true) throw new Error('/api/health did not return ok=true');
 
   await assertDialogueBoundary();
+  await assertChatLegacyEndpoint();
 
   const avatars = await getJson('/api/avatars');
   const avatarList = avatars.data?.avatars || avatars.avatars || [];
@@ -153,4 +154,19 @@ async function assertDialogueError(path, body, expectedCode) {
   if (payload.error?.code !== expectedCode) {
     throw new Error(`${path} expected ${expectedCode}, got ${payload.error?.code || 'missing code'}`);
   }
+}
+
+async function assertChatLegacyEndpoint() {
+  const response = await fetch(`${baseUrl}/api/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      message: 'legacy chat route check',
+      provider: 'unsupported-provider',
+      model: 'stub'
+    })
+  });
+  const payload = await response.json();
+  if (response.ok) throw new Error('/api/chat unsupported provider should be rejected');
+  if (!payload.error) throw new Error('/api/chat should keep legacy { error } response for failures');
 }
