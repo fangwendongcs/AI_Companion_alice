@@ -55,6 +55,58 @@
 { "reply": "..." }
 ```
 
+### POST /api/dialogue
+
+未来统一对话编排入口。当前已实现为后端边界 stub，不会请求外部 RAG、n8n 或长期记忆服务。
+
+请求：
+
+```json
+{
+  "message": "hello",
+  "provider": "boundary",
+  "model": "boundary",
+  "systemPrompt": "optional",
+  "options": {
+    "useMemory": false,
+    "useRag": false,
+    "useWorkflow": false
+  }
+}
+```
+
+当前成功返回：
+
+```json
+{
+  "ok": true,
+  "data": {
+    "reply": "...",
+    "sources": [],
+    "memory": {
+      "used": false,
+      "status": "disabled",
+      "summary": "",
+      "items": []
+    },
+    "rag": {
+      "used": false,
+      "status": "disabled",
+      "passages": []
+    },
+    "workflow": {
+      "used": false,
+      "status": "disabled"
+    },
+    "meta": {
+      "mode": "boundary_stub"
+    }
+  }
+}
+```
+
+如果 `options.useMemory / useRag / useWorkflow` 为 `true`，当前仍不会调用外部服务，只会返回 `not_configured` 状态。正式接入时应在后端 service 层实现，不改前端 secret 边界。
+
 ### POST /api/tts
 
 返回音频二进制。
@@ -100,6 +152,7 @@
 TODO：
 
 - 新接口优先使用 `{ ok, data, error }`。
+- `/api/dialogue` 已使用 `{ ok, data, error }`，可作为后续新接口样板。
 - 旧接口迁移时先确认前端调用方已经通过 `ApiClient` 访问。
 - `/api/avatars` 可在后续版本增加 `{ ok, data }` 包装，同时保留兼容读取逻辑。
 - 文件上传接口如果部署公网，需要增加鉴权、速率限制、大小限制策略和安全扫描。

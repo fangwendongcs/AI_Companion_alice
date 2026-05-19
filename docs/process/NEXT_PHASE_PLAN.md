@@ -179,20 +179,25 @@ npm run smoke
 **任务清单**
 
 - 明确未来 `/api/dialogue`、RAG、memory、workflow 的后端职责。
-- 评估 provider、prompt、retriever、memory 的边界。
-- 只做文档和接口设计，不急于实现复杂逻辑。
+- 建立 `DialogueOrchestrationService / MemoryService / RagService / N8nWorkflowService` 后端边界 stub。
+- 保持当前 MVP 前端继续使用 `/api/chat`，不抢跑真实 RAG / n8n。
+- 增加集成边界检查，防止前端直接处理 Qdrant、n8n webhook 或 API Key。
 
 **涉及文件**
 
 - `docs/architecture/`
 - `docs/refactor/`
-- 未来可能涉及 `backend/routes/`、`backend/services/`
+- `backend/routes/dialogueRoutes.js`
+- `backend/services/`
+- `scripts/check-integration-boundaries.mjs`
 
 **验收标准**
 
 - 能清楚回答未来 RAG / n8n 应接在哪里。
 - 当前 UI 不需要为了未来能力重写。
 - 前端不新增 secret 处理逻辑。
+- `/api/dialogue` 返回稳定 `{ ok, data }` boundary stub。
+- `npm run check` 与 `npm run smoke` 通过。
 
 **不做事项**
 

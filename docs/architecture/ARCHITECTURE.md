@@ -25,13 +25,14 @@ index.html
         -> InteractionManager / HitTestController
         -> TTSService / SpeechRecognitionService
         -> DialogueManager / LLMClient
+        -> RagClient / N8nClient (后端 API client，占位)
         -> EventBus
         -> CompanionStateStore
 
 backend/server.js
   -> middleware/*
   -> routes/*
-  -> services/*
+  -> services/* (Avatar / StaticAsset / DialogueOrchestration / Memory / Rag / N8nWorkflow)
   -> utils/*
   -> static files
 ```
@@ -43,6 +44,7 @@ backend/server.js
 - 模块间优先通过 EventBus、StateStore 或明确 Manager 接口协作。
 - API Key 只允许在后端环境变量中出现。
 - TTS 默认使用浏览器本机语音兜底，保证无 Key 时也有声音。
+- RAG、Memory、n8n 和 Agent 编排只允许进入后端边界，当前统一规划入口为 `POST /api/dialogue`。
 
 ## 当前关键目录
 
@@ -66,7 +68,7 @@ backend/
   config/         端口、上传限制、provider endpoint、MIME 等服务端配置
   middleware/     CORS 与顶层错误处理
   routes/         HTTP 输入输出：health、avatar、dialogue、tts
-  services/       角色注册表、上传校验、静态资源等业务逻辑
+  services/       角色注册表、上传校验、静态资源、对话编排边界等业务逻辑
   utils/          response、request、logger、http error 等基础工具
 ```
 
@@ -77,6 +79,7 @@ backend/
 - `UIController` 只协调 UI 子模块，不直接承担 Three.js 细节。
 - UI 子模块通过 Manager 接口、EventBus、StateStore 协作，DOM listener 统一交给 `DisposableRegistry` 清理。
 - `backend/server.js` 只负责创建服务、调用 middleware/router 和启动监听。
+- 当前 MVP 真实对话仍走 `/api/chat`；未来 RAG / Memory / n8n / Agent 统一进入 `/api/dialogue`，详见 [DIALOGUE_BACKEND_BOUNDARY.md](./DIALOGUE_BACKEND_BOUNDARY.md)。
 
 ## 后续演进方向
 

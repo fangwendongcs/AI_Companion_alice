@@ -1,5 +1,5 @@
 import { handleAvatarRegistry, handleAvatarUpload } from './avatarRoutes.js';
-import { handleChat } from './dialogueRoutes.js';
+import { handleChat, handleDialogue } from './dialogueRoutes.js';
 import { handleHealth } from './healthRoutes.js';
 import { handleTTS } from './ttsRoutes.js';
 import { serveStatic } from '../services/StaticAssetService.js';
@@ -15,6 +15,11 @@ export async function routeRequest(req, res) {
 
   if (url.pathname === '/api/chat' && req.method === 'POST') {
     await handleChat(req, res);
+    return;
+  }
+
+  if (url.pathname === '/api/dialogue' && req.method === 'POST') {
+    await handleDialogue(req, res);
     return;
   }
 

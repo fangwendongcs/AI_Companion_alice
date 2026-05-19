@@ -3,7 +3,7 @@ import { ApiClient } from '../services/api/ApiClient.js';
 
 export class RagClient {
   constructor({ endpoint = '', apiClient = new ApiClient({ timeoutMs: 30000 }) } = {}) {
-    this.endpoint = endpoint;
+    this.endpoint = normalizeBackendEndpoint(endpoint, 'RAG');
     this.apiClient = apiClient;
   }
 
@@ -28,4 +28,13 @@ export class RagClient {
     }
     return result?.data?.documents || result?.documents || [];
   }
+}
+
+function normalizeBackendEndpoint(endpoint, label) {
+  const value = String(endpoint || '').trim();
+  if (!value) return '';
+  if (!value.startsWith('/api/')) {
+    throw new Error(`${label} client must call a backend /api/ endpoint instead of a direct external service.`);
+  }
+  return value;
 }

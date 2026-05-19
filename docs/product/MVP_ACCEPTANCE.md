@@ -27,6 +27,7 @@
 - 点击 head、arm、leg、body 可触发对应动作槽位或已定义 fallback。
 - 用户可输入文本并触发对话链路。
 - 输入提交后系统能进入 `thinking`，回复产生后进入 `speaking`。
+- 当前 MVP 对话主链路继续使用 `/api/chat`；`/api/dialogue` 只作为未来 RAG / Memory / n8n / Agent 后端边界 stub。
 - TTS 成功时可播放音频；后端 TTS 失败时会回退到浏览器语音。
 - 播放结束后系统回到 `idle`。
 - 失败场景有明确提示，不应卡死在 thinking / speaking。

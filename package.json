@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node backend/server.js",
-    "check": "npm run check:js && npm run check:config && npm run check:assets && npm run check:legacy-avatar && npm run check:regression && npm run check:mvp-flow && npm run check:avatar-flow && npm run check:runtime-contracts",
+    "check": "npm run check:js && npm run check:config && npm run check:assets && npm run check:legacy-avatar && npm run check:regression && npm run check:mvp-flow && npm run check:avatar-flow && npm run check:runtime-contracts && npm run check:integration-boundaries",
     "check:js": "node scripts/check-js.mjs",
     "check:config": "node scripts/check-config.mjs",
     "check:assets": "node scripts/check-assets.mjs",
@@ -14,6 +14,7 @@
     "check:mvp-flow": "node scripts/check-mvp-flow.mjs",
     "check:avatar-flow": "node scripts/check-avatar-flow.mjs",
     "check:runtime-contracts": "node scripts/check-runtime-contracts.mjs",
+    "check:integration-boundaries": "node scripts/check-integration-boundaries.mjs",
     "check:browser-capability": "node scripts/check-browser-capability.mjs",
     "smoke": "node scripts/smoke-test.mjs"
   }

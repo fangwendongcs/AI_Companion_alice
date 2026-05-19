@@ -7,6 +7,7 @@ AI 数字伙伴 / 互动数字人项目。当前支持：
 - 点击部位交互
 - 浏览器语音兜底与后端 TTS 代理
 - 本地 Node 后端代理接口
+- `/api/dialogue` 后端编排边界 stub，用于未来 RAG / Memory / n8n / Agent 接入
 
 当前项目已完成“阶段 1：架构基座搭建”，下一阶段重点是“阶段 2：MVP 交互闭环与稳定性验收”，不是继续做大规模重构。
 
@@ -67,3 +68,4 @@ archive/  历史配置、旧脚本、原始素材归档
 - [CODEX_EXECUTION_STANDARD.md](./docs/process/CODEX_EXECUTION_STANDARD.md)
 - [NEXT_PHASE_PLAN.md](./docs/process/NEXT_PHASE_PLAN.md)
 - [BROWSER_ACCEPTANCE_CHECKLIST.md](./docs/process/BROWSER_ACCEPTANCE_CHECKLIST.md)
+- [DIALOGUE_BACKEND_BOUNDARY.md](./docs/architecture/DIALOGUE_BACKEND_BOUNDARY.md)

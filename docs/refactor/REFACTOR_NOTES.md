@@ -1397,3 +1397,12 @@ npm run check:assets
 - 新增 `docs/process/BROWSER_ACCEPTANCE_CHECKLIST.md`，沉淀角色连切、点击交互、对话/TTS fallback、非法上传和控制台检查的浏览器手动验收清单。
 - `README.md` 与 `docs/README.md` 已补充验收入口，明确浏览器级验收仍需手动执行。
 - `DebugPanelController` 增加 `destroy()`，与运行时生命周期合约保持一致。
+
+## 37. Phase 2.5 RAG / n8n / Agent 后端边界准备
+
+- 新增 `backend/services/DialogueOrchestrationService.js`、`MemoryService.js`、`RagService.js`、`N8nWorkflowService.js`，只建立后端 service 边界，不连接真实外部服务。
+- 新增 `POST /api/dialogue`，当前返回 `{ ok: true, data }` boundary stub；现有 MVP 主链路仍继续使用 `/api/chat`。
+- `RagClient` 与 `N8nClient` 收紧为只能调用本项目后端 `/api/` 路径，避免前端直接连接 Qdrant 或 n8n webhook。
+- 新增 `scripts/check-integration-boundaries.mjs`，并纳入 `npm run check`，用于保护前端 secret 边界、后端 dialogue service 边界和 `/api/dialogue` 文档合约。
+- `scripts/smoke-test.mjs` 新增 `/api/dialogue` smoke 验收，确认 boundary stub 稳定返回且 memory / rag / workflow 默认不启用。
+- 新增 `docs/architecture/DIALOGUE_BACKEND_BOUNDARY.md`，同步更新 API 文档、架构索引、MVP 验收与后端 README。

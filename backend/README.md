@@ -5,7 +5,7 @@
 ## 启动
 
 ```bash
-OPENAI_API_KEY=sk-... MINIMAX_API_KEY=... npm run dev
+OPENAI_API_KEY=replace_with_your_key MINIMAX_API_KEY=replace_with_your_key npm run dev
 ```
 
 默认地址：
@@ -35,6 +35,7 @@ http://localhost:3000
 ## 接口
 
 - `POST /api/chat`
+- `POST /api/dialogue`：未来统一对话编排入口，当前为 boundary stub
 - `POST /api/tts`
 - `GET /api/avatars`
 - `POST /api/avatars`

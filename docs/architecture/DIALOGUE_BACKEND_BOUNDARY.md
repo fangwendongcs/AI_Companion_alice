@@ -1,0 +1,119 @@
+# Dialogue Backend Boundary
+
+## 目标
+
+Phase 2.5 的目标不是实现真实 RAG、长期记忆、n8n 或 Agent，而是先固定一条清晰的后端边界：
+
+```text
+Frontend DialogueManager
+  -> backend /api/chat          当前 MVP 对话入口
+  -> backend /api/dialogue      未来统一对话编排入口
+      -> DialogueOrchestrationService
+        -> MemoryService
+        -> RagService
+        -> N8nWorkflowService
+        -> LLM provider service
+```
+
+前端只负责提交用户输入、可见 provider/model 选项和非密钥开关。RAG 检索、长期记忆、workflow secret、向量库凭据、prompt 编排都应该留在后端。
+
+## 为什么 RAG / Memory / n8n 不进入前端
+
+- 浏览器代码和 `public/` 资源天然可被用户查看，不能保存 API Key、n8n webhook secret、Qdrant credential 或私有文档。
+- RAG 需要文档上传、索引、检索、重排和权限控制，这些属于后端职责。
+- 长期记忆会涉及用户画像、会话摘要和隐私数据，不能写入公开静态资源。
+- n8n webhook 通常带有 secret 或内部工作流 URL，前端直连会泄露工作流入口。
+- Agent 编排需要日志、超时、重试、限流、鉴权和审计，应该在后端统一处理。
+
+## `/api/chat` 与 `/api/dialogue`
+
+### `/api/chat`
+
+当前 MVP 的真实对话入口。前端 `LLMClient` 继续调用该接口，后端读取环境变量并代理 OpenAI-compatible LLM 请求。
+
+保持原则：
+
+- 不破坏现有对话主链路。
+- 不在本轮切换前端调用。
+- API Key 仍只从后端环境变量读取。
+
+### `/api/dialogue`
+
+未来统一对话编排入口。本轮已经新增稳定 stub，用于固定合约和 smoke 验收。
+
+当前行为：
+
+- 返回 `{ ok: true, data }`。
+- `data.meta.mode = "boundary_stub"`。
+- `memory.used = false`。
+- `rag.used = false`。
+- `workflow.used = false`。
+- 不连接 Qdrant。
+- 不请求 n8n webhook。
+- 不读取真实 secret。
+- 不产生外部网络请求。
+
+未来接入时，优先在 `DialogueOrchestrationService` 内逐步接入真实服务，而不是把逻辑塞进 `AppController`、UI Controller 或前端 `DialogueManager`。
+
+## 后端 service 职责
+
+### `DialogueOrchestrationService`
+
+- 接收 `message / provider / model / systemPrompt / options`。
+- 编排 memory、RAG、workflow 与 LLM。
+- 返回统一响应：`reply / sources / memory / rag / workflow / meta`。
+- 当前阶段只返回 `boundary_stub`，不做外部调用。
+
+### `MemoryService`
+
+- 预留 `getContext()` 与 `appendEvent()`。
+- 当前返回空上下文和 `disabled / not_configured` 状态。
+- 未来可接入会话摘要、用户画像、长期记忆数据库。
+
+### `RagService`
+
+- 预留 `retrieve()`。
+- 当前返回空 `passages`。
+- 未来可接入 Qdrant、Supabase、Pinecone 或本地向量库。
+
+### `N8nWorkflowService`
+
+- 预留 `invokeWorkflow()`。
+- 当前返回 `disabled / not_configured` 状态。
+- 未来通过后端环境变量读取 n8n URL 和 secret。
+
+## 前端 client 边界
+
+- `js/memory/RagClient.js` 只允许调用本项目后端 `/api/` 路径。
+- `js/workflows/N8nClient.js` 只允许调用本项目后端 `/api/` 路径。
+- 前端不允许直接保存或拼接 Qdrant URL、n8n webhook URL、API Key、Bearer token。
+- `DialogueManager` 只维护用户输入和事件，不拼接复杂 RAG prompt。
+- `AppController` 不接触 RAG、workflow 或长期记忆实现细节。
+
+## 安全边界
+
+- API Key 只在后端环境变量。
+- n8n webhook secret 只在后端环境变量。
+- Qdrant credential 只在后端环境变量。
+- `.env.example` 只保留 placeholder。
+- 前端只发送非密钥选项，例如 provider、model、voice、text 和是否启用某能力。
+- 公网部署前必须为 `/api/dialogue`、上传接口、未来 workflow 接口增加鉴权、限流和日志脱敏。
+
+## 当前阶段不做
+
+- 不实现真实 RAG 检索。
+- 不实现长期记忆数据库。
+- 不接真实 n8n webhook。
+- 不新增向量数据库依赖。
+- 不新增 LLM provider。
+- 不把复杂 prompt 编排塞进前端。
+
+## 后续接入顺序
+
+1. 保持 `/api/chat` MVP 链路稳定。
+2. 为 `/api/dialogue` 增加后端 PromptBuilder，不改前端 UI。
+3. 接入 MemoryService 的短期会话摘要。
+4. 接入 RagService 的只读检索，返回 `sources`。
+5. 接入 N8nWorkflowService 的受控 workflow。
+6. 将前端 `LLMClient` 从 `/api/chat` 迁移到 `/api/dialogue`。
+7. 增加鉴权、限流、审计日志和可观测性。

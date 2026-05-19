@@ -6,6 +6,8 @@ try {
   const health = await getJson('/api/health');
   if (health.ok !== true) throw new Error('/api/health did not return ok=true');
 
+  await assertDialogueBoundary();
+
   const avatars = await getJson('/api/avatars');
   const avatarList = avatars.data?.avatars || avatars.avatars || [];
   const ids = new Set(avatarList.map((avatar) => avatar.id));
@@ -46,6 +48,17 @@ async function getJson(path) {
   return response.json();
 }
 
+async function postJson(path, body) {
+  const response = await fetch(`${baseUrl}${toPublicPath(path)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(`${path} HTTP ${response.status}`);
+  return payload;
+}
+
 async function assertReachable(path, label) {
   if (!path) throw new Error(`${label} missing path`);
   const response = await fetch(`${baseUrl}${toPublicPath(path)}`, { method: 'HEAD' });
@@ -79,4 +92,24 @@ async function assertInvalidUploadRejected(beforeAvatarList) {
   const afterAvatarList = after.data?.avatars || after.avatars || [];
   const afterIds = afterAvatarList.map((avatar) => avatar.id).sort().join(',');
   if (afterIds !== beforeIds) throw new Error('invalid avatar upload polluted registry');
+}
+
+async function assertDialogueBoundary() {
+  const payload = await postJson('/api/dialogue', {
+    message: 'smoke boundary check',
+    provider: 'boundary',
+    model: 'boundary',
+    options: {
+      useMemory: false,
+      useRag: false,
+      useWorkflow: false
+    }
+  });
+  const data = payload.data || payload;
+  if (payload.ok !== true) throw new Error('/api/dialogue did not return ok=true');
+  if (!data.reply) throw new Error('/api/dialogue missing reply');
+  if (data.meta?.mode !== 'boundary_stub') throw new Error('/api/dialogue did not return boundary_stub mode');
+  if (data.memory?.used !== false || data.rag?.used !== false || data.workflow?.used !== false) {
+    throw new Error('/api/dialogue should keep memory/rag/workflow disabled in smoke');
+  }
 }
