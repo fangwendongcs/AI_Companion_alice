@@ -18,6 +18,14 @@ export const providerBaseUrls = {
   custom: ''
 };
 
+export const providerDefaultModels = {
+  stub: 'stub',
+  openai: 'gpt-4o-mini',
+  qwen: 'qwen-plus',
+  deepseek: 'deepseek-chat',
+  custom: ''
+};
+
 export const providerKeyEnv = {
   openai: 'OPENAI_API_KEY',
   qwen: 'QWEN_API_KEY',

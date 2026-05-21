@@ -21,7 +21,7 @@ export class LLMService {
 
     if (!baseUrl) {
       throw createCodedHttpError(
-        `Missing base URL. Set ${providerBaseUrlEnv[normalizedProvider]} in the backend environment.`,
+        'Provider base URL is not configured in the backend environment.',
         400,
         'LLM_NOT_CONFIGURED'
       );
@@ -29,7 +29,7 @@ export class LLMService {
 
     if (!apiKey) {
       throw createCodedHttpError(
-        `Missing API key. Set ${providerKeyEnv[normalizedProvider] || 'LLM_API_KEY'} or LLM_API_KEY in the backend environment.`,
+        'Provider API key is not configured in the backend environment.',
         400,
         'LLM_NOT_CONFIGURED'
       );

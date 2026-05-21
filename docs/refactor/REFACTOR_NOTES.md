@@ -1447,3 +1447,12 @@ npm run check:assets
 - 新增 `docs/product/PHASE3_ACCEPTANCE.md`，定义真实 provider、Memory、RAG、n8n、Agent、安全、浏览器和自动化验收标准。
 - 同步更新 README、docs 索引、`NEXT_PHASE_PLAN.md`、`DIALOGUE_BACKEND_BOUNDARY.md` 和部署安全文档。
 - 本轮只做路线决策与文档规划，不接真实 Qdrant、n8n、Memory 数据库或新 provider，不修改业务代码。
+
+## 43. Phase 3.2 真实 Provider 配置与演示模式切换
+
+- 新增 `ProviderStatusService` 和 `GET /api/providers`，只返回 provider readiness、安全 mode、默认 model 和是否需要 Key，不返回真实 Key、secret、token 或上游地址。
+- LLM 设置面板会读取 `/api/providers`，区分 `stub` 本地演示、真实 provider 已配置和未配置状态。
+- `LLMService` 的未配置错误保持稳定错误码 `LLM_NOT_CONFIGURED`，同时避免在接口错误文案中暴露具体后端 env 名。
+- 新增 `scripts/check-provider-config.mjs` 并纳入 `npm run check`，保护默认 stub、provider readiness 合约和前端 secret 边界。
+- `smoke` 增加 `/api/providers` 验收，确认 stub 可用且 provider status 不泄露 secret-shaped 字段。
+- 本轮不接真实 RAG、n8n、Memory 数据库，不新增依赖，不修改角色、模型、动画或 TTS 主逻辑。

@@ -1,6 +1,7 @@
 import { handleAvatarRegistry, handleAvatarUpload } from './avatarRoutes.js';
 import { handleChat, handleDialogue } from './dialogueRoutes.js';
 import { handleHealth } from './healthRoutes.js';
+import { handleProviders } from './providerRoutes.js';
 import { handleTTS } from './ttsRoutes.js';
 import { serveStatic } from '../services/StaticAssetService.js';
 import { sendJson } from '../utils/response.js';
@@ -10,6 +11,11 @@ export async function routeRequest(req, res) {
 
   if (url.pathname === '/api/health') {
     handleHealth(req, res);
+    return;
+  }
+
+  if (url.pathname === '/api/providers' && req.method === 'GET') {
+    handleProviders(req, res);
     return;
   }
 

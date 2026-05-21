@@ -122,6 +122,7 @@ Phase 3 演进职责：
 
 - 保留 `stub` 默认演示模式。
 - 增加明确的“演示模式 / 真实模式”配置说明。
+- 增加 `GET /api/providers` readiness 诊断接口，只返回安全状态，不返回 Key 或上游地址。
 - 验证 OpenAI / Qwen / DeepSeek / Custom 的真实 provider 配置链路。
 - 真实 provider 失败时返回明确错误，不自动吞掉错误。
 
@@ -130,6 +131,7 @@ Phase 3 演进职责：
 - 在前端保存 API Key。
 - 新增没有验收价值的大量 provider。
 - 让真实 provider 失败时静默假装成功。
+ - 在 provider readiness 接口返回 secret、token 或真实上游地址。
 
 ## Memory 推荐演进
 

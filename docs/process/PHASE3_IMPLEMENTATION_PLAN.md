@@ -47,10 +47,13 @@ git diff --check
 - 保留 `stub` 默认演示模式。
 - 增加真实 provider 配置验收，让 OpenAI / Qwen / DeepSeek / Custom 能通过后端环境变量安全调用。
 - 明确“演示模式 / 真实模式”的 UI 和文档语义。
+- 增加安全 provider readiness 诊断，供前端设置面板和 smoke 使用。
 
 **修改范围**
 
 - `backend/services/LLMService.js`
+- `backend/services/ProviderStatusService.js`
+- `backend/routes/providerRoutes.js`
 - `backend/config/serverConfig.js`
 - `js/config/providers.js`
 - `js/ui/LLMSettingsController.js`
@@ -70,6 +73,7 @@ git diff --check
 - 默认 `stub` 不回归。
 - 无 Key 场景仍可本地演示。
 - 显式真实 provider 缺 key 时有稳定错误。
+- `GET /api/providers` 可用且不返回 secret。
 - 配置真实 key 的本地环境可手动验证真实 reply。
 
 **测试命令**

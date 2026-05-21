@@ -1,13 +1,15 @@
 export class LLMSettingsController {
-  constructor({ refs, registry, store, llmClient, getConfig, setConfig, readFormConfig, statusView }) {
+  constructor({ refs, registry, store, apiClient, llmClient, getConfig, setConfig, readFormConfig, statusView }) {
     this.refs = refs;
     this.registry = registry;
     this.store = store;
+    this.apiClient = apiClient;
     this.llmClient = llmClient;
     this.getConfig = getConfig;
     this.setConfig = setConfig;
     this.readFormConfig = readFormConfig;
     this.statusView = statusView;
+    this.providerStatus = new Map();
   }
 
   init() {
@@ -18,9 +20,12 @@ export class LLMSettingsController {
     this.refs.systemPromptInput.value = config.systemPrompt;
     this.applyProviderHint(config.provider);
     this.prepareKeyUI();
+    this.showProviderStatus(config.provider);
+    void this.loadProviderStatus(config.provider);
 
     this.registry.addEventListener(this.refs.llmProvider, 'change', (event) => {
       this.applyProviderHint(event.target.value);
+      this.showProviderStatus(event.target.value);
     });
 
     this.registry.addEventListener(this.refs.saveLLMConfigBtn, 'click', () => {
@@ -59,5 +64,46 @@ export class LLMSettingsController {
     this.refs.baseUrlInput.placeholder = provider === 'custom'
       ? '请在后端配置 CUSTOM_BASE_URL'
       : '请在后端配置对应 provider 的 *_BASE_URL';
+  }
+
+  async loadProviderStatus(provider) {
+    if (!this.apiClient) return;
+    try {
+      const status = await this.apiClient.json('/api/providers', {
+        source: 'providers',
+        timeoutMs: 6000
+      });
+      this.providerStatus = new Map((status?.llm || []).map((item) => [item.provider, item]));
+      this.showProviderStatus(provider || this.refs.llmProvider.value);
+    } catch (error) {
+      this.statusView.showLLM('error', `Provider 状态读取失败：${error.message.slice(0, 80)}`);
+    }
+  }
+
+  showProviderStatus(provider) {
+    const status = this.providerStatus.get(provider);
+    if (provider === 'stub') {
+      this.statusView.showLLM('success', '本地演示模式，无需 API Key。');
+      return;
+    }
+    if (!status) {
+      this.statusView.showLLM('loading', '真实 provider 需要在后端环境变量中配置 API Key。');
+      return;
+    }
+    if (status.configured) {
+      this.statusView.showLLM('success', '后端已配置该 provider，可尝试真实对话。');
+      return;
+    }
+    this.statusView.showLLM('error', this.formatMissingProviderMessage(status));
+  }
+
+  formatMissingProviderMessage(status) {
+    if (status.status === 'missing_base_url') {
+      return '后端未配置该 provider 的 Base URL，将返回配置错误。';
+    }
+    if (status.status === 'missing_key_and_base_url') {
+      return '后端未配置该 provider 的 API Key / Base URL，将返回配置错误。';
+    }
+    return '后端未配置该 provider 的 API Key，将返回配置错误。';
   }
 }

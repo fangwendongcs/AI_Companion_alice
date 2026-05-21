@@ -25,6 +25,14 @@ http://localhost:3000
 
 默认 LLM provider 是 `stub`，无需 API Key 也能跑通本地对话演示。切换到 OpenAI / Qwen / DeepSeek / Custom 时，仍需要在后端环境变量中配置对应 Key。
 
+真实 provider 准备状态可通过后端安全诊断接口查看：
+
+```text
+GET /api/providers
+```
+
+该接口只返回 `configured / mode / requiresKey / defaultModel` 等非敏感状态，不返回 API Key、token 或 secret。
+
 常用检查：
 
 ```bash

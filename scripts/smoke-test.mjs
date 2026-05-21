@@ -6,6 +6,7 @@ try {
   const health = await getJson('/api/health');
   if (health.ok !== true) throw new Error('/api/health did not return ok=true');
 
+  await assertProviderStatus();
   await assertDialogueBoundary();
   await assertChatLegacyEndpoint();
 
@@ -140,6 +141,31 @@ async function assertDialogueBoundary() {
     provider: 'unsupported-provider',
     model: 'stub'
   }, 'LLM_PROVIDER_UNSUPPORTED');
+}
+
+async function assertProviderStatus() {
+  const payload = await getJson('/api/providers');
+  if (payload.ok !== true) throw new Error('/api/providers did not return ok=true');
+  const providers = payload.data?.llm || [];
+  const stub = providers.find((item) => item.provider === 'stub');
+  if (!stub) throw new Error('/api/providers missing stub provider');
+  if (stub.configured !== true) throw new Error('/api/providers stub should be configured');
+  if (stub.requiresKey !== false) throw new Error('/api/providers stub should not require key');
+  if (stub.mode !== 'demo') throw new Error('/api/providers stub should use demo mode');
+
+  const openai = providers.find((item) => item.provider === 'openai');
+  if (!openai) throw new Error('/api/providers missing openai provider');
+  if (openai.requiresKey !== true || openai.mode !== 'real') {
+    throw new Error('/api/providers real providers should report real mode and requiresKey=true');
+  }
+
+  const serialized = JSON.stringify(payload);
+  if (/"(apiKey|secret|token|webhookUrl)"\s*:/i.test(serialized)) {
+    throw new Error('/api/providers must not expose secret-shaped fields');
+  }
+  if (/Bearer\s+/i.test(serialized)) {
+    throw new Error('/api/providers must not expose bearer credentials');
+  }
 }
 
 async function assertDialogueError(path, body, expectedCode) {

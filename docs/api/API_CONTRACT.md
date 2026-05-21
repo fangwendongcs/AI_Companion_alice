@@ -152,6 +152,43 @@
 
 返回音频二进制。
 
+### GET /api/providers
+
+安全 provider readiness 诊断接口。成功返回：
+
+```json
+{
+  "ok": true,
+  "data": {
+    "llm": [
+      {
+        "provider": "stub",
+        "configured": true,
+        "defaultModel": "stub",
+        "mode": "demo",
+        "requiresKey": false,
+        "status": "ready"
+      },
+      {
+        "provider": "openai",
+        "configured": false,
+        "defaultModel": "gpt-4o-mini",
+        "mode": "real",
+        "requiresKey": true,
+        "status": "missing_key"
+      }
+    ]
+  }
+}
+```
+
+合约要求：
+
+- 不返回真实 API Key、secret、token、Bearer 或 webhook。
+- 不返回 provider base URL 的真实值。
+- `stub.configured` 必须为 `true`。
+- 真实 provider 未配置时只返回稳定状态，不触发外部网络请求。
+
 ## 目标返回格式
 
 后续建议逐步迁移为：

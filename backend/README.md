@@ -14,6 +14,8 @@ npm run dev
 OPENAI_API_KEY=replace_with_your_key MINIMAX_API_KEY=replace_with_your_key npm run dev
 ```
 
+Provider 配置状态可通过 `GET /api/providers` 查看。该接口只返回安全状态，例如 provider 是否 configured、是否需要 Key、默认 model 和 demo/real mode，不返回任何真实 Key 或 secret。
+
 默认地址：
 
 ```text
@@ -42,6 +44,7 @@ http://localhost:3000
 
 - `POST /api/chat`
 - `POST /api/dialogue`：当前前端主对话入口，支持本地 `stub` 与 LLM-only 编排；Memory / RAG / Workflow 仍未启用
+- `GET /api/providers`：安全读取 LLM provider 配置状态，不返回 secret
 - `POST /api/tts`
 - `GET /api/avatars`
 - `POST /api/avatars`

@@ -113,6 +113,44 @@ TTS 代理接口，支持 `openai` 与 `minimax`，返回音频二进制。
 
 OpenAI 请求可额外传入 `instructions`，后端会使用 `gpt-4o-mini-tts` 作为默认模型。
 
+### GET /api/providers
+
+安全 provider 状态诊断接口，用于区分本地演示模式和真实 provider 配置状态。
+
+响应：
+
+```json
+{
+  "ok": true,
+  "data": {
+    "llm": [
+      {
+        "provider": "stub",
+        "configured": true,
+        "defaultModel": "stub",
+        "mode": "demo",
+        "requiresKey": false,
+        "status": "ready"
+      },
+      {
+        "provider": "openai",
+        "configured": false,
+        "defaultModel": "gpt-4o-mini",
+        "mode": "real",
+        "requiresKey": true,
+        "status": "missing_key"
+      }
+    ]
+  }
+}
+```
+
+说明：
+
+- 该接口不返回 API Key、token、secret、Bearer header 或完整环境变量值。
+- `stub` 必须始终可用，用于本地演示和 smoke。
+- 真实 provider 的 `configured` 只代表后端环境变量具备调用所需的非空配置，不代表上游一定可用。
+
 ### GET /api/health
 
 健康检查。

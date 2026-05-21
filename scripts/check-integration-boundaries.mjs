@@ -123,8 +123,10 @@ async function checkBackendDialogueBoundary() {
   const orchestration = await readFile('backend/services/DialogueOrchestrationService.js', 'utf8');
 
   assert(router.includes('/api/dialogue'), 'router 必须挂载 POST /api/dialogue。');
+  assert(router.includes('/api/providers'), 'router 必须挂载 GET /api/providers。');
   assert(dialogueRoutes.includes('handleDialogue'), 'dialogueRoutes 必须导出 handleDialogue。');
   assert(dialogueRoutes.includes('sendOk'), '/api/dialogue 必须使用兼容期新响应格式 { ok, data }。');
+  assert(await readFile('backend/services/ProviderStatusService.js', 'utf8').catch(() => ''), 'ProviderStatusService 必须存在，提供安全 provider 配置状态。');
   assert(!/fetchWithTimeout/.test(orchestration), 'DialogueOrchestrationService 当前阶段不应产生外部网络请求。');
   assert(orchestration.includes('llmService'), 'DialogueOrchestrationService 必须通过 LLMService 复用 LLM provider 能力。');
   assert(orchestration.includes('llm_only'), 'DialogueOrchestrationService 必须支持 llm_only 编排模式。');

@@ -9,6 +9,7 @@
 - 给上传接口增加速率限制、用户级配额、文件数量限制。
 - 对上传模型做更严格扫描；当前只做 `.vrm/.glb/.gltf` 基础格式校验。
 - 不在前端或公开静态资源中写入任何 API Key。
+- `GET /api/providers` 只能返回非敏感 readiness 状态，不得返回 Key、secret、token、Bearer 或真实上游地址。
 
 ## P1
 
