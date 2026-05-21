@@ -1439,3 +1439,11 @@ npm run check:assets
 - 新增 `docs/product/MVP_BASELINE.md`，记录阶段 2 封版结论、已确认能力、自动化验收基线、浏览器手动验收基线和下一阶段边界。
 - `README.md`、`docs/README.md`、`MVP_ACCEPTANCE.md`、`ARCHITECTURE.md`、`NEXT_PHASE_PLAN.md` 同步更新为“阶段 2 已收口，下一阶段才进入真实 RAG / Memory / n8n / Agent”。
 - 本轮只做文档基线收口，不修改业务代码、模型资源、动画资源、TTS 逻辑或后端接口。
+
+## 42. Phase 3.1 真实智能能力路线决策
+
+- 新增 `docs/architecture/PHASE3_INTELLIGENCE_ARCHITECTURE.md`，明确 `/api/dialogue` 长期职责、后端 orchestration 边界、LLM/Memory/RAG/n8n/Agent 推荐路线。
+- 新增 `docs/process/PHASE3_IMPLEMENTATION_PLAN.md`，将 Phase 3 拆为 3.1 到 3.7，并为每阶段写明目标、范围、不做事项、验收标准、测试命令和风险。
+- 新增 `docs/product/PHASE3_ACCEPTANCE.md`，定义真实 provider、Memory、RAG、n8n、Agent、安全、浏览器和自动化验收标准。
+- 同步更新 README、docs 索引、`NEXT_PHASE_PLAN.md`、`DIALOGUE_BACKEND_BOUNDARY.md` 和部署安全文档。
+- 本轮只做路线决策与文档规划，不接真实 Qdrant、n8n、Memory 数据库或新 provider，不修改业务代码。

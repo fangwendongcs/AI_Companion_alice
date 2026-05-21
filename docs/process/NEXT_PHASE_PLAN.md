@@ -267,3 +267,18 @@ npm run check
 npm run dev
 npm run smoke
 ```
+
+## Phase 3：真实智能能力接入
+
+Phase 3 的详细路线已经拆到：
+
+- [PHASE3_INTELLIGENCE_ARCHITECTURE.md](../architecture/PHASE3_INTELLIGENCE_ARCHITECTURE.md)
+- [PHASE3_IMPLEMENTATION_PLAN.md](./PHASE3_IMPLEMENTATION_PLAN.md)
+- [PHASE3_ACCEPTANCE.md](../product/PHASE3_ACCEPTANCE.md)
+
+Phase 3 的核心原则：
+
+- `stub` 继续作为默认本地演示模式。
+- `/api/dialogue` 继续作为前端唯一主对话入口。
+- Memory / RAG / n8n / Agent 只从后端边界接入。
+- 不把 secret、Qdrant、n8n webhook 或复杂 prompt 拼接放进前端。

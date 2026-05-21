@@ -2,7 +2,7 @@
 
 ## 目标
 
-Phase 2.8 的目标是在 `/api/dialogue` 主链路稳定后，提供本地 `stub` provider，让无 API Key 的开发环境也能完整演示对话闭环。真实 RAG、长期记忆、n8n 或 Agent 仍然不在本阶段实现。
+Phase 3 的目标是在阶段 2 基线稳定后，让真实 LLM、Memory、RAG、n8n workflow 和 Agent orchestration 逐步进入后端边界。阶段 3 仍保留本地 `stub` provider，保证无 API Key 的开发环境可以完整演示对话闭环。
 
 ```text
 Frontend DialogueManager
@@ -118,12 +118,15 @@ Frontend DialogueManager
 - 不新增 LLM provider。
 - 不把复杂 prompt 编排塞进前端。
 
-## 后续接入顺序
+## Phase 3 推荐接入顺序
 
 1. 保持 `/api/chat` 兼容入口稳定。
-2. 按浏览器验收清单验证 `/api/dialogue` 主链路的 thinking / speaking / idle。
-3. 为 `/api/dialogue` 增加后端 PromptBuilder，不改 UI Controller。
-4. 接入 MemoryService 的短期会话摘要。
-5. 接入 RagService 的只读检索，返回 `sources`。
-6. 接入 N8nWorkflowService 的受控 workflow。
-7. 增加鉴权、限流、审计日志和可观测性。
+2. 保留 `stub` 默认演示模式。
+3. 验证真实 provider 配置链路。
+4. 为 `/api/dialogue` 增加后端 PromptBuilder，不改 UI Controller。
+5. 接入 MemoryService 的后端内存短期上下文。
+6. 接入 RagService 的本地 markdown / JSON 小型检索，返回 `sources`。
+7. 将 N8nWorkflowService 作为工具调用层接入，而不是主对话编排器。
+8. 增加鉴权、限流、审计日志和可观测性。
+
+完整 Phase 3 方案见 [PHASE3_INTELLIGENCE_ARCHITECTURE.md](./PHASE3_INTELLIGENCE_ARCHITECTURE.md)。
