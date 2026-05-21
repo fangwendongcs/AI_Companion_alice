@@ -2,7 +2,7 @@
 
 ## 当前阶段
 
-`Alice Digital Companion` 已完成阶段 1 的架构基座建设。阶段 2 的目标不是继续扩大重构，而是把现有系统收口成一个可稳定演示、可重复验收、可继续迭代的 AI 数字伙伴 MVP。
+`Alice Digital Companion` 已完成阶段 1 的架构基座建设，并已完成阶段 2 的 MVP 交互闭环与稳定性验收。当前文档保留阶段 2 的验收标准；封版结论见 [MVP_BASELINE.md](./MVP_BASELINE.md)。
 
 ## MVP 用户链路
 
@@ -28,6 +28,7 @@
 - 用户可输入文本并触发对话链路。
 - 输入提交后系统能进入 `thinking`，回复产生后进入 `speaking`。
 - 当前 MVP 对话主链路使用 `/api/dialogue`；`/api/chat` 仍保留为兼容入口。
+- 默认本地演示 provider 是 `stub`，无 API Key 时也能跑通对话闭环。
 - `/api/dialogue` 当前只启用 LLM-only 编排；Memory / RAG / Workflow 仍为 `disabled / not_configured`。
 - TTS 成功时可播放音频；后端 TTS 失败时会回退到浏览器语音。
 - 播放结束后系统回到 `idle`。

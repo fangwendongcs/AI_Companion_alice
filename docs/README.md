@@ -26,6 +26,7 @@
 - [PRD.md](./product/PRD.md): 产品需求
 - [DESIGN.md](./product/DESIGN.md): 设计说明
 - [MVP_ACCEPTANCE.md](./product/MVP_ACCEPTANCE.md): 阶段 2 MVP 用户链路与验收标准
+- [MVP_BASELINE.md](./product/MVP_BASELINE.md): 阶段 2 封版基线与下一阶段边界
 - `产品需求文档.docx`
 - `思路和计划文档.docx`
 - `竞品与可行性分析报告.docx`

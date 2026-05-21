@@ -9,7 +9,7 @@ AI 数字伙伴 / 互动数字人项目。当前支持：
 - 本地 Node 后端代理接口
 - `/api/dialogue` 前端主对话入口，支持本地 Stub 演示与未来 RAG / Memory / n8n / Agent 后端编排
 
-当前项目已完成“阶段 1：架构基座搭建”，下一阶段重点是“阶段 2：MVP 交互闭环与稳定性验收”，不是继续做大规模重构。
+当前项目已完成“阶段 1：架构基座搭建”和“阶段 2：MVP 交互闭环与稳定性验收”。下一阶段才进入真实 RAG / Memory / n8n / Agent 能力建设。
 
 ## Quick Start
 
@@ -67,6 +67,7 @@ archive/  历史配置、旧脚本、原始素材归档
 阶段 2 入口文档：
 
 - [MVP_ACCEPTANCE.md](./docs/product/MVP_ACCEPTANCE.md)
+- [MVP_BASELINE.md](./docs/product/MVP_BASELINE.md)
 - [CODEX_EXECUTION_STANDARD.md](./docs/process/CODEX_EXECUTION_STANDARD.md)
 - [NEXT_PHASE_PLAN.md](./docs/process/NEXT_PHASE_PLAN.md)
 - [BROWSER_ACCEPTANCE_CHECKLIST.md](./docs/process/BROWSER_ACCEPTANCE_CHECKLIST.md)

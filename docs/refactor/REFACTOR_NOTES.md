@@ -1433,3 +1433,9 @@ npm run check:assets
 - `DialogueOrchestrationService` 的本地 stub 回复改成简短中文数字伙伴文案，不访问外部网络、不读取真实 Key。
 - `scripts/check-integration-boundaries.mjs` 新增前端 stub provider 边界检查，确保默认配置、设置面板与本地存储都支持 stub。
 - 文档同步说明：`/api/dialogue` 仍是前端主入口，`/api/chat` 保留兼容；真实 provider 的错误链路不被吞掉。
+
+## 41. Phase 2.9 MVP 基线封版与阶段 2 收口
+
+- 新增 `docs/product/MVP_BASELINE.md`，记录阶段 2 封版结论、已确认能力、自动化验收基线、浏览器手动验收基线和下一阶段边界。
+- `README.md`、`docs/README.md`、`MVP_ACCEPTANCE.md`、`ARCHITECTURE.md`、`NEXT_PHASE_PLAN.md` 同步更新为“阶段 2 已收口，下一阶段才进入真实 RAG / Memory / n8n / Agent”。
+- 本轮只做文档基线收口，不修改业务代码、模型资源、动画资源、TTS 逻辑或后端接口。

@@ -5,8 +5,8 @@
 ## 当前阶段
 
 - 阶段 1“架构基座搭建”已基本完成。
-- 当前重点进入阶段 2“MVP 交互闭环与稳定性验收”。
-- 下一步优先级是用户链路、调试可观测性、文档同步和自动化回归，而不是继续扩大拆分面。
+- 阶段 2“MVP 交互闭环与稳定性验收”已收口，当前基线见 [MVP_BASELINE.md](../product/MVP_BASELINE.md)。
+- 下一阶段才进入真实 RAG / Memory / n8n / Agent 能力建设，不再继续重复打磨阶段 2 的主链路。
 
 ## 运行时结构
 
@@ -84,6 +84,6 @@ backend/
 
 ## 后续演进方向
 
-短期继续保持原生模块结构。阶段 2 先把 `输入 -> thinking -> speaking -> idle` 的 MVP 链路做成可重复验收闭环；只有当 UI 面板、状态和路由复杂到明显阻碍开发时，再考虑 Vite/TypeScript 或前端框架迁移。
+短期继续保持原生模块结构。阶段 3 优先从后端边界接入真实 RAG / Memory / n8n / Agent，不把这些能力塞进 UI Controller。只有当 UI 面板、状态和路由复杂到明显阻碍开发时，再考虑 Vite/TypeScript 或前端框架迁移。
 
 公网部署前的安全事项见 [DEPLOYMENT_SECURITY.md](../security/DEPLOYMENT_SECURITY.md)。

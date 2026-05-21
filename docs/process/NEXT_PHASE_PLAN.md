@@ -233,3 +233,37 @@ npm run check
 - `npm run smoke` 通过。
 - 无 Key 场景不会让前端卡在 thinking / speaking。
 - 浏览器手动验收仍按 `docs/process/BROWSER_ACCEPTANCE_CHECKLIST.md` 执行。
+
+## Phase 2.9：MVP 基线封版与阶段 2 收口
+
+**目标**
+
+- 固化阶段 2 的稳定基线，避免后续阶段误伤已经验证过的主链路。
+
+**已完成事项**
+
+- `/api/dialogue` 是前端主入口，`/api/chat` 保留兼容。
+- 默认本地演示 provider 是 `stub`。
+- Alice / Shiro / Wambo 三角色切换通过。
+- 点击交互通过。
+- stub 对话通过。
+- TTS fallback 通过。
+- 最终状态可回到 `idle`。
+- 控制台无新增 `error / warn`。
+
+**封版文档**
+
+- `docs/product/MVP_BASELINE.md`
+
+**下一阶段**
+
+- Phase 3 才进入真实 RAG / Memory / n8n / Agent。
+- RAG、Memory、n8n、Agent 只允许从后端边界接入，不进入前端 UI 或 AppController。
+
+**测试命令**
+
+```bash
+npm run check
+npm run dev
+npm run smoke
+```
