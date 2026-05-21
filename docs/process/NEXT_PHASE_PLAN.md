@@ -180,7 +180,7 @@ npm run smoke
 
 - 明确未来 `/api/dialogue`、RAG、memory、workflow 的后端职责。
 - 建立 `DialogueOrchestrationService / MemoryService / RagService / N8nWorkflowService` 后端边界 stub。
-- 先保持当前 MVP 前端继续使用 `/api/chat`，完成 `/api/dialogue` 后端边界后再单独切换主链路。
+- 历史执行顺序：先保持当前 MVP 前端继续使用 `/api/chat`，完成 `/api/dialogue` 后端边界后再单独切换主链路。
 - 增加集成边界检查，防止前端直接处理 Qdrant、n8n webhook 或 API Key。
 
 **涉及文件**
@@ -213,3 +213,23 @@ npm run smoke
 ```bash
 npm run check
 ```
+
+## Phase 2.6-2.8：统一对话入口与本地 stub 演示
+
+**目标**
+
+- 将 `/api/dialogue` 从后端边界推进为当前前端主对话入口，并让无 API Key 的本地环境也能完成演示闭环。
+
+**已完成事项**
+
+- `/api/dialogue` 支持 LLM-only 编排，Memory / RAG / Workflow 仍为 `disabled / not_configured`。
+- 前端主链路已从 `/api/chat` 切换到 `/api/dialogue`，`/api/chat` 保留兼容。
+- 默认 LLM provider 改为 `stub`，开发环境无需 API Key 即可获得本地演示回复。
+- 真实 provider 仍保留明确错误链路，不吞掉配置错误或上游错误。
+
+**验收标准**
+
+- `npm run check` 通过。
+- `npm run smoke` 通过。
+- 无 Key 场景不会让前端卡在 thinking / speaking。
+- 浏览器手动验收仍按 `docs/process/BROWSER_ACCEPTANCE_CHECKLIST.md` 执行。

@@ -25,7 +25,7 @@
 
 ### POST /api/dialogue
 
-统一对话编排入口，用于承载 Memory、RAG、n8n workflow 与 Agent orchestration。当前前端主链路已调用该接口，并支持 LLM-only 编排；Memory / RAG / Workflow 仍保持 disabled / not_configured，不接真实外部服务。
+统一对话编排入口，用于承载 Memory、RAG、n8n workflow 与 Agent orchestration。当前前端主链路已调用该接口，并支持本地 `stub` 与 LLM-only 编排；Memory / RAG / Workflow 仍保持 disabled / not_configured，不接真实外部服务。
 
 请求：
 
@@ -79,9 +79,20 @@
 
 - `/api/dialogue` 使用 `LLMService` 复用现有 OpenAI-compatible provider 能力。
 - 如果 provider 未配置或缺少 API Key，会返回 `{ "ok": false, "error": { "code": "LLM_NOT_CONFIGURED", "message": "..." } }`。
-- `provider` 为 `stub`、`local` 或 `boundary` 时，会返回本地 `llm_stub`，仅用于 smoke 和本地边界检查，不代表生产 LLM。
+- `provider` 为 `stub`、`local` 或 `boundary` 时，会返回本地 `llm_stub`，用于无 Key 本地开发演示、smoke 和边界检查，不代表生产 LLM。
+- 前端默认 provider 为 `stub`，因此新环境无需 API Key 也能跑通 thinking -> speaking -> idle 的演示链路。
 - `/api/chat` 仍保留为旧兼容入口，返回旧格式 `{ "reply": "..." }`。
 - 真实 RAG、n8n、长期记忆不得直接放到前端。
+
+本地 stub 示例：
+
+```json
+{
+  "message": "你好",
+  "provider": "stub",
+  "model": "stub"
+}
+```
 
 ### POST /api/tts
 

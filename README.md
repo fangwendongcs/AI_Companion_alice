@@ -7,7 +7,7 @@ AI 数字伙伴 / 互动数字人项目。当前支持：
 - 点击部位交互
 - 浏览器语音兜底与后端 TTS 代理
 - 本地 Node 后端代理接口
-- `/api/dialogue` 后端编排边界 stub，用于未来 RAG / Memory / n8n / Agent 接入
+- `/api/dialogue` 前端主对话入口，支持本地 Stub 演示与未来 RAG / Memory / n8n / Agent 后端编排
 
 当前项目已完成“阶段 1：架构基座搭建”，下一阶段重点是“阶段 2：MVP 交互闭环与稳定性验收”，不是继续做大规模重构。
 
@@ -22,6 +22,8 @@ npm run dev
 ```text
 http://localhost:3000
 ```
+
+默认 LLM provider 是 `stub`，无需 API Key 也能跑通本地对话演示。切换到 OpenAI / Qwen / DeepSeek / Custom 时，仍需要在后端环境变量中配置对应 Key。
 
 常用检查：
 

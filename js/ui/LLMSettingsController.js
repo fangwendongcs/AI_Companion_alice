@@ -16,12 +16,11 @@ export class LLMSettingsController {
     this.refs.baseUrlInput.value = '';
     this.refs.llmModel.value = config.model;
     this.refs.systemPromptInput.value = config.systemPrompt;
+    this.applyProviderHint(config.provider);
     this.prepareKeyUI();
 
     this.registry.addEventListener(this.refs.llmProvider, 'change', (event) => {
-      this.refs.baseUrlInput.placeholder = event.target.value === 'custom'
-        ? '请在后端配置 CUSTOM_BASE_URL'
-        : '请在后端配置对应 provider 的 *_BASE_URL';
+      this.applyProviderHint(event.target.value);
     });
 
     this.registry.addEventListener(this.refs.saveLLMConfigBtn, 'click', () => {
@@ -49,5 +48,16 @@ export class LLMSettingsController {
     this.refs.apiKeyInput.placeholder = '已迁移到后端环境变量，例如 OPENAI_API_KEY';
     this.refs.apiKeyToggle.disabled = true;
     this.refs.apiKeyToggle.style.opacity = '0.35';
+  }
+
+  applyProviderHint(provider) {
+    if (provider === 'stub') {
+      this.refs.baseUrlInput.placeholder = '本地演示模式，无需配置 Base URL 或 API Key';
+      this.refs.llmModel.value = 'stub';
+      return;
+    }
+    this.refs.baseUrlInput.placeholder = provider === 'custom'
+      ? '请在后端配置 CUSTOM_BASE_URL'
+      : '请在后端配置对应 provider 的 *_BASE_URL';
   }
 }

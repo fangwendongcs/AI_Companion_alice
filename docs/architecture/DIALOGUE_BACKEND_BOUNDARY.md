@@ -2,7 +2,7 @@
 
 ## 目标
 
-Phase 2.6 的目标是在 Phase 2.5 后端边界之上，让 `/api/dialogue` 具备真实 LLM-only 编排能力。真实 RAG、长期记忆、n8n 或 Agent 仍然不在本阶段实现。
+Phase 2.8 的目标是在 `/api/dialogue` 主链路稳定后，提供本地 `stub` provider，让无 API Key 的开发环境也能完整演示对话闭环。真实 RAG、长期记忆、n8n 或 Agent 仍然不在本阶段实现。
 
 ```text
 Frontend DialogueManager
@@ -45,7 +45,8 @@ Frontend DialogueManager
 
 - 返回 `{ ok: true, data }`。
 - 真实 provider 配置完整时，`data.meta.mode = "llm_only"`。
-- `provider = "stub" / "local" / "boundary"` 时，返回本地 `llm_stub`，只用于 smoke 和本地边界检查。
+- `provider = "stub" / "local" / "boundary"` 时，返回本地 `llm_stub`，用于无 Key 本地开发演示、smoke 和边界检查。
+- 前端默认 provider 为 `stub`；显式选择 OpenAI / Qwen / DeepSeek / Custom 时，仍保留真实 provider 的配置错误与上游错误链路。
 - `memory.used = false`。
 - `rag.used = false`。
 - `workflow.used = false`。
@@ -105,6 +106,7 @@ Frontend DialogueManager
 - Qdrant credential 只在后端环境变量。
 - `.env.example` 只保留 placeholder。
 - 前端只发送非密钥选项，例如 provider、model、voice、text 和是否启用某能力。
+- 本地 `stub` provider 不需要也不会读取真实 API Key。
 - 公网部署前必须为 `/api/dialogue`、上传接口、未来 workflow 接口增加鉴权、限流和日志脱敏。
 
 ## 当前阶段不做

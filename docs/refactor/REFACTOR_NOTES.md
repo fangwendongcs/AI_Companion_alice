@@ -1424,3 +1424,12 @@ npm run check:assets
 - `scripts/check-mvp-flow.mjs` 补充 LLMClient 对 `{ ok: true, data: { reply } }`、旧 `{ reply }`、`{ ok: false, error }` 的解析回归。
 - `scripts/check-runtime-contracts.mjs` 增加 AppController 默认调用 `/api/dialogue` 的静态合约。
 - 文档同步说明：前端主链路已切换，`/api/chat` 仍保留兼容，Memory / RAG / Workflow 仍未启用。
+
+## 40. Phase 2.8 Local Stub Dialogue Provider
+
+- 默认 LLM 配置改为 `provider: "stub"` / `model: "stub"`，让无 API Key 的本地开发环境也能跑通对话演示。
+- 设置面板新增本地演示 Stub provider / model 选项，并允许 `LocalConfigStore` 保存该 provider。
+- `LocalConfigStore` 增加一次性迁移：旧默认 `openai + gpt-4o-mini + 空 baseUrl` 会自动切到 `stub`，避免历史 localStorage 继续触发无 Key 错误。
+- `DialogueOrchestrationService` 的本地 stub 回复改成简短中文数字伙伴文案，不访问外部网络、不读取真实 Key。
+- `scripts/check-integration-boundaries.mjs` 新增前端 stub provider 边界检查，确保默认配置、设置面板与本地存储都支持 stub。
+- 文档同步说明：`/api/dialogue` 仍是前端主入口，`/api/chat` 保留兼容；真实 provider 的错误链路不被吞掉。

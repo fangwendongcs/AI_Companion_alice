@@ -157,7 +157,8 @@ http://localhost:3000?debug=1
 
 - 输入一句测试文本，例如：`你好，做一次状态测试。`
 - 当前前端主链路会调用 `/api/dialogue`。
-- 如果后端没有配置真实 LLM/TTS key，允许进入错误与 fallback 链路。
+- 默认 LLM provider 为 `stub`，无真实 LLM Key 时也应返回本地演示回复。
+- 如果用户显式切换到真实 provider 但未配置 Key，允许进入明确错误与 fallback 链路。
 
 预期 Debug Panel：
 
@@ -167,7 +168,7 @@ http://localhost:3000?debug=1
 - 播放期间 `isSpeaking = true`。
 - 播放或定时兜底结束后 `isSpeaking = false`。
 - 最终 `currentState = idle`。
-- `lastAssistantMessage` 有 LLM 回复或本地兜底回复。
+- `lastAssistantMessage` 有本地 stub 回复、真实 LLM 回复或本地兜底回复。
 - 如果 TTS 后端失败，`lastEvent` 可出现 `audio:fallback`。
 
 预期 UI：

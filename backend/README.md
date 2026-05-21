@@ -5,6 +5,12 @@
 ## 启动
 
 ```bash
+npm run dev
+```
+
+默认前端 LLM provider 为 `stub`，本地演示不需要 API Key。真实 provider 仍通过后端环境变量配置，例如：
+
+```bash
 OPENAI_API_KEY=replace_with_your_key MINIMAX_API_KEY=replace_with_your_key npm run dev
 ```
 
@@ -35,7 +41,7 @@ http://localhost:3000
 ## 接口
 
 - `POST /api/chat`
-- `POST /api/dialogue`：当前前端主对话入口，支持 LLM-only 编排；Memory / RAG / Workflow 仍未启用
+- `POST /api/dialogue`：当前前端主对话入口，支持本地 `stub` 与 LLM-only 编排；Memory / RAG / Workflow 仍未启用
 - `POST /api/tts`
 - `GET /api/avatars`
 - `POST /api/avatars`

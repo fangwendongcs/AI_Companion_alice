@@ -10,6 +10,7 @@ await collectFiles('backend', backendFiles);
 
 await checkFrontendSecretBoundary();
 await checkFrontendIntegrationClients();
+await checkFrontendStubProviderBoundary();
 await checkBackendDialogueBoundary();
 await checkDocsBoundary();
 
@@ -89,6 +90,18 @@ async function checkFrontendIntegrationClients() {
   });
 
   assert(!/\bqdrant\b/i.test(ragClient), '前端 RagClient 不应直接知道 Qdrant。');
+}
+
+async function checkFrontendStubProviderBoundary() {
+  const providers = await readFile('js/config/providers.js', 'utf8');
+  const store = await readFile('js/storage/LocalConfigStore.js', 'utf8');
+  const html = await readFile('index.html', 'utf8');
+
+  assert(providers.includes("provider: 'stub'"), '默认 LLM provider 应使用本地 stub，保证无 Key 开发演示可用。');
+  assert(providers.includes("model: 'stub'"), '默认 LLM model 应使用 stub。');
+  assert(store.includes("'stub'"), 'LocalConfigStore 必须允许保存和读取 stub provider。');
+  assert(store.includes('llm_stub_default_migration_v1'), 'LocalConfigStore 必须迁移旧默认 OpenAI 配置到 stub，避免无 Key 演示报错。');
+  assert(html.includes('value="stub"'), '设置面板必须提供 stub provider / model 选项。');
 }
 
 async function checkBackendDialogueBoundary() {

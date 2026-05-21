@@ -51,7 +51,7 @@ Pointer event
   -> dialogue:user
   -> dialogue:thinking(active=true)
   -> LLMClient
-  -> /api/chat
+  -> /api/dialogue
   -> dialogue:assistant / dialogue:response
   -> dialogue:thinking(active=false)
   -> AppController.speakText()
@@ -73,6 +73,12 @@ LLMClient / TTSService error
   -> dialogue:error / audio:error
   -> errorHandler / StateStore
 ```
+
+说明：
+
+- `/api/dialogue` 是当前前端主入口。
+- `/api/chat` 仍保留旧兼容入口，但不再是默认前端链路。
+- 开发环境默认使用 `provider: "stub"`，不需要真实 API Key 也能验证 `thinking -> speaking -> idle`。
 
 ## 生命周期要求
 

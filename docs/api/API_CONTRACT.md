@@ -57,7 +57,7 @@
 
 ### POST /api/dialogue
 
-当前前端主对话入口。已支持 LLM-only 编排，不会请求外部 RAG、n8n 或长期记忆服务。
+当前前端主对话入口。已支持本地 `stub` 和 LLM-only 编排，不会请求外部 RAG、n8n 或长期记忆服务。
 
 请求：
 
@@ -109,12 +109,13 @@
 
 如果 `options.useMemory / useRag / useWorkflow` 为 `true`，当前仍不会调用外部服务，只会返回 `not_configured` 状态。正式接入时应在后端 service 层实现，不改前端 secret 边界。
 
-无密钥 smoke 可使用 `provider: "stub"`，此时返回：
+无密钥本地演示和 smoke 可使用 `provider: "stub"`，当前前端默认也使用该 provider。此时返回：
 
 ```json
 {
   "ok": true,
   "data": {
+    "reply": "我现在处于本地演示模式，还没有连接真实模型，但对话链路已经跑通了。",
     "meta": {
       "mode": "llm_stub",
       "provider": "stub"

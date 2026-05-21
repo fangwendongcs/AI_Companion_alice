@@ -5,7 +5,7 @@
 ## P0
 
 - 限制 CORS 来源，不要继续使用 `Access-Control-Allow-Origin: *`。
-- 给 `/api/chat`、`/api/tts`、`/api/avatars` 增加鉴权。
+- 给 `/api/dialogue`、`/api/chat`、`/api/tts`、`/api/avatars` 增加鉴权。
 - 给上传接口增加速率限制、用户级配额、文件数量限制。
 - 对上传模型做更严格扫描；当前只做 `.vrm/.glb/.gltf` 基础格式校验。
 - 不在前端或公开静态资源中写入任何 API Key。

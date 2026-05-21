@@ -1,16 +1,33 @@
 import { DEFAULT_LLM_CONFIG, DEFAULT_TTS_CONFIG } from '../config/providers.js';
 
-const supportedProviders = new Set(['openai', 'qwen', 'deepseek', 'custom']);
+const supportedProviders = new Set(['stub', 'openai', 'qwen', 'deepseek', 'custom']);
 const supportedTTSEngines = new Set(['browser', 'openai', 'minimax']);
 const freeDefaultMigrationKey = 'tts_free_default_migration_v1';
+const llmStubDefaultMigrationKey = 'llm_stub_default_migration_v1';
 
 export class LocalConfigStore {
   loadLLMConfig() {
-    const provider = localStorage.getItem('llm_provider') || DEFAULT_LLM_CONFIG.provider;
+    let provider = localStorage.getItem('llm_provider') || DEFAULT_LLM_CONFIG.provider;
+    let baseUrl = localStorage.getItem('llm_base_url') || DEFAULT_LLM_CONFIG.baseUrl;
+    let model = localStorage.getItem('llm_model') || DEFAULT_LLM_CONFIG.model;
+
+    if (!localStorage.getItem(llmStubDefaultMigrationKey)) {
+      const looksLikeLegacyDefault = provider === 'openai' && model === 'gpt-4o-mini' && !baseUrl;
+      if (looksLikeLegacyDefault) {
+        provider = DEFAULT_LLM_CONFIG.provider;
+        baseUrl = DEFAULT_LLM_CONFIG.baseUrl;
+        model = DEFAULT_LLM_CONFIG.model;
+        localStorage.setItem('llm_provider', provider);
+        localStorage.setItem('llm_base_url', baseUrl);
+        localStorage.setItem('llm_model', model);
+      }
+      localStorage.setItem(llmStubDefaultMigrationKey, '1');
+    }
+
     return {
       provider: supportedProviders.has(provider) ? provider : DEFAULT_LLM_CONFIG.provider,
-      baseUrl: localStorage.getItem('llm_base_url') || DEFAULT_LLM_CONFIG.baseUrl,
-      model: localStorage.getItem('llm_model') || DEFAULT_LLM_CONFIG.model,
+      baseUrl,
+      model,
       systemPrompt: localStorage.getItem('llm_system_prompt') || DEFAULT_LLM_CONFIG.systemPrompt
     };
   }

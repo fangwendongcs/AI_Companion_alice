@@ -47,7 +47,7 @@ export class DialogueOrchestrationService {
 
     if (isLocalStubProvider(provider)) {
       return {
-        reply: buildLocalStubReply(),
+        reply: buildLocalStubReply(message),
         sources: [],
         memory,
         rag,
@@ -113,8 +113,12 @@ function isLocalStubProvider(provider) {
   return ['stub', 'local', 'boundary'].includes(provider);
 }
 
-function buildLocalStubReply() {
-  return 'Dialogue llm-only stub response. Configure a real backend LLM provider to call an upstream model.';
+function buildLocalStubReply(message) {
+  const text = String(message || '').trim();
+  if (/状态|测试|链路|hello|你好/i.test(text)) {
+    return '我现在处于本地演示模式，还没有连接真实模型，但对话链路已经跑通了。';
+  }
+  return '我在本地演示模式，可以陪你完成交互流程；接入真实模型后，我会回答得更聪明。';
 }
 
 function createCodedHttpError(message, statusCode, code) {
