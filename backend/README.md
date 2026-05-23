@@ -39,11 +39,14 @@ http://localhost:3000
 - `OPENAI_TTS_MODEL`：OpenAI TTS 模型，默认 `gpt-4o-mini-tts`
 - `MINIMAX_TTS_MODEL`：MiniMax TTS 模型，默认 `speech-2.8-hd`
 - `UPSTREAM_TIMEOUT_MS`：后端访问 LLM/TTS 上游的超时时间，默认 `45000`
+- `N8N_WEBHOOK_URL`：可选 n8n webhook 地址，只允许后端读取
+- `N8N_WEBHOOK_SECRET`：可选 n8n webhook secret，只通过后端 header 发送
+- `N8N_TIMEOUT_MS`：n8n workflow 调用超时，默认 `8000`
 
 ## 接口
 
 - `POST /api/chat`
-- `POST /api/dialogue`：当前前端主对话入口，支持本地 `stub` 与 LLM-only 编排；Memory / RAG / Workflow 仍未启用
+- `POST /api/dialogue`：当前前端主对话入口，支持本地 `stub`、LLM-only 编排、短期 Memory、本地 RAG 和可选 n8n workflow 工具调用
 - `GET /api/providers`：安全读取 LLM provider 配置状态，不返回 secret
 - `POST /api/tts`
 - `GET /api/avatars`
@@ -69,5 +72,6 @@ http://localhost:3000
 - 上传限流和文件安全扫描
 - 日志脱敏
 - API Key 只保留在后端环境变量或密钥管理系统中
+- n8n webhook URL / secret 只保留在后端环境变量中，前端不能直连 n8n
 
 详细清单见 [docs/security/DEPLOYMENT_SECURITY.md](../docs/security/DEPLOYMENT_SECURITY.md)。

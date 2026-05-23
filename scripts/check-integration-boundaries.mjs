@@ -136,6 +136,7 @@ async function checkBackendDialogueBoundary() {
   assert(orchestration.includes('llm_stub'), 'DialogueOrchestrationService 必须保留本地 stub 以支持无密钥 smoke。');
 
   const knowledgeSource = await readFile('backend/services/KnowledgeSourceService.js', 'utf8');
+  const workflowService = await readFile('backend/services/N8nWorkflowService.js', 'utf8');
   const retriever = await readFile('backend/services/SimpleRetrieverService.js', 'utf8');
   const ragService = await readFile('backend/services/RagService.js', 'utf8');
   assert(knowledgeSource.includes('data/knowledge'), 'KnowledgeSourceService 必须默认从 data/knowledge 读取本地知识源。');
@@ -143,6 +144,10 @@ async function checkBackendDialogueBoundary() {
   assert(retriever.includes('matchedTerms'), 'SimpleRetrieverService 必须返回 matchedTerms，便于调试本地检索。');
   assert(ragService.includes("mode = 'local'"), 'Phase 3.6 中 RagService 默认应使用本地知识检索。');
   assert(orchestration.includes('promptBuilder'), 'DialogueOrchestrationService 必须通过 PromptBuilder 组装 Memory/RAG prompt。');
+  assert(workflowService.includes('N8N_WEBHOOK_URL') || workflowService.includes('n8nWebhookUrl'), 'N8nWorkflowService 必须从后端配置读取 webhook URL。');
+  assert(workflowService.includes('AbortController'), 'N8nWorkflowService 必须有 timeout / abort 控制。');
+  assert(workflowService.includes('not_configured'), 'N8nWorkflowService 未配置时必须返回 not_configured。');
+  assert(workflowService.includes('sanitizeWorkflowResult'), 'N8nWorkflowService 必须包装/清洗 workflow 结果。');
 }
 
 async function checkDocsBoundary() {

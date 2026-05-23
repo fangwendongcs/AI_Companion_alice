@@ -26,7 +26,7 @@
 
 ### POST /api/dialogue
 
-统一对话编排入口，用于承载 Memory、RAG、n8n workflow 与 Agent orchestration。当前前端主链路已调用该接口，并支持本地 `stub`、LLM-only 编排、后端短期 Memory 和本地知识检索 RAG；Workflow 仍保持 disabled / not_configured，不接真实外部服务。
+统一对话编排入口，用于承载 Memory、RAG、n8n workflow 与 Agent orchestration。当前前端主链路已调用该接口，并支持本地 `stub`、LLM-only 编排、后端短期 Memory、本地知识检索 RAG 和可选 n8n workflow 工具调用。
 
 请求：
 
@@ -87,6 +87,8 @@
 - `options.useMemory=false` 时，不读取、不写入 Memory。
 - `options.useRag=true` 时，后端会读取 `data/knowledge/` 并使用简单关键词检索返回 `rag.passages` 与顶层 `sources`；当前不接 Qdrant、不做 embedding。
 - `options.useRag=false` 时，不读取本地知识源。
+- `options.useWorkflow=true` 时，后端会尝试调用 `N8N_WEBHOOK_URL`；未配置时返回 `workflow.status=not_configured`，不会让 `/api/dialogue` 失败。
+- n8n 只作为工具调用层，不作为主对话编排器；workflow 结果只进入 `workflow.result` 元数据，不会直接覆盖最终 `reply`。
 - 如果 provider 未配置或缺少 API Key，会返回 `{ "ok": false, "error": { "code": "LLM_NOT_CONFIGURED", "message": "..." } }`。
 - `provider` 为 `stub`、`local` 或 `boundary` 时，会返回本地 `llm_stub`，用于无 Key 本地开发演示、smoke 和边界检查，不代表生产 LLM。
 - 前端默认 provider 为 `stub`，因此新环境无需 API Key 也能跑通 thinking -> speaking -> idle 的演示链路。
@@ -187,6 +189,47 @@
 ```
 
 说明：当前 RAG 是后端本地关键词检索，不是向量检索；知识源位于 `data/knowledge/`，不在 `public/`。
+
+n8n workflow 示例：
+
+```json
+{
+  "message": "帮我检查外部工具状态",
+  "sessionId": "demo-session",
+  "provider": "stub",
+  "model": "stub",
+  "options": {
+    "useMemory": false,
+    "useRag": false,
+    "useWorkflow": true
+  }
+}
+```
+
+未配置 n8n 时响应中的 `workflow`：
+
+```json
+{
+  "used": false,
+  "status": "not_configured",
+  "reason": "not_configured",
+  "result": null
+}
+```
+
+配置 n8n 且调用成功时响应中的 `workflow`：
+
+```json
+{
+  "used": true,
+  "status": "success",
+  "result": {
+    "summary": "workflow result"
+  }
+}
+```
+
+说明：`N8N_WEBHOOK_URL`、`N8N_WEBHOOK_SECRET` 只允许配置在后端环境变量中，前端不会看到 webhook 地址或 secret。
 
 ### POST /api/tts
 

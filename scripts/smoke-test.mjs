@@ -134,6 +134,8 @@ async function assertDialogueBoundary() {
   if (optionalData.rag?.used !== true) throw new Error('/api/dialogue rag should report used=true when local knowledge matches');
   if (!optionalData.sources?.length) throw new Error('/api/dialogue should expose top-level sources when RAG matches');
   if (optionalData.workflow?.status !== 'not_configured') throw new Error('/api/dialogue workflow should report not_configured');
+  if (optionalData.workflow?.reason !== 'not_configured') throw new Error('/api/dialogue workflow should include not_configured reason');
+  if (optionalData.workflow?.used !== false) throw new Error('/api/dialogue workflow should not be used without n8n config');
 
   await assertDialogueError('/api/dialogue', {
     message: '',

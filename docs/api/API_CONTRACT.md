@@ -57,7 +57,7 @@
 
 ### POST /api/dialogue
 
-当前前端主对话入口。已支持本地 `stub`、LLM-only 编排、后端短期 Memory 和本地知识检索 RAG，不会请求外部 RAG、n8n 或长期记忆服务。
+当前前端主对话入口。已支持本地 `stub`、LLM-only 编排、后端短期 Memory、本地知识检索 RAG 和可选 n8n workflow 工具调用。n8n 不作为主对话编排器。
 
 请求：
 
@@ -115,7 +115,7 @@
 
 如果 `options.useRag=true`，当前会调用后端本地 `RagService`，读取 `data/knowledge/` 并返回 `rag.passages` 与顶层 `sources`。当前不调用 Qdrant、不做 embedding、不访问外部网络。
 
-如果 `options.useWorkflow=true`，当前仍不会调用外部服务，只会返回 `not_configured` 状态。正式接入时应在后端 service 层实现，不改前端 secret 边界。
+如果 `options.useWorkflow=true`，当前会通过后端 `N8nWorkflowService` 检查 `N8N_WEBHOOK_URL`。未配置时返回 `workflow.status=not_configured`，不会让 `/api/dialogue` 失败；配置后由后端调用 n8n webhook，并将安全包装后的结果放入 `workflow.result`。
 
 无密钥本地演示和 smoke 可使用 `provider: "stub"`，当前前端默认也使用该 provider。此时返回：
 
@@ -211,6 +211,39 @@ RAG enabled 命中时：
           "matchedTerms": ["alice", "rag"]
         }
       ]
+    }
+  }
+}
+```
+
+Workflow 未配置时：
+
+```json
+{
+  "ok": true,
+  "data": {
+    "workflow": {
+      "used": false,
+      "status": "not_configured",
+      "reason": "not_configured",
+      "result": null
+    }
+  }
+}
+```
+
+Workflow 成功时：
+
+```json
+{
+  "ok": true,
+  "data": {
+    "workflow": {
+      "used": true,
+      "status": "success",
+      "result": {
+        "summary": "workflow result"
+      }
     }
   }
 }

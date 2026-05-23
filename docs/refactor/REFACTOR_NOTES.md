@@ -1494,3 +1494,14 @@ npm run check:assets
 - 新增 `scripts/check-rag-flow.mjs` 并纳入 `npm run check`，覆盖 RAG enabled、disabled、PromptBuilder 和真实 provider prompt 注入。
 - `smoke` 更新为验证 `/api/dialogue options.useRag=true` 返回 `rag.status=local`、`rag.used=true` 和 `sources`。
 - 本轮不接 Qdrant、不做 embedding、不让前端拼 prompt、不接 n8n。
+
+## 48. Phase 3.7 n8n Workflow 工具调用最小闭环
+
+- `N8nWorkflowService` 实现后端 n8n webhook 调用边界，支持 `disabled / not_configured / timeout / error / success` 状态。
+- 未配置 `N8N_WEBHOOK_URL` 时，`options.useWorkflow=true` 会返回 `workflow.used=false`、`status=not_configured`、`reason=not_configured`，不会让 `/api/dialogue` 失败。
+- 配置 n8n 后，后端通过 `N8N_WEBHOOK_URL` 调用 webhook，可选 `N8N_WEBHOOK_SECRET` 只通过后端 header 发送，前端不接触 URL 或 secret。
+- workflow 调用带 `N8N_TIMEOUT_MS` 超时控制；超时与上游错误都会包装为 `workflow` 元数据，不阻塞基础 reply。
+- workflow 返回结果经过白名单字段裁剪和长度限制，只进入 `workflow.result`，不直接覆盖最终 `reply`。
+- 新增 `scripts/check-workflow-flow.mjs` 并纳入 `npm run check`，覆盖 disabled、not_configured、success、timeout 和 `/api/dialogue` 可选 workflow。
+- `smoke` 更新为确认无 n8n 配置时 workflow 稳定返回 not_configured。
+- 本轮不把 n8n 设为主对话编排器、不实现 Agent loop、不改前端 UI。

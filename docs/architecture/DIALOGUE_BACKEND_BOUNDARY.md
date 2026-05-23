@@ -49,9 +49,9 @@ Frontend DialogueManager
 - 前端默认 provider 为 `stub`；显式选择 OpenAI / Qwen / DeepSeek / Custom 时，仍保留真实 provider 的配置错误与上游错误链路。
 - `memory.used = false`。
 - `rag.used = false`。
-- `workflow.used = false`。
+- `workflow.used = false` 或在后端 n8n 配置完整且启用时返回 `workflow.status=success`。
 - 不连接 Qdrant。
-- 不请求 n8n webhook。
+- 只有 `options.useWorkflow=true` 且后端配置 `N8N_WEBHOOK_URL` 时才请求 n8n webhook。
 - 不读取 RAG / n8n / memory secret。
 - 只有真实 LLM provider 配置完整时才访问上游 LLM。
 
@@ -87,9 +87,10 @@ Frontend DialogueManager
 
 ### `N8nWorkflowService`
 
-- 预留 `invokeWorkflow()`。
-- 当前返回 `disabled / not_configured` 状态。
-- 未来通过后端环境变量读取 n8n URL 和 secret。
+- 提供 `invokeWorkflow()`。
+- 当前通过后端环境变量读取 n8n URL 和 secret。
+- 支持 `disabled / not_configured / timeout / error / success` 状态。
+- workflow 结果只作为 `workflow.result` 元数据返回，不直接覆盖最终 reply。
 
 ## 前端 client 边界
 

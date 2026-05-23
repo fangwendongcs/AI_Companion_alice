@@ -8,6 +8,9 @@ export const port = Number(process.env.PORT || 3000);
 export const maxJsonBodyBytes = 1024 * 1024;
 export const maxUploadBodyBytes = 80 * 1024 * 1024;
 export const upstreamTimeoutMs = Number(process.env.UPSTREAM_TIMEOUT_MS || 45000);
+export const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL || '';
+export const n8nWebhookSecret = process.env.N8N_WEBHOOK_SECRET || '';
+export const n8nTimeoutMs = Number(process.env.N8N_TIMEOUT_MS || 8000);
 export const avatarsDir = join(rootDir, 'public', 'avatars');
 export const avatarRegistryPath = join(avatarsDir, 'registry.json');
 

@@ -10,12 +10,14 @@
 - 对上传模型做更严格扫描；当前只做 `.vrm/.glb/.gltf` 基础格式校验。
 - 不在前端或公开静态资源中写入任何 API Key。
 - `GET /api/providers` 只能返回非敏感 readiness 状态，不得返回 Key、secret、token、Bearer 或真实上游地址。
+- `N8N_WEBHOOK_URL` 和 `N8N_WEBHOOK_SECRET` 只能保存在后端环境变量或密钥管理系统中，不得写入前端、文档真实值或公开资源。
 
 ## P1
 
 - 增加结构化请求日志和错误日志，隐藏密钥、token、用户隐私字段。
 - 为 LLM/TTS 上游请求增加 provider 级超时、重试和降级策略。
 - 为 Memory / RAG / n8n / Agent 增加后端开关、请求体截断和错误脱敏。
+- n8n workflow 当前只作为工具调用层；公网部署前需要为 workflow 增加鉴权、超时、调用审计和高风险动作确认。
 - RAG 文档与 Memory 数据不得放入 `public/`，需要删除策略和访问边界。
 - 当前短期 Memory 仅保存在后端进程内；接入持久化前必须设计用户删除、保留期限和隐私说明。
 - 将角色上传目录与公开访问目录隔离，审核通过后再发布到 `public/avatars`。

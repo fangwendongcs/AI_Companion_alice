@@ -269,6 +269,7 @@ git diff --check
 - `backend/services/N8nWorkflowService.js`
 - `backend/config/serverConfig.js`
 - `.env.example`
+- `scripts/check-workflow-flow.mjs`
 - `scripts/check-integration-boundaries.mjs`
 - 安全文档。
 
@@ -284,12 +285,14 @@ git diff --check
 - workflow 超时有稳定错误。
 - workflow 失败不阻塞基础 reply。
 - 返回结构化 `workflow` 元数据。
+- 未配置 n8n 时 `/api/dialogue` 仍返回 reply，并返回 `workflow.status=not_configured`。
 
 **测试命令**
 
 ```bash
 npm run check
 npm run smoke
+git diff --check
 ```
 
 **风险**

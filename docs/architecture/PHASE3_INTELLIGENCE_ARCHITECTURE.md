@@ -216,20 +216,19 @@ Phase 3.5 已建立本地知识源边界，Phase 3.6 已把本地检索接入 `/
 | A. 主对话编排器 | n8n 决定 Memory/RAG/LLM 全流程 | 不推荐，调试和状态回收会变重 |
 | B. 工具调用层 | 后端在需要时调用特定 workflow | 推荐 |
 | C. 异步任务和外部系统集成 | 邮件、表格、CRM、通知等 | 推荐 |
-| D. 暂不接，只保留边界 | Phase 3 早期可接受 | 推荐作为 3.1-3.6 状态 |
+| D. 暂不接，只保留边界 | Phase 3 早期可接受 | 已用于 3.1-3.6 |
 
 推荐结论：
 
-- Phase 3.7 之前不接真实 n8n。
-- Phase 3.7 先把 n8n 作为工具调用层，而不是主对话编排器。
+- Phase 3.7 已将 n8n 接入为后端可选工具调用层，而不是主对话编排器。
 - n8n webhook URL 和 secret 只保存在后端环境变量。
 - 前端不应该知道 n8n 的存在，只能通过 `/api/dialogue` 或未来后端 `/api/workflows/*` 间接使用。
 
 后端调用策略：
 
-- 超时默认短于 LLM 超时，例如 10-15 秒。
+- 超时默认短于 LLM 超时，当前默认 `N8N_TIMEOUT_MS=8000`。
 - 失败返回 `workflow.used=false` 或 `workflow.status=error`，不阻塞基本回复。
-- workflow 结果要截断、脱敏、结构化，再进入 prompt。
+- workflow 结果会截断、脱敏、结构化，只放入 `workflow.result` 元数据，不直接覆盖最终 reply。
 - 所有 workflow 调用需要日志脱敏和未来鉴权。
 
 ## Agent orchestration 最小闭环
