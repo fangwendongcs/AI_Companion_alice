@@ -203,7 +203,7 @@ git diff --check
 - 有明确知识库目录。
 - 知识库不放在 `public/`。
 - `RagService.retrieve()` 可在 disabled / empty / local 三种状态间清晰切换。
-- 默认 `/api/dialogue options.useRag=true` 仍保持 `not_configured`，Phase 3.6 才接入真实回复链路。
+- Phase 3.5 仅建立边界；Phase 3.6 起 `/api/dialogue options.useRag=true` 已接入本地检索结果。
 
 **测试命令**
 
@@ -228,7 +228,7 @@ git diff --check
 - `backend/services/RagService.js`
 - `backend/services/PromptBuilder.js`
 - `backend/services/DialogueOrchestrationService.js`
-- `scripts/check-mvp-flow.mjs`
+- `scripts/check-rag-flow.mjs`
 - `scripts/check-integration-boundaries.mjs`
 - API 文档。
 
@@ -244,12 +244,14 @@ git diff --check
 - 没命中时能正常回复，不报错。
 - RAG 内容长度有上限。
 - 前端 Debug Panel 不需要知道 RAG 实现细节。
+- 不接 Qdrant、不做 embedding、不让前端拼 prompt。
 
 **测试命令**
 
 ```bash
 npm run check
 npm run smoke
+git diff --check
 ```
 
 **风险**

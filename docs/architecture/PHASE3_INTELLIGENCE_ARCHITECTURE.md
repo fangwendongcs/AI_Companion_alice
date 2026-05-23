@@ -102,11 +102,12 @@ Phase 3 演进职责：
 7. 写入短期 memory 事件。
 8. 返回统一响应。
 
-Phase 3.3 当前实现：
+Phase 3.6 当前实现：
 
 - `options.useMemory=true` 时，`MemoryService` 按 `sessionId` 读取和写入后端内存短期消息。
 - `options.useMemory=false` 时，Memory 保持 disabled，不读不写。
-- RAG / workflow 仍保持 disabled / not_configured，不接外部系统。
+- `options.useRag=true` 时，`RagService` 读取 `data/knowledge/` 并执行本地关键词检索。
+- workflow 仍保持 disabled / not_configured，不接外部系统。
 
 不应该承担：
 
@@ -187,13 +188,14 @@ Phase 3.7 之后再评估 SQLite。不要直接从阶段 3.3 跳到 Qdrant memor
 
 Phase 3.5-3.6 推荐先走路线 C：后端边界内的本地 markdown / JSON 小型检索。
 
-Phase 3.5 已建立本地知识源边界：
+Phase 3.5 已建立本地知识源边界，Phase 3.6 已把本地检索接入 `/api/dialogue options.useRag=true`：
 
 - `data/knowledge/` 存放后端本地 markdown / JSON 示例知识，不进入 `public/`。
 - `KnowledgeSourceService` 负责读取知识源，并只暴露相对 source 路径。
 - `SimpleRetrieverService` 负责简单关键词检索，返回 `passages / sources / matchedTerms`。
-- `RagService` 支持 `disabled / empty / local` 状态，但默认仍是 `not_configured`，避免 Phase 3.5 抢跑 `/api/dialogue` 的 RAG 回复链路。
-- Phase 3.6 才会让 `DialogueOrchestrationService` 在 `options.useRag=true` 时调用本地检索结果进入回复上下文。
+- `RagService` 支持 `disabled / empty / local` 状态，默认使用本地知识检索。
+- `DialogueOrchestrationService` 在 `options.useRag=true` 时调用本地检索，并返回 `rag.passages` 与顶层 `sources`。
+- `PromptBuilder` 负责把裁剪后的 Memory / RAG 上下文拼入后端 system prompt，前端不拼 prompt。
 
 理由：
 
@@ -218,8 +220,8 @@ Phase 3.5 已建立本地知识源边界：
 
 推荐结论：
 
-- Phase 3.6 之前不接真实 n8n。
-- Phase 3.6 先把 n8n 作为工具调用层，而不是主对话编排器。
+- Phase 3.7 之前不接真实 n8n。
+- Phase 3.7 先把 n8n 作为工具调用层，而不是主对话编排器。
 - n8n webhook URL 和 secret 只保存在后端环境变量。
 - 前端不应该知道 n8n 的存在，只能通过 `/api/dialogue` 或未来后端 `/api/workflows/*` 间接使用。
 

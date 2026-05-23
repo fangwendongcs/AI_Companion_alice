@@ -110,6 +110,7 @@ async function checkBackendDialogueBoundary() {
     'backend/services/LLMService.js',
     'backend/services/MemoryService.js',
     'backend/services/KnowledgeSourceService.js',
+    'backend/services/PromptBuilder.js',
     'backend/services/SimpleRetrieverService.js',
     'backend/services/RagService.js',
     'backend/services/N8nWorkflowService.js'
@@ -140,7 +141,8 @@ async function checkBackendDialogueBoundary() {
   assert(knowledgeSource.includes('data/knowledge'), 'KnowledgeSourceService 必须默认从 data/knowledge 读取本地知识源。');
   assert(!knowledgeSource.includes('public/'), 'KnowledgeSourceService 不应默认读取 public/ 下的公开资源。');
   assert(retriever.includes('matchedTerms'), 'SimpleRetrieverService 必须返回 matchedTerms，便于调试本地检索。');
-  assert(ragService.includes("status: 'not_configured'"), 'Phase 3.5 中 RagService 默认启用时仍应保持 not_configured，避免抢跑 /api/dialogue RAG 闭环。');
+  assert(ragService.includes("mode = 'local'"), 'Phase 3.6 中 RagService 默认应使用本地知识检索。');
+  assert(orchestration.includes('promptBuilder'), 'DialogueOrchestrationService 必须通过 PromptBuilder 组装 Memory/RAG prompt。');
 }
 
 async function checkDocsBoundary() {

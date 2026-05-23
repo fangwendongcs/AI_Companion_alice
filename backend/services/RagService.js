@@ -7,7 +7,7 @@ export class RagService {
   constructor({
     knowledgeSource = new KnowledgeSourceService(),
     retriever = new SimpleRetrieverService(),
-    mode = 'disabled'
+    mode = 'local'
   } = {}) {
     this.knowledgeSource = knowledgeSource;
     this.retriever = retriever;

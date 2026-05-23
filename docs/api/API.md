@@ -26,7 +26,7 @@
 
 ### POST /api/dialogue
 
-统一对话编排入口，用于承载 Memory、RAG、n8n workflow 与 Agent orchestration。当前前端主链路已调用该接口，并支持本地 `stub`、LLM-only 编排和后端短期 Memory；RAG / Workflow 仍保持 disabled / not_configured，不接真实外部服务。
+统一对话编排入口，用于承载 Memory、RAG、n8n workflow 与 Agent orchestration。当前前端主链路已调用该接口，并支持本地 `stub`、LLM-only 编排、后端短期 Memory 和本地知识检索 RAG；Workflow 仍保持 disabled / not_configured，不接真实外部服务。
 
 请求：
 
@@ -85,6 +85,8 @@
 - `sessionId` 用于后端短期 Memory；不传时使用 `default`。
 - `options.useMemory=true` 时，后端会在内存中记录最近 N 轮 user/assistant 消息；服务重启后清空。
 - `options.useMemory=false` 时，不读取、不写入 Memory。
+- `options.useRag=true` 时，后端会读取 `data/knowledge/` 并使用简单关键词检索返回 `rag.passages` 与顶层 `sources`；当前不接 Qdrant、不做 embedding。
+- `options.useRag=false` 时，不读取本地知识源。
 - 如果 provider 未配置或缺少 API Key，会返回 `{ "ok": false, "error": { "code": "LLM_NOT_CONFIGURED", "message": "..." } }`。
 - `provider` 为 `stub`、`local` 或 `boundary` 时，会返回本地 `llm_stub`，用于无 Key 本地开发演示、smoke 和边界检查，不代表生产 LLM。
 - 前端默认 provider 为 `stub`，因此新环境无需 API Key 也能跑通 thinking -> speaking -> idle 的演示链路。
@@ -138,6 +140,53 @@
 ```
 
 说明：当前 Memory 是后端进程内短期记忆，不落盘，不是长期记忆数据库。
+
+本地 RAG 示例：
+
+```json
+{
+  "message": "Alice RAG Memory 项目支持什么？",
+  "sessionId": "demo-session",
+  "provider": "stub",
+  "model": "stub",
+  "options": {
+    "useMemory": false,
+    "useRag": true,
+    "useWorkflow": false
+  }
+}
+```
+
+响应中的 `rag` 与 `sources`：
+
+```json
+{
+  "sources": [
+    {
+      "id": "alice_project.md",
+      "title": "Alice Digital Companion",
+      "source": "alice_project.md",
+      "score": 4
+    }
+  ],
+  "rag": {
+    "used": true,
+    "status": "local",
+    "passages": [
+      {
+        "id": "alice_project.md",
+        "title": "Alice Digital Companion",
+        "content": "Alice Digital Companion 是一个 AI 数字伙伴项目...",
+        "source": "alice_project.md",
+        "score": 4,
+        "matchedTerms": ["alice", "rag"]
+      }
+    ]
+  }
+}
+```
+
+说明：当前 RAG 是后端本地关键词检索，不是向量检索；知识源位于 `data/knowledge/`，不在 `public/`。
 
 ### POST /api/tts
 

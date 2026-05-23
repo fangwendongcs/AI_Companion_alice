@@ -64,7 +64,7 @@ Frontend DialogueManager
 - 接收 `message / provider / model / systemPrompt / options`。
 - 编排 memory、RAG、workflow 与 LLM。
 - 返回统一响应：`reply / sources / memory / rag / workflow / meta`。
-- 当前阶段支持 `llm_only`，但 Memory / RAG / Workflow 仍返回 `disabled / not_configured`。
+- 当前阶段支持 `llm_only`、短期 Memory 和本地 RAG；Workflow 仍返回 `disabled / not_configured`。
 
 ### `LLMService`
 
@@ -75,15 +75,15 @@ Frontend DialogueManager
 
 ### `MemoryService`
 
-- 预留 `getContext()` 与 `appendEvent()`。
-- 当前返回空上下文和 `disabled / not_configured` 状态。
+- 提供 `getContext()`、`appendExchange()` 与 `appendEvent()`。
+- 当前使用后端进程内短期 Memory，按 `sessionId` 保存最近几轮消息。
 - 未来可接入会话摘要、用户画像、长期记忆数据库。
 
 ### `RagService`
 
-- 预留 `retrieve()`。
-- 当前返回空 `passages`。
-- 未来可接入 Qdrant、Supabase、Pinecone 或本地向量库。
+- 提供 `retrieve()`。
+- 当前读取 `data/knowledge/`，执行本地关键词检索，返回 `passages` 与 `sources`。
+- 未来可把内部实现替换为 Qdrant、Supabase、Pinecone 或本地向量库。
 
 ### `N8nWorkflowService`
 

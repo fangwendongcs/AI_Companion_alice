@@ -62,8 +62,11 @@ async function checkRagServiceModes() {
   const disabled = await rag.retrieve('Alice', { enabled: false });
   assert(disabled.status === 'disabled' && disabled.used === false, 'RagService disabled 模式必须不检索。');
 
-  const notConfigured = await new RagService().retrieve('Alice', { enabled: true });
-  assert(notConfigured.status === 'not_configured' && notConfigured.used === false, 'RagService 默认启用时应保持 not_configured，避免 Phase 3.5 抢跑主链路。');
+  const defaultLocal = await new RagService({
+    knowledgeSource: new KnowledgeSourceService({ rootDir: root })
+  }).retrieve('Alice RAG', { enabled: true });
+  assert(defaultLocal.status === 'local', 'RagService 默认启用时应进入 local 模式。');
+  assert(defaultLocal.used === true, 'RagService 默认 local 模式命中时 used 必须为 true。');
 
   const local = await rag.retrieve('Alice RAG', { enabled: true, mode: 'local' });
   assert(local.status === 'local', 'RagService local 模式必须返回 local 状态。');

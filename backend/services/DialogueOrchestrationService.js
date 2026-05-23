@@ -3,6 +3,7 @@ import { MemoryService } from './MemoryService.js';
 import { N8nWorkflowService } from './N8nWorkflowService.js';
 import { RagService } from './RagService.js';
 import { LLMService } from './LLMService.js';
+import { PromptBuilder } from './PromptBuilder.js';
 
 const MAX_MESSAGE_CHARS = 4000;
 const MAX_SYSTEM_PROMPT_CHARS = 4000;
@@ -13,12 +14,14 @@ export class DialogueOrchestrationService {
     memoryService = new MemoryService(),
     ragService = new RagService(),
     workflowService = new N8nWorkflowService(),
-    llmService = new LLMService()
+    llmService = new LLMService(),
+    promptBuilder = new PromptBuilder()
   } = {}) {
     this.memoryService = memoryService;
     this.ragService = ragService;
     this.workflowService = workflowService;
     this.llmService = llmService;
+    this.promptBuilder = promptBuilder;
   }
 
   async run(payload = {}) {
@@ -49,7 +52,7 @@ export class DialogueOrchestrationService {
     });
 
     if (isLocalStubProvider(provider)) {
-      const reply = buildLocalStubReply(message, memory);
+      const reply = buildLocalStubReply(message, memory, rag);
       const updatedMemory = await this.appendMemoryExchange({
         enabled: options.useMemory,
         sessionId,
@@ -58,7 +61,7 @@ export class DialogueOrchestrationService {
       });
       return {
         reply,
-        sources: [],
+        sources: rag.sources || [],
         memory: updatedMemory || memory,
         rag,
         workflow,
@@ -76,7 +79,11 @@ export class DialogueOrchestrationService {
       message,
       provider,
       model,
-      systemPrompt: buildSystemPrompt(systemPrompt, memory)
+      systemPrompt: this.promptBuilder.build({
+        systemPrompt,
+        memory,
+        rag
+      })
     });
     const updatedMemory = await this.appendMemoryExchange({
       enabled: options.useMemory,
@@ -87,7 +94,7 @@ export class DialogueOrchestrationService {
 
     return {
       reply,
-      sources: [],
+      sources: rag.sources || [],
       memory: updatedMemory || memory,
       rag,
       workflow,
@@ -150,8 +157,11 @@ function isLocalStubProvider(provider) {
   return ['stub', 'local', 'boundary'].includes(provider);
 }
 
-function buildLocalStubReply(message, memory) {
+function buildLocalStubReply(message, memory, rag) {
   const text = String(message || '').trim();
+  if (rag?.used && rag.passages?.length) {
+    return `我查到了 ${rag.passages.length} 条本地知识片段。当前仍是本地演示模式，RAG 检索链路已经跑通了。`;
+  }
   if (memory?.used && memory.turnCount > 0) {
     return `我记得我们刚聊过 ${memory.turnCount} 轮。当前仍是本地演示模式，短期记忆链路已经跑通了。`;
   }
@@ -159,16 +169,6 @@ function buildLocalStubReply(message, memory) {
     return '我现在处于本地演示模式，还没有连接真实模型，但对话链路已经跑通了。';
   }
   return '我在本地演示模式，可以陪你完成交互流程；接入真实模型后，我会回答得更聪明。';
-}
-
-function buildSystemPrompt(systemPrompt, memory) {
-  const basePrompt = systemPrompt || '你是 Alice，一个简短回复的 3D 数字伙伴。';
-  if (!memory?.used || !memory.context?.length) return basePrompt;
-
-  const memoryLines = memory.context
-    .map((item) => `${item.role === 'assistant' ? 'Alice' : 'User'}: ${item.content}`)
-    .join('\n');
-  return `${basePrompt}\n\n短期对话记忆（仅供当前会话参考）：\n${memoryLines}`.slice(0, MAX_SYSTEM_PROMPT_CHARS);
 }
 
 function createCodedHttpError(message, statusCode, code) {

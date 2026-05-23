@@ -64,4 +64,4 @@ npm run check:knowledge-flow
 npm run check
 ```
 
-Phase 3.6 才会把本地检索结果接入 `/api/dialogue options.useRag=true` 的真实回复链路。
+Phase 3.6 起，本地检索结果已接入 `/api/dialogue options.useRag=true` 的回复链路，并通过后端 `PromptBuilder` 进入 system prompt。

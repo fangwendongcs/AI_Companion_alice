@@ -118,7 +118,7 @@ async function assertDialogueBoundary() {
   await assertMemoryFlow();
 
   const optionalPayload = await postJson('/api/dialogue', {
-    message: 'smoke optional contexts check',
+    message: 'smoke optional contexts check for Alice RAG Memory',
     provider: 'stub',
     model: 'stub',
     options: {
@@ -130,7 +130,9 @@ async function assertDialogueBoundary() {
   const optionalData = optionalPayload.data || optionalPayload;
   if (optionalData.memory?.status !== 'ready') throw new Error('/api/dialogue memory should report ready when enabled');
   if (optionalData.memory?.used !== true) throw new Error('/api/dialogue memory should report used=true when enabled');
-  if (optionalData.rag?.status !== 'not_configured') throw new Error('/api/dialogue rag should report not_configured');
+  if (optionalData.rag?.status !== 'local') throw new Error('/api/dialogue rag should report local');
+  if (optionalData.rag?.used !== true) throw new Error('/api/dialogue rag should report used=true when local knowledge matches');
+  if (!optionalData.sources?.length) throw new Error('/api/dialogue should expose top-level sources when RAG matches');
   if (optionalData.workflow?.status !== 'not_configured') throw new Error('/api/dialogue workflow should report not_configured');
 
   await assertDialogueError('/api/dialogue', {

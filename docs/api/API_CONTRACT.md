@@ -57,7 +57,7 @@
 
 ### POST /api/dialogue
 
-当前前端主对话入口。已支持本地 `stub` 和 LLM-only 编排，不会请求外部 RAG、n8n 或长期记忆服务。
+当前前端主对话入口。已支持本地 `stub`、LLM-only 编排、后端短期 Memory 和本地知识检索 RAG，不会请求外部 RAG、n8n 或长期记忆服务。
 
 请求：
 
@@ -113,7 +113,9 @@
 
 如果 `options.useMemory=true`，当前会启用后端进程内短期 Memory，并按 `sessionId` 记录最近 N 轮 user/assistant 消息。该 Memory 不落盘，服务重启后丢失。
 
-如果 `options.useRag / useWorkflow` 为 `true`，当前仍不会调用外部服务，只会返回 `not_configured` 状态。正式接入时应在后端 service 层实现，不改前端 secret 边界。
+如果 `options.useRag=true`，当前会调用后端本地 `RagService`，读取 `data/knowledge/` 并返回 `rag.passages` 与顶层 `sources`。当前不调用 Qdrant、不做 embedding、不访问外部网络。
+
+如果 `options.useWorkflow=true`，当前仍不会调用外部服务，只会返回 `not_configured` 状态。正式接入时应在后端 service 层实现，不改前端 secret 边界。
 
 无密钥本地演示和 smoke 可使用 `provider: "stub"`，当前前端默认也使用该 provider。此时返回：
 
@@ -177,6 +179,38 @@ Memory enabled 成功时：
       "used": false,
       "status": "disabled",
       "result": null
+    }
+  }
+}
+```
+
+RAG enabled 命中时：
+
+```json
+{
+  "ok": true,
+  "data": {
+    "sources": [
+      {
+        "id": "alice_project.md",
+        "title": "Alice Digital Companion",
+        "source": "alice_project.md",
+        "score": 4
+      }
+    ],
+    "rag": {
+      "used": true,
+      "status": "local",
+      "passages": [
+        {
+          "id": "alice_project.md",
+          "title": "Alice Digital Companion",
+          "content": "Alice Digital Companion 是一个 AI 数字伙伴项目...",
+          "source": "alice_project.md",
+          "score": 4,
+          "matchedTerms": ["alice", "rag"]
+        }
+      ]
     }
   }
 }

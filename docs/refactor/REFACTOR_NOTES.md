@@ -1481,7 +1481,16 @@ npm run check:assets
 - 新增 `data/knowledge/` 示例知识源，支持 markdown 与 JSON；该目录不在 `public/` 下，前端不能直接访问。
 - 新增 `KnowledgeSourceService`，负责读取本地知识源并输出相对 source 路径，避免暴露本地绝对路径。
 - 新增 `SimpleRetrieverService`，以简单关键词匹配返回 `passages / sources / matchedTerms`，用于后续 RAG 最小闭环。
-- `RagService` 支持 `disabled / not_configured / empty / local` 状态；默认仍保持 `not_configured`，避免本轮抢跑 `/api/dialogue options.useRag=true`。
+- `RagService` 支持 `disabled / not_configured / empty / local` 状态；Phase 3.5 默认仍保持 `not_configured`，避免本轮抢跑 `/api/dialogue options.useRag=true`。
 - 新增 `scripts/check-knowledge-flow.mjs` 并纳入 `npm run check`，覆盖 markdown/JSON 读取、关键词检索和 RAG 状态边界。
 - 新增 `docs/guides/KNOWLEDGE_GUIDE.md`，说明本地知识源目录、格式、限制和验收命令。
 - 本轮不接 Qdrant、不做 embedding、不接 n8n RAG、不做文件上传知识库。
+
+## 47. Phase 3.6 RAG 最小闭环
+
+- `RagService` 默认切换为本地知识检索模式，`options.useRag=true` 时读取 `data/knowledge/` 并返回 `rag.passages` 与顶层 `sources`。
+- 新增 `PromptBuilder`，统一把短期 Memory 与本地 RAG 上下文裁剪后拼入后端 system prompt，前端不拼 RAG prompt。
+- `DialogueOrchestrationService` 接入 RAG 结果；stub provider 会返回本地 RAG 链路已跑通的演示回复，真实 provider 会收到包含知识片段的 system prompt。
+- 新增 `scripts/check-rag-flow.mjs` 并纳入 `npm run check`，覆盖 RAG enabled、disabled、PromptBuilder 和真实 provider prompt 注入。
+- `smoke` 更新为验证 `/api/dialogue options.useRag=true` 返回 `rag.status=local`、`rag.used=true` 和 `sources`。
+- 本轮不接 Qdrant、不做 embedding、不让前端拼 prompt、不接 n8n。
