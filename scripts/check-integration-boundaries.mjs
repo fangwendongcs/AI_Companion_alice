@@ -124,9 +124,12 @@ async function checkBackendDialogueBoundary() {
   const router = await readFile('backend/routes/router.js', 'utf8');
   const dialogueRoutes = await readFile('backend/routes/dialogueRoutes.js', 'utf8');
   const orchestration = await readFile('backend/services/DialogueOrchestrationService.js', 'utf8');
+  const authMiddleware = await readFile('backend/middleware/authMiddleware.js', 'utf8');
 
   assert(router.includes('/api/dialogue'), 'router 必须挂载 POST /api/dialogue。');
   assert(router.includes('/api/providers'), 'router 必须挂载 GET /api/providers。');
+  assert(router.includes('enforceApiAuth'), 'router 必须在敏感写接口前挂载可配置 API 鉴权边界。');
+  assert(authMiddleware.includes('/api/dialogue') && authMiddleware.includes('/api/tts') && authMiddleware.includes('/api/avatars'), 'authMiddleware 必须覆盖 dialogue / tts / avatar upload。');
   assert(dialogueRoutes.includes('handleDialogue'), 'dialogueRoutes 必须导出 handleDialogue。');
   assert(dialogueRoutes.includes('sendOk'), '/api/dialogue 必须使用兼容期新响应格式 { ok, data }。');
   assert(await readFile('backend/services/ProviderStatusService.js', 'utf8').catch(() => ''), 'ProviderStatusService 必须存在，提供安全 provider 配置状态。');

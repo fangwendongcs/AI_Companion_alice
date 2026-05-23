@@ -40,6 +40,7 @@ GET /api/providers
 ```bash
 npm run check
 npm run check:regression
+npm run check:security-boundaries
 npm run smoke
 npm run check:browser-capability
 ```
@@ -89,3 +90,7 @@ archive/  历史配置、旧脚本、原始素材归档
 - [PHASE3_IMPLEMENTATION_PLAN.md](./docs/process/PHASE3_IMPLEMENTATION_PLAN.md)
 - [PHASE3_ACCEPTANCE.md](./docs/product/PHASE3_ACCEPTANCE.md)
 - [PHASE3_BASELINE.md](./docs/product/PHASE3_BASELINE.md)
+
+Phase 4 安全基线文档：
+
+- [PHASE4_DEPLOYMENT_SECURITY_BASELINE.md](./docs/security/PHASE4_DEPLOYMENT_SECURITY_BASELINE.md)

@@ -5,6 +5,9 @@ const backendDir = fileURLToPath(new URL('..', import.meta.url));
 
 export const rootDir = resolve(backendDir, '..');
 export const port = Number(process.env.PORT || 3000);
+export const deploymentMode = process.env.DEPLOYMENT_MODE || 'local';
+export const requireApiAuth = process.env.REQUIRE_API_AUTH === 'true';
+export const apiAuthToken = process.env.API_AUTH_TOKEN || '';
 export const maxJsonBodyBytes = 1024 * 1024;
 export const maxUploadBodyBytes = 80 * 1024 * 1024;
 export const upstreamTimeoutMs = Number(process.env.UPSTREAM_TIMEOUT_MS || 45000);

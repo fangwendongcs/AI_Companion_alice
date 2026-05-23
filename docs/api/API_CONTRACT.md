@@ -4,6 +4,29 @@
 
 ## 当前接口
 
+## 鉴权兼容期
+
+本地开发默认不启用 API token，保持现有 smoke 和 stub 演示兼容。
+
+公网或私有演示前必须启用 `REQUIRE_API_AUTH=true`，并通过后端环境变量设置 `API_AUTH_TOKEN`。启用后，以下写接口需要 `Authorization: Bearer <token>` 或 `X-API-Token: <token>`：
+
+- `POST /api/dialogue`
+- `POST /api/chat`
+- `POST /api/tts`
+- `POST /api/avatars`
+
+公开读取接口：
+
+- `GET /api/health`
+- `GET /api/providers`，只能返回安全 readiness 状态
+- 静态资源
+
+未授权时返回：
+
+```json
+{ "error": "Unauthorized" }
+```
+
 ### GET /api/health
 
 ```json

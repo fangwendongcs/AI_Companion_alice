@@ -302,6 +302,41 @@ npm run check
 npm run smoke
 git diff --check
 ```
+
+## Phase 4.1：部署安全与公网前检查基线
+
+**目标**
+
+- 为后续公网或半公网私有演示建立安全基线，不真正部署，不接新智能能力。
+
+**已完成事项**
+
+- 明确公网前必须鉴权的接口：`POST /api/dialogue`、`POST /api/chat`、`POST /api/tts`、`POST /api/avatars`。
+- 明确可公开读取的接口：`GET /api/health`、`GET /api/providers` 和静态资源；`/api/providers` 只允许返回安全 readiness 状态。
+- 新增默认关闭的轻量 API auth 边界：`REQUIRE_API_AUTH` / `API_AUTH_TOKEN`。
+- 新增 `check:security-boundaries`，覆盖前端 secret 边界、上传基础保护、provider readiness 安全和部署文档完整性。
+- 新增 `docs/security/PHASE4_DEPLOYMENT_SECURITY_BASELINE.md`。
+
+**Phase 4.2 可选方向**
+
+- 真实部署平台配置。
+- 正式鉴权和用户体系。
+- CORS 白名单落地。
+- 速率限制与结构化日志脱敏。
+
+**不做事项**
+
+- 不接 Qdrant、不做 embedding、不实现长期记忆数据库。
+- 不新增真实 n8n workflow。
+- 不修改模型、角色、动画、TTS 主逻辑。
+
+**测试命令**
+
+```bash
+npm run check
+npm run smoke
+git diff --check
+```
 - RAG、Memory、n8n、Agent 只允许从后端边界接入，不进入前端 UI 或 AppController。
 
 **测试命令**

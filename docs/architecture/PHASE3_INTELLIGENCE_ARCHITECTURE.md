@@ -311,6 +311,7 @@ n8n workflow 负责：
 - n8n webhook secret 只在后端环境变量。
 - Qdrant credential 只在后端环境变量。
 - `.env.example` 只保留 placeholder。
+- Phase 4.1 起，公网前必须保护 `POST /api/dialogue`、`POST /api/chat`、`POST /api/tts`、`POST /api/avatars`；本地开发默认仍关闭 token 鉴权。
 - 公网部署前必须补鉴权、CORS 白名单、速率限制、上传隔离、日志脱敏。
 - RAG 文档与 Memory 数据必须有删除策略和用户可见边界。
 

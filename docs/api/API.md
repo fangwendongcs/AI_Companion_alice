@@ -1,5 +1,16 @@
 ## Backend API
 
+## 公网前鉴权边界
+
+本地开发默认 `REQUIRE_API_AUTH=false`。公网或半公网私有演示前，以下接口必须启用鉴权或接入正式用户认证：
+
+- `POST /api/dialogue`
+- `POST /api/chat`
+- `POST /api/tts`
+- `POST /api/avatars`
+
+Phase 4.1 提供默认关闭的轻量 token 边界。启用 `REQUIRE_API_AUTH=true` 后，请求需要携带 `Authorization: Bearer <token>` 或 `X-API-Token: <token>`。`GET /api/health`、`GET /api/providers` 和静态资源可公开读取；`GET /api/providers` 不得返回 secret。
+
 ### POST /api/chat
 
 浏览器只提交对话参数，API Key 和上游 Base URL 均由后端环境变量读取。

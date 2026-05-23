@@ -25,6 +25,9 @@ http://localhost:3000
 ## 环境变量
 
 - `PORT`：服务端口，默认 `3000`
+- `DEPLOYMENT_MODE`：部署模式标记，默认 `local`
+- `REQUIRE_API_AUTH`：是否保护敏感写接口，默认 `false`
+- `API_AUTH_TOKEN`：`REQUIRE_API_AUTH=true` 时的后端私有演示 token
 - `OPENAI_API_KEY`：OpenAI Chat/TTS
 - `MINIMAX_API_KEY`：MiniMax TTS
 - `QWEN_API_KEY`：通义千问 OpenAI-compatible 接口
@@ -53,6 +56,26 @@ http://localhost:3000
 - `POST /api/avatars`
 - `GET /api/health`
 
+## 私有演示鉴权
+
+本地开发默认不启用 API token，保证 `npm run smoke` 和默认 stub 演示可以直接运行。
+
+公网或半公网私有演示前，至少启用：
+
+```bash
+REQUIRE_API_AUTH=true
+API_AUTH_TOKEN=replace_with_private_token
+```
+
+启用后，以下敏感写接口需要 `Authorization: Bearer <token>` 或 `X-API-Token: <token>`：
+
+- `POST /api/dialogue`
+- `POST /api/chat`
+- `POST /api/tts`
+- `POST /api/avatars`
+
+`GET /api/health`、`GET /api/providers` 和静态资源仍可公开读取；`GET /api/providers` 只能返回安全 readiness 状态。
+
 ## 角色上传限制
 
 `POST /api/avatars` 当前面向本地开发使用，支持 `.vrm`、`.glb`、`.gltf`。后端会做基础校验：
@@ -74,4 +97,4 @@ http://localhost:3000
 - API Key 只保留在后端环境变量或密钥管理系统中
 - n8n webhook URL / secret 只保留在后端环境变量中，前端不能直连 n8n
 
-详细清单见 [docs/security/DEPLOYMENT_SECURITY.md](../docs/security/DEPLOYMENT_SECURITY.md)。
+详细清单见 [DEPLOYMENT_SECURITY.md](../docs/security/DEPLOYMENT_SECURITY.md) 与 [PHASE4_DEPLOYMENT_SECURITY_BASELINE.md](../docs/security/PHASE4_DEPLOYMENT_SECURITY_BASELINE.md)。

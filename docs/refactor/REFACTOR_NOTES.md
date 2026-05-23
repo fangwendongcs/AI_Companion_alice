@@ -1525,3 +1525,12 @@ npm run check:assets
 - `BROWSER_ACCEPTANCE_CHECKLIST.md` 增加 Phase 3 复验项：stub 对话、Memory 开关、RAG 开关、workflow not_configured、Debug Panel 状态、最终 idle 和控制台检查。
 - API、架构、后端边界和安全文档同步 `/api/dialogue` 当前统一返回结构：`memory / rag / workflow / sources / meta.steps / meta.orchestration`。
 - 本轮只做文档封版，不修改业务功能、前端 UI、模型、角色、动画、TTS、Memory/RAG/Workflow/LLM 编排代码。
+
+## 51. Phase 4.1 部署安全与公网前检查基线
+
+- 新增默认关闭的轻量 API 鉴权边界：`REQUIRE_API_AUTH=true` 时保护 `POST /api/dialogue`、`POST /api/chat`、`POST /api/tts`、`POST /api/avatars`。
+- `API_AUTH_TOKEN` 只从后端环境变量读取，支持 `Authorization: Bearer <token>` 或 `X-API-Token`；本地默认关闭，保持 stub 演示和 smoke 兼容。
+- 新增 `scripts/check-security-boundaries.mjs` 并纳入 `npm run check`，覆盖敏感写接口鉴权边界、前端 secret 边界、上传基础保护、provider readiness 安全和部署文档完整性。
+- 新增 `docs/security/PHASE4_DEPLOYMENT_SECURITY_BASELINE.md`，明确接口分级、上传风险、secret 边界、日志安全、CORS 边界和 Phase 4.1 不包含事项。
+- `.env.example`、`backend/README.md`、API 文档、安全文档和下一阶段计划已同步部署前安全要求。
+- 本轮不新增真实部署平台配置、不接 Qdrant、不做 embedding、不实现长期记忆数据库、不新增真实 n8n workflow。

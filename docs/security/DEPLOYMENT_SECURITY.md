@@ -6,13 +6,15 @@ Phase 3 已完成智能能力基线，但这仍然不是生产部署安全基线
 
 ## P0
 
-- 限制 CORS 来源，不要继续使用 `Access-Control-Allow-Origin: *`。
-- 给 `/api/dialogue`、`/api/chat`、`/api/tts`、`/api/avatars` 增加鉴权。
+- 限制 CORS 来源，不要继续使用 `Access-Control-Allow-Origin: *` 面向公网。
+- 给 `POST /api/dialogue`、`POST /api/chat`、`POST /api/tts`、`POST /api/avatars` 增加鉴权；Phase 4.1 已提供默认关闭的 `REQUIRE_API_AUTH` / `API_AUTH_TOKEN` 轻量边界，公网前必须启用或替换为正式鉴权。
+- `GET /api/health` 可以公开；`GET /api/providers` 可以公开但只能返回安全 readiness 状态；静态资源可以公开。
 - 给上传接口增加速率限制、用户级配额、文件数量限制。
 - 对上传模型做更严格扫描；当前只做 `.vrm/.glb/.gltf` 基础格式校验。
 - 不在前端或公开静态资源中写入任何 API Key。
 - `GET /api/providers` 只能返回非敏感 readiness 状态，不得返回 Key、secret、token、Bearer 或真实上游地址。
 - `N8N_WEBHOOK_URL` 和 `N8N_WEBHOOK_SECRET` 只能保存在后端环境变量或密钥管理系统中，不得写入前端、文档真实值或公开资源。
+- `API_AUTH_TOKEN` 只能保存在后端环境变量或密钥管理系统中，不得写入前端或仓库。
 
 ## P1
 
