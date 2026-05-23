@@ -134,6 +134,9 @@ async function checkBackendDialogueBoundary() {
   assert(orchestration.includes('llmService'), 'DialogueOrchestrationService 必须通过 LLMService 复用 LLM provider 能力。');
   assert(orchestration.includes('llm_only'), 'DialogueOrchestrationService 必须支持 llm_only 编排模式。');
   assert(orchestration.includes('llm_stub'), 'DialogueOrchestrationService 必须保留本地 stub 以支持无密钥 smoke。');
+  assert(orchestration.includes("orchestration: 'agent_pipeline'"), 'DialogueOrchestrationService 必须在 meta 中标记 agent_pipeline。');
+  assert(orchestration.includes('getMemoryContext') && orchestration.includes('getRagContext') && orchestration.includes('getWorkflowContext'), 'DialogueOrchestrationService 必须集中编排 Memory/RAG/Workflow。');
+  assert(orchestration.includes('buildStepMeta'), 'DialogueOrchestrationService 必须返回统一步骤状态 meta.steps。');
 
   const knowledgeSource = await readFile('backend/services/KnowledgeSourceService.js', 'utf8');
   const workflowService = await readFile('backend/services/N8nWorkflowService.js', 'utf8');

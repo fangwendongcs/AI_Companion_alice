@@ -35,15 +35,15 @@ export class DialogueOrchestrationService {
     const systemPrompt = normalizeSystemPrompt(payload.systemPrompt);
     const options = normalizeOptions(payload.options);
     const sessionId = normalizeSessionId(payload.sessionId || options.sessionId);
-    const memory = await this.memoryService.getContext({
+    const memory = await this.getMemoryContext({
       message,
       enabled: options.useMemory,
       sessionId
     });
-    const rag = await this.ragService.retrieve(message, {
+    const rag = await this.getRagContext(message, {
       enabled: options.useRag
     });
-    const workflow = await this.workflowService.invokeWorkflow({
+    const workflow = await this.getWorkflowContext({
       message,
       provider,
       model
@@ -59,14 +59,17 @@ export class DialogueOrchestrationService {
         message,
         reply
       });
+      const responseMemory = updatedMemory || memory;
       return {
         reply,
         sources: rag.sources || [],
-        memory: updatedMemory || memory,
+        memory: responseMemory,
         rag,
         workflow,
         meta: {
           mode: 'llm_stub',
+          orchestration: 'agent_pipeline',
+          steps: buildStepMeta({ memory: responseMemory, rag, workflow }),
           provider,
           model: model || 'stub',
           systemPromptReceived: Boolean(systemPrompt),
@@ -82,7 +85,8 @@ export class DialogueOrchestrationService {
       systemPrompt: this.promptBuilder.build({
         systemPrompt,
         memory,
-        rag
+        rag,
+        workflow
       })
     });
     const updatedMemory = await this.appendMemoryExchange({
@@ -91,15 +95,18 @@ export class DialogueOrchestrationService {
       message,
       reply
     });
+    const responseMemory = updatedMemory || memory;
 
     return {
       reply,
       sources: rag.sources || [],
-      memory: updatedMemory || memory,
+      memory: responseMemory,
       rag,
       workflow,
       meta: {
         mode: 'llm_only',
+        orchestration: 'agent_pipeline',
+        steps: buildStepMeta({ memory: responseMemory, rag, workflow }),
         provider,
         model: model || 'gpt-4o-mini',
         systemPromptReceived: Boolean(systemPrompt)
@@ -109,15 +116,76 @@ export class DialogueOrchestrationService {
 
   async appendMemoryExchange({ enabled, sessionId, message, reply }) {
     if (!enabled) return null;
-    await this.memoryService.appendExchange({
-      sessionId,
-      userMessage: message,
-      assistantMessage: reply
-    }, { enabled });
-    return this.memoryService.getContext({
-      enabled,
-      sessionId
-    });
+    try {
+      await this.memoryService.appendExchange({
+        sessionId,
+        userMessage: message,
+        assistantMessage: reply
+      }, { enabled });
+      return this.memoryService.getContext({
+        enabled,
+        sessionId
+      });
+    } catch (error) {
+      return {
+        used: false,
+        status: 'error',
+        reason: 'memory_append_error',
+        sessionId,
+        turnCount: 0,
+        context: [],
+        error: safeErrorMessage(error)
+      };
+    }
+  }
+
+  async getMemoryContext({ message, enabled, sessionId }) {
+    try {
+      return await this.memoryService.getContext({
+        message,
+        enabled,
+        sessionId
+      });
+    } catch (error) {
+      return {
+        used: false,
+        status: 'error',
+        reason: 'memory_error',
+        sessionId: enabled ? sessionId : null,
+        turnCount: 0,
+        context: [],
+        error: safeErrorMessage(error)
+      };
+    }
+  }
+
+  async getRagContext(message, { enabled }) {
+    try {
+      return await this.ragService.retrieve(message, { enabled });
+    } catch (error) {
+      return {
+        used: false,
+        status: 'error',
+        reason: 'rag_error',
+        passages: [],
+        sources: [],
+        error: safeErrorMessage(error)
+      };
+    }
+  }
+
+  async getWorkflowContext(payload, { enabled }) {
+    try {
+      return await this.workflowService.invokeWorkflow(payload, { enabled });
+    } catch (error) {
+      return {
+        used: false,
+        status: 'error',
+        reason: 'workflow_error',
+        result: null,
+        error: safeErrorMessage(error)
+      };
+    }
   }
 }
 
@@ -169,6 +237,18 @@ function buildLocalStubReply(message, memory, rag) {
     return '我现在处于本地演示模式，还没有连接真实模型，但对话链路已经跑通了。';
   }
   return '我在本地演示模式，可以陪你完成交互流程；接入真实模型后，我会回答得更聪明。';
+}
+
+function buildStepMeta({ memory, rag, workflow }) {
+  return {
+    memory: memory?.status || 'unknown',
+    rag: rag?.status || 'unknown',
+    workflow: workflow?.status || 'unknown'
+  };
+}
+
+function safeErrorMessage(error) {
+  return String(error?.message || 'optional context failed').slice(0, 200);
 }
 
 function createCodedHttpError(message, statusCode, code) {

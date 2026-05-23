@@ -59,6 +59,12 @@
 
 当前前端主对话入口。已支持本地 `stub`、LLM-only 编排、后端短期 Memory、本地知识检索 RAG 和可选 n8n workflow 工具调用。n8n 不作为主对话编排器。
 
+最小 Agent 编排顺序固定为：
+
+```text
+validate input -> memory context -> rag context -> optional workflow -> PromptBuilder -> LLM/stub -> append memory -> response
+```
+
 请求：
 
 ```json
@@ -104,6 +110,12 @@
     },
     "meta": {
       "mode": "llm_only",
+      "orchestration": "agent_pipeline",
+      "steps": {
+        "memory": "disabled",
+        "rag": "disabled",
+        "workflow": "disabled"
+      },
       "provider": "openai",
       "model": "gpt-4o-mini"
     }

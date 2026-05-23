@@ -1505,3 +1505,13 @@ npm run check:assets
 - 新增 `scripts/check-workflow-flow.mjs` 并纳入 `npm run check`，覆盖 disabled、not_configured、success、timeout 和 `/api/dialogue` 可选 workflow。
 - `smoke` 更新为确认无 n8n 配置时 workflow 稳定返回 not_configured。
 - 本轮不把 n8n 设为主对话编排器、不实现 Agent loop、不改前端 UI。
+
+## 49. Phase 3.8 Agent Orchestration 收口
+
+- `DialogueOrchestrationService` 收口为 `/api/dialogue` 的唯一最小 Agent 编排入口，顺序固定为 validate input -> Memory context -> RAG context -> optional workflow result -> PromptBuilder -> LLMService -> append Memory -> response。
+- `PromptBuilder` 新增 workflow context 组装能力，统一处理 systemPrompt、Memory、RAG 与 workflow 上下文，避免 prompt 拼接散落到 route 或前端。
+- Memory / RAG / Workflow 增加可选能力错误收敛：`disabled / not_configured / error` 都会进入结构化响应，不阻塞基础 stub/LLM reply；核心 LLM 失败仍走标准错误链路。
+- `/api/dialogue` 响应 meta 新增 `orchestration: "agent_pipeline"` 和 `steps`，用于诊断 memory / rag / workflow 的最终状态。
+- 新增 `scripts/check-agent-flow.mjs` 并纳入 `npm run check`，覆盖编排顺序、独立开关、可选能力失败降级、PromptBuilder workflow context 与 stub 完整链路。
+- `smoke` 补充组合请求验收，确认默认 stub 下 `useMemory/useRag/useWorkflow` 可稳定返回，且无 n8n 配置时 workflow 保持 `not_configured`。
+- 本轮不做无限循环 Agent、多 Agent 协作、自动长期任务，不接 Qdrant、不新增 embedding、不改前端 UI。

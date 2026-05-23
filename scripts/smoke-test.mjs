@@ -136,6 +136,10 @@ async function assertDialogueBoundary() {
   if (optionalData.workflow?.status !== 'not_configured') throw new Error('/api/dialogue workflow should report not_configured');
   if (optionalData.workflow?.reason !== 'not_configured') throw new Error('/api/dialogue workflow should include not_configured reason');
   if (optionalData.workflow?.used !== false) throw new Error('/api/dialogue workflow should not be used without n8n config');
+  if (optionalData.meta?.orchestration !== 'agent_pipeline') throw new Error('/api/dialogue should report agent_pipeline orchestration');
+  if (optionalData.meta?.steps?.memory !== 'ready') throw new Error('/api/dialogue meta.steps should include memory status');
+  if (optionalData.meta?.steps?.rag !== 'local') throw new Error('/api/dialogue meta.steps should include rag status');
+  if (optionalData.meta?.steps?.workflow !== 'not_configured') throw new Error('/api/dialogue meta.steps should include workflow status');
 
   await assertDialogueError('/api/dialogue', {
     message: '',

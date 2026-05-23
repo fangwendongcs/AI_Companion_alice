@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node backend/server.js",
-    "check": "npm run check:js && npm run check:config && npm run check:assets && npm run check:legacy-avatar && npm run check:regression && npm run check:mvp-flow && npm run check:avatar-flow && npm run check:runtime-contracts && npm run check:integration-boundaries && npm run check:provider-config && npm run check:memory-flow && npm run check:knowledge-flow && npm run check:rag-flow && npm run check:workflow-flow",
+    "check": "npm run check:js && npm run check:config && npm run check:assets && npm run check:legacy-avatar && npm run check:regression && npm run check:mvp-flow && npm run check:avatar-flow && npm run check:runtime-contracts && npm run check:integration-boundaries && npm run check:provider-config && npm run check:memory-flow && npm run check:knowledge-flow && npm run check:rag-flow && npm run check:workflow-flow && npm run check:agent-flow",
     "check:js": "node scripts/check-js.mjs",
     "check:config": "node scripts/check-config.mjs",
     "check:assets": "node scripts/check-assets.mjs",
@@ -20,6 +20,7 @@
     "check:knowledge-flow": "node scripts/check-knowledge-flow.mjs",
     "check:rag-flow": "node scripts/check-rag-flow.mjs",
     "check:workflow-flow": "node scripts/check-workflow-flow.mjs",
+    "check:agent-flow": "node scripts/check-agent-flow.mjs",
     "check:browser-capability": "node scripts/check-browser-capability.mjs",
     "smoke": "node scripts/smoke-test.mjs"
   }

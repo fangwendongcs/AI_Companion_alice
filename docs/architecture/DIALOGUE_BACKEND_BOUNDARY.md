@@ -65,6 +65,8 @@ Frontend DialogueManager
 - 编排 memory、RAG、workflow 与 LLM。
 - 返回统一响应：`reply / sources / memory / rag / workflow / meta`。
 - 当前阶段支持 `llm_only`、短期 Memory 和本地 RAG；Workflow 仍返回 `disabled / not_configured`。
+- Phase 3.8 起，`meta.orchestration=agent_pipeline`，`meta.steps` 记录 Memory / RAG / Workflow 状态。
+- 可选能力失败必须收敛为各自的 `status=error`，不让 `/api/dialogue` 崩溃；核心 LLM 调用失败仍走标准错误响应。
 
 ### `LLMService`
 

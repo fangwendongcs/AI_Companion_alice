@@ -1,8 +1,9 @@
 const MAX_SYSTEM_PROMPT_CHARS = 4000;
 const MAX_RAG_PASSAGE_CHARS = 700;
+const MAX_WORKFLOW_CHARS = 700;
 
 export class PromptBuilder {
-  build({ systemPrompt, memory, rag } = {}) {
+  build({ systemPrompt, memory, rag, workflow } = {}) {
     const sections = [
       normalizeSystemPrompt(systemPrompt) || '你是 Alice，一个简短回复的 3D 数字伙伴。'
     ];
@@ -12,6 +13,9 @@ export class PromptBuilder {
 
     const ragSection = buildRagSection(rag);
     if (ragSection) sections.push(ragSection);
+
+    const workflowSection = buildWorkflowSection(workflow);
+    if (workflowSection) sections.push(workflowSection);
 
     return sections.join('\n\n').slice(0, MAX_SYSTEM_PROMPT_CHARS);
   }
@@ -37,6 +41,12 @@ function buildRagSection(rag) {
     })
     .join('\n\n');
   return `本地知识检索结果（优先参考，不能编造未提供的细节）：\n${lines}`;
+}
+
+function buildWorkflowSection(workflow) {
+  if (!workflow?.used || !workflow.result) return '';
+
+  return `工具调用结果（仅作为上下文，不要声称已执行未确认动作）：\n${JSON.stringify(workflow.result).slice(0, MAX_WORKFLOW_CHARS)}`;
 }
 
 function normalizeSystemPrompt(value) {

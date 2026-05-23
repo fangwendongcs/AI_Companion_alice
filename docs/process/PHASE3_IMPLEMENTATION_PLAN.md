@@ -312,6 +312,7 @@ git diff --check
 - `MemoryService`
 - `RagService`
 - `N8nWorkflowService`
+- `scripts/check-agent-flow.mjs`
 - API 文档与回归脚本。
 
 **不做事项**
@@ -325,6 +326,7 @@ git diff --check
 - Agent 编排链路可开关。
 - 每个子能力失败都有降级策略。
 - `reply / sources / memory / rag / workflow / meta` 结构稳定。
+- `meta.orchestration=agent_pipeline`，`meta.steps` 记录各子能力状态。
 - 阶段 2 基线能力不回归。
 
 **测试命令**
@@ -332,6 +334,7 @@ git diff --check
 ```bash
 npm run check
 npm run smoke
+git diff --check
 ```
 
 **风险**

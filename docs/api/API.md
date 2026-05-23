@@ -82,6 +82,7 @@
 说明：
 
 - `/api/dialogue` 使用 `LLMService` 复用现有 OpenAI-compatible provider 能力。
+- `/api/dialogue` 的后端最小 Agent 编排顺序为：输入校验 -> Memory -> RAG -> optional Workflow -> PromptBuilder -> LLM/stub -> append Memory -> response。
 - `sessionId` 用于后端短期 Memory；不传时使用 `default`。
 - `options.useMemory=true` 时，后端会在内存中记录最近 N 轮 user/assistant 消息；服务重启后清空。
 - `options.useMemory=false` 时，不读取、不写入 Memory。
@@ -89,6 +90,7 @@
 - `options.useRag=false` 时，不读取本地知识源。
 - `options.useWorkflow=true` 时，后端会尝试调用 `N8N_WEBHOOK_URL`；未配置时返回 `workflow.status=not_configured`，不会让 `/api/dialogue` 失败。
 - n8n 只作为工具调用层，不作为主对话编排器；workflow 结果只进入 `workflow.result` 元数据，不会直接覆盖最终 `reply`。
+- 成功响应中的 `meta.orchestration` 为 `agent_pipeline`，`meta.steps` 记录 Memory / RAG / Workflow 的状态。
 - 如果 provider 未配置或缺少 API Key，会返回 `{ "ok": false, "error": { "code": "LLM_NOT_CONFIGURED", "message": "..." } }`。
 - `provider` 为 `stub`、`local` 或 `boundary` 时，会返回本地 `llm_stub`，用于无 Key 本地开发演示、smoke 和边界检查，不代表生产 LLM。
 - 前端默认 provider 为 `stub`，因此新环境无需 API Key 也能跑通 thinking -> speaking -> idle 的演示链路。

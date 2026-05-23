@@ -18,6 +18,8 @@
 - 为 LLM/TTS 上游请求增加 provider 级超时、重试和降级策略。
 - 为 Memory / RAG / n8n / Agent 增加后端开关、请求体截断和错误脱敏。
 - n8n workflow 当前只作为工具调用层；公网部署前需要为 workflow 增加鉴权、超时、调用审计和高风险动作确认。
+- Agent 编排只能位于后端 `/api/dialogue` -> `DialogueOrchestrationService`；前端不得参与 Memory / RAG / workflow prompt 拼接，也不得把 workflow 结果直接当最终回复展示。
+- `meta.steps`、`memory`、`rag`、`workflow` 等诊断字段只能返回状态、裁剪后的上下文和安全包装结果，不得包含 webhook URL、provider secret、用户隐私原文批量导出或后端绝对路径。
 - RAG 文档与 Memory 数据不得放入 `public/`，需要删除策略和访问边界。
 - 当前短期 Memory 仅保存在后端进程内；接入持久化前必须设计用户删除、保留期限和隐私说明。
 - 将角色上传目录与公开访问目录隔离，审核通过后再发布到 `public/avatars`。
