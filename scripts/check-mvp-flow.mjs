@@ -10,8 +10,10 @@ const failures = [];
 await checkDialogueSuccessFlow();
 await checkDialogueErrorFlow();
 await checkLLMClientDialogueResponseFlow();
+await checkLLMClientMemoryRequestFlow();
 await checkLLMClientLegacyResponseFlow();
 await checkLLMClientDialogueErrorFlow();
+await checkDialogueMemoryEventFlow();
 await checkAudioSuccessFlow();
 await checkAudioMutedFlow();
 await checkAudioFallbackFlow();
@@ -106,6 +108,38 @@ async function checkLLMClientDialogueResponseFlow() {
   assert(reply === '统一入口回复', 'LLMClient 必须能解析 /api/dialogue 的 { ok, data.reply }。');
 }
 
+async function checkLLMClientMemoryRequestFlow() {
+  let requestBody = null;
+  const client = new LLMClient('/api/dialogue', {
+    apiClient: {
+      json: async (_endpoint, options) => {
+        requestBody = options.body;
+        return {
+          reply: '带记忆回复',
+          memory: {
+            used: true,
+            sessionId: 'session-test',
+            turnCount: 1
+          }
+        };
+      }
+    }
+  });
+
+  const reply = await client.chat('记住我喜欢蓝色', {
+    provider: 'stub',
+    model: 'stub',
+    systemPrompt: '',
+    useMemory: true,
+    sessionId: 'session-test'
+  });
+
+  assert(reply === '带记忆回复', 'LLMClient 必须继续返回回复文本。');
+  assert(requestBody?.sessionId === 'session-test', 'LLMClient 必须向 /api/dialogue 传递 sessionId。');
+  assert(requestBody?.options?.useMemory === true, 'LLMClient 必须向 /api/dialogue 传递 options.useMemory。');
+  assert(client.getLastResponse()?.memory?.turnCount === 1, 'LLMClient 必须保留最近一次 dialogue memory 元数据。');
+}
+
 async function checkLLMClientLegacyResponseFlow() {
   const client = new LLMClient('/api/chat', {
     apiClient: createFakeApiClient({
@@ -145,6 +179,33 @@ async function checkLLMClientDialogueErrorFlow() {
 
   assert(error?.code === 'LLM_NOT_CONFIGURED', 'LLMClient 必须把 { ok:false, error } 转成稳定错误。');
   assert(error?.message === 'Missing API key.', 'LLMClient 错误消息不应变成 [object Object]。');
+}
+
+async function checkDialogueMemoryEventFlow() {
+  const events = [];
+  const bus = createTrackedBus(events, [
+    EVENT_NAMES.DIALOGUE_ASSISTANT,
+    EVENT_NAMES.DIALOGUE_RESPONSE
+  ]);
+  const dialogue = new DialogueManager({
+    eventBus: bus,
+    llmClient: {
+      chat: async () => '记忆事件回复',
+      getLastResponse: () => ({
+        reply: '记忆事件回复',
+        memory: {
+          used: true,
+          sessionId: 'session-event',
+          turnCount: 2
+        }
+      })
+    }
+  });
+
+  await dialogue.send('继续刚才的话');
+
+  assert(events[0]?.detail?.memory?.sessionId === 'session-event', 'DialogueManager 必须在 assistant 事件中携带 memory 状态。');
+  assert(events[1]?.detail?.memory?.turnCount === 2, 'DialogueManager 必须在 response 事件中携带 memory turnCount。');
 }
 
 function createFakeApiClient(payload) {

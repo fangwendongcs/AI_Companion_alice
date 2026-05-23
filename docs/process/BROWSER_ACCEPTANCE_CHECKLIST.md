@@ -18,7 +18,7 @@
 | `npm run check:mvp-flow` | 对话、音频、fallback、错误事件链路 | 否 |
 | `npm run check:avatar-flow` | registry / manifest / motions / runtime path 合约 | 否 |
 | `npm run check:runtime-contracts` | EventBus、StateStore、Debug Panel、AppController 收口合约 | 否 |
-| `npm run smoke` | 本地服务、API、三角色资源、非法上传拒绝 | 是 |
+| `npm run smoke` | 本地服务、API、三角色资源、非法上传拒绝、短期 Memory API | 是 |
 | `npm run check:browser-capability` | 可选检测本地是否已有 Playwright，不联网安装 | 否 |
 
 ## 启动方式
@@ -186,7 +186,41 @@ http://localhost:3000?debug=1
 - `js/voice/TTSService.js`
 - `js/app/AppController.js`
 
-## 6. 非法上传
+## 6. 短期 Memory 开关
+
+操作步骤：
+
+- 打开 LLM 设置区。
+- 勾选“启用当前会话短期记忆”。
+- 点击“保存偏好”或直接发送两句连续测试文本。
+- 第一轮输入：`请记住我喜欢蓝色。`
+- 第二轮输入：`我刚刚说我喜欢什么？`
+
+预期 Debug Panel：
+
+- `memory.enabled = true`
+- 第一轮后 `memory.used = true`
+- `memory.sessionId` 有稳定值。
+- 第二轮后 `memory.turnCount` 增加。
+- 最终 `isThinking = false`
+- 最终 `currentState = idle`
+
+预期 UI：
+
+- 设置区显示当前 Session。
+- 页面不会把对话正文保存到前端存储。
+- 关闭开关后，新请求应带 `useMemory=false`，Debug Panel 显示 `memory.enabled = false`。
+
+失败优先检查：
+
+- `js/ui/LLMSettingsController.js`
+- `js/storage/LocalConfigStore.js`
+- `js/ai/LLMClient.js`
+- `js/dialogue/DialogueManager.js`
+- `backend/services/MemoryService.js`
+- `backend/services/DialogueOrchestrationService.js`
+
+## 7. 非法上传
 
 操作步骤：
 
@@ -211,7 +245,7 @@ http://localhost:3000?debug=1
 - `backend/services/AvatarService.js`
 - `scripts/smoke-test.mjs`
 
-## 7. 控制台检查
+## 8. 控制台检查
 
 操作步骤：
 

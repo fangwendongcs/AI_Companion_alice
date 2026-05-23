@@ -26,7 +26,7 @@
 
 ### POST /api/dialogue
 
-统一对话编排入口，用于承载 Memory、RAG、n8n workflow 与 Agent orchestration。当前前端主链路已调用该接口，并支持本地 `stub` 与 LLM-only 编排；Memory / RAG / Workflow 仍保持 disabled / not_configured，不接真实外部服务。
+统一对话编排入口，用于承载 Memory、RAG、n8n workflow 与 Agent orchestration。当前前端主链路已调用该接口，并支持本地 `stub`、LLM-only 编排和后端短期 Memory；RAG / Workflow 仍保持 disabled / not_configured，不接真实外部服务。
 
 请求：
 

@@ -101,6 +101,13 @@ export class AppController {
         enabled: true,
         lastInteractionAt: null
       },
+      memory: {
+        enabled: this.llmConfig?.useMemory ?? false,
+        used: false,
+        sessionId: this.llmConfig?.sessionId || null,
+        turnCount: 0,
+        maxTurns: null
+      },
       currentState: AvatarState.IDLE,
       isMuted: false,
       isSpeaking: false,
@@ -192,9 +199,10 @@ export class AppController {
         this.motionManager.requestSlot(MotionSlot.IDLE);
       }
     }));
-    this.registry.add(this.eventBus.on(EVENT_NAMES.DIALOGUE_ASSISTANT, ({ text }) => {
+    this.registry.add(this.eventBus.on(EVENT_NAMES.DIALOGUE_ASSISTANT, ({ text, memory }) => {
       this.patchState({
         lastAssistantMessage: text,
+        memory,
         dialogueError: null
       }, EVENT_NAMES.DIALOGUE_ASSISTANT);
     }));
@@ -316,6 +324,14 @@ export class AppController {
         thinking: patch.isThinking ?? this.state.isThinking,
         lastResponse: patch.lastAssistantMessage ?? this.state.dialogue?.lastResponse ?? '',
         error: patch.dialogueError ?? null
+      };
+    }
+    if ('memory' in patch || 'memoryEnabled' in patch) {
+      const memory = patch.memory || {};
+      layered.memory = {
+        ...this.state.memory,
+        ...memory,
+        enabled: patch.memoryEnabled ?? memory.enabled ?? this.state.memory?.enabled ?? false
       };
     }
     if ('lastInteractionAt' in patch) {
@@ -471,11 +487,20 @@ export class AppController {
   }
 
   readLLMFormConfig() {
+    const useMemory = Boolean(this.refs.llmMemoryToggle?.checked);
+    const sessionId = this.llmConfig?.sessionId || this.store.loadMemorySessionId();
     return {
       provider: this.refs.llmProvider.value,
       baseUrl: '',
       model: this.refs.llmModel.value,
-      systemPrompt: this.refs.systemPromptInput.value.trim()
+      systemPrompt: this.refs.systemPromptInput.value.trim(),
+      useMemory,
+      sessionId,
+      options: {
+        useMemory,
+        useRag: false,
+        useWorkflow: false
+      }
     };
   }
 

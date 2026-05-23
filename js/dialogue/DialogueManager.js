@@ -17,8 +17,14 @@ export class DialogueManager {
 
     try {
       const reply = await this.llmClient.chat(text, resolvedConfig);
-      this.eventBus?.emit(EVENT_NAMES.DIALOGUE_ASSISTANT, { text: reply });
-      this.eventBus?.emit(EVENT_NAMES.DIALOGUE_RESPONSE, { text: reply });
+      const response = this.llmClient.getLastResponse?.() || {};
+      const detail = {
+        text: reply,
+        memory: response.memory || null,
+        meta: response.meta || null
+      };
+      this.eventBus?.emit(EVENT_NAMES.DIALOGUE_ASSISTANT, detail);
+      this.eventBus?.emit(EVENT_NAMES.DIALOGUE_RESPONSE, detail);
       return reply;
     } catch (error) {
       this.eventBus?.emit(EVENT_NAMES.DIALOGUE_ERROR, {

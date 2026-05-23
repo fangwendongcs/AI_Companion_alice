@@ -8,6 +8,7 @@ export class LLMClient {
     this.endpoint = endpoint;
     this.timeoutMs = timeoutMs;
     this.apiClient = apiClient || new ApiClient({ timeoutMs });
+    this.lastResponse = null;
   }
 
   async chat(userMessage, config, options = {}) {
@@ -22,10 +23,15 @@ export class LLMClient {
           provider: resolvedConfig.provider,
           model: resolvedConfig.model,
           systemPrompt: resolvedConfig.systemPrompt,
-          options: resolvedConfig.options
+          sessionId: resolvedConfig.sessionId,
+          options: {
+            ...(resolvedConfig.options || {}),
+            useMemory: resolvedConfig.options?.useMemory ?? resolvedConfig.useMemory ?? false
+          }
         }
       });
-      return extractReply(data);
+      this.lastResponse = extractDialogueResponse(data);
+      return this.lastResponse.reply;
     } catch (error) {
       if (error?.code === ERROR_CODES.API_TIMEOUT) {
         throw new AppError({
@@ -39,13 +45,33 @@ export class LLMClient {
     }
   }
 
+  getLastResponse() {
+    return this.lastResponse;
+  }
+
   async test(config) {
     const reply = await this.chat('Hi', {
       ...config,
-      systemPrompt: '请只回复 OK。'
+      systemPrompt: '请只回复 OK。',
+      useMemory: false,
+      options: {
+        ...(config?.options || {}),
+        useMemory: false
+      }
     });
     return reply;
   }
+}
+
+function extractDialogueResponse(data) {
+  const reply = extractReply(data);
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    return { reply };
+  }
+  return {
+    ...data,
+    reply
+  };
 }
 
 function extractReply(data) {

@@ -133,6 +133,14 @@
             </select>
           </div>
           <div class="setting-group">
+            <span class="setting-label">短期记忆</span>
+            <label class="toggle-row" for="llmMemoryToggle">
+              <input type="checkbox" id="llmMemoryToggle">
+              <span>启用当前会话短期记忆</span>
+            </label>
+            <div class="setting-help" id="llmMemorySession">Session: -</div>
+          </div>
+          <div class="setting-group">
             <span class="setting-label">角色设定 Prompt</span>
             <textarea class="custom-input" id="systemPromptInput" rows="3"
               placeholder="你是 Alice，一个元气满满的青少年 AI 伙伴。请用简短活泼的语气回复，每次控制在 50 字以内。"></textarea>

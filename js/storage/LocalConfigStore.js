@@ -4,6 +4,7 @@ const supportedProviders = new Set(['stub', 'openai', 'qwen', 'deepseek', 'custo
 const supportedTTSEngines = new Set(['browser', 'openai', 'minimax']);
 const freeDefaultMigrationKey = 'tts_free_default_migration_v1';
 const llmStubDefaultMigrationKey = 'llm_stub_default_migration_v1';
+const memorySessionKey = 'llm_memory_session_id';
 
 export class LocalConfigStore {
   loadLLMConfig() {
@@ -28,7 +29,9 @@ export class LocalConfigStore {
       provider: supportedProviders.has(provider) ? provider : DEFAULT_LLM_CONFIG.provider,
       baseUrl,
       model,
-      systemPrompt: localStorage.getItem('llm_system_prompt') || DEFAULT_LLM_CONFIG.systemPrompt
+      systemPrompt: localStorage.getItem('llm_system_prompt') || DEFAULT_LLM_CONFIG.systemPrompt,
+      useMemory: localStorage.getItem('llm_use_memory') === '1',
+      sessionId: this.loadMemorySessionId()
     };
   }
 
@@ -37,6 +40,16 @@ export class LocalConfigStore {
     localStorage.setItem('llm_base_url', config.baseUrl || '');
     localStorage.setItem('llm_model', config.model);
     localStorage.setItem('llm_system_prompt', config.systemPrompt);
+    localStorage.setItem('llm_use_memory', config.useMemory ? '1' : '0');
+    if (config.sessionId) localStorage.setItem(memorySessionKey, config.sessionId);
+  }
+
+  loadMemorySessionId() {
+    const saved = localStorage.getItem(memorySessionKey);
+    if (saved) return saved;
+    const sessionId = createSessionId();
+    localStorage.setItem(memorySessionKey, sessionId);
+    return sessionId;
   }
 
   loadAvatarId(defaultAvatarId) {
@@ -88,4 +101,10 @@ export class LocalConfigStore {
     if (birthday) localStorage.setItem('user_birthday', birthday);
     if (likes) localStorage.setItem('user_likes', likes);
   }
+}
+
+function createSessionId() {
+  const random = globalThis.crypto?.randomUUID?.()
+    || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  return `web-${random}`;
 }

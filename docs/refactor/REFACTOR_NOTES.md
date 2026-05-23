@@ -1464,4 +1464,14 @@ npm run check:assets
 - `DialogueOrchestrationService` 会在 LLM/stub 回复后写入本轮 user/assistant，并在真实 provider prompt 中附加短期记忆上下文。
 - 新增 `scripts/check-memory-flow.mjs`，覆盖 disabled、记录最近轮次、maxTurns 裁剪和真实 provider prompt 注入。
 - `smoke` 增加短期 Memory 的两轮对话验收，同时确认 RAG / Workflow 仍未启用。
-- 本轮不接 Qdrant、不接 n8n、不做 SQLite/JSON 长期记忆，不把 Memory 写入前端 localStorage。
+- 本轮不接 Qdrant、不接 n8n、不做 SQLite/JSON 长期记忆，不把 Memory 对话正文写入前端 localStorage。
+
+## 45. Phase 3.4 Memory 前端开关与 Debug 可观测
+
+- LLM 设置区新增短期 Memory 开关和 sessionId 显示，用户可开启 / 关闭后端进程内 Memory。
+- `LocalConfigStore` 只保存 Memory 开关偏好和 sessionId，不保存用户/assistant 对话正文。
+- `LLMClient` 会向 `/api/dialogue` 传递 `sessionId` 与 `options.useMemory`，并保留后端返回的 memory 元数据。
+- `DialogueManager` 将 memory 元数据附加到 `dialogue:assistant` / `dialogue:response` 事件，`AppController` 同步到状态基座。
+- Debug Panel 新增 `memory.enabled / memory.used / memory.turnCount / memory.sessionId`，方便浏览器验收当前会话记忆状态。
+- `check:mvp-flow` 与 `check:runtime-contracts` 增加 Memory 请求、事件和 Debug 字段合约。
+- 本轮不做长期记忆管理 UI、不做记忆编辑器、不接 RAG / n8n。

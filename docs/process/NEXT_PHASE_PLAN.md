@@ -222,7 +222,7 @@ npm run check
 
 **已完成事项**
 
-- `/api/dialogue` 支持 LLM-only 编排，Memory / RAG / Workflow 仍为 `disabled / not_configured`。
+- `/api/dialogue` 支持 LLM-only 编排和后端短期 Memory；RAG / Workflow 仍为 `disabled / not_configured`。
 - 前端主链路已从 `/api/chat` 切换到 `/api/dialogue`，`/api/chat` 保留兼容。
 - 默认 LLM provider 改为 `stub`，开发环境无需 API Key 即可获得本地演示回复。
 - 真实 provider 仍保留明确错误链路，不吞掉配置错误或上游错误。

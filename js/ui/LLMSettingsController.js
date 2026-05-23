@@ -1,5 +1,5 @@
 export class LLMSettingsController {
-  constructor({ refs, registry, store, apiClient, llmClient, getConfig, setConfig, readFormConfig, statusView }) {
+  constructor({ refs, registry, store, apiClient, llmClient, getConfig, setConfig, readFormConfig, patchState, statusView }) {
     this.refs = refs;
     this.registry = registry;
     this.store = store;
@@ -8,6 +8,7 @@ export class LLMSettingsController {
     this.getConfig = getConfig;
     this.setConfig = setConfig;
     this.readFormConfig = readFormConfig;
+    this.patchState = patchState;
     this.statusView = statusView;
     this.providerStatus = new Map();
   }
@@ -17,7 +18,10 @@ export class LLMSettingsController {
     this.refs.llmProvider.value = config.provider;
     this.refs.baseUrlInput.value = '';
     this.refs.llmModel.value = config.model;
+    if (this.refs.llmMemoryToggle) this.refs.llmMemoryToggle.checked = Boolean(config.useMemory);
+    this.updateMemorySessionLabel(config.sessionId);
     this.refs.systemPromptInput.value = config.systemPrompt;
+    this.patchMemoryState(config);
     this.applyProviderHint(config.provider);
     this.prepareKeyUI();
     this.showProviderStatus(config.provider);
@@ -32,8 +36,23 @@ export class LLMSettingsController {
       const next = this.readFormConfig();
       this.setConfig(next);
       this.store.saveLLMConfig(next);
-      this.statusView.showLLM('success', '配置已保存。API Key 请配置在后端环境变量中。');
+      this.updateMemorySessionLabel(next.sessionId);
+      this.patchMemoryState(next);
+      this.statusView.showLLM('success', this.formatSaveMessage(next));
     });
+
+    if (this.refs.llmMemoryToggle) {
+      this.registry.addEventListener(this.refs.llmMemoryToggle, 'change', () => {
+        const next = this.readFormConfig();
+        this.setConfig(next);
+        this.store.saveLLMConfig(next);
+        this.updateMemorySessionLabel(next.sessionId);
+        this.patchMemoryState(next);
+        this.statusView.showLLM('success', next.useMemory
+          ? '短期记忆已开启，仅保存在后端当前进程中。'
+          : '短期记忆已关闭。');
+      });
+    }
 
     this.registry.addEventListener(this.refs.testLLMBtn, 'click', async () => {
       this.statusView.showLLM('loading', '正在通过后端测试连接...');
@@ -105,5 +124,25 @@ export class LLMSettingsController {
       return '后端未配置该 provider 的 API Key / Base URL，将返回配置错误。';
     }
     return '后端未配置该 provider 的 API Key，将返回配置错误。';
+  }
+
+  updateMemorySessionLabel(sessionId) {
+    if (!this.refs.llmMemorySession) return;
+    this.refs.llmMemorySession.textContent = `Session: ${sessionId || '-'}`;
+  }
+
+  patchMemoryState(config) {
+    this.patchState?.({
+      memoryEnabled: Boolean(config.useMemory),
+      memory: {
+        enabled: Boolean(config.useMemory),
+        sessionId: config.sessionId || null
+      }
+    }, 'memory:config');
+  }
+
+  formatSaveMessage(config) {
+    const memoryText = config.useMemory ? '短期记忆已开启。' : '短期记忆已关闭。';
+    return `配置已保存。${memoryText} API Key 请配置在后端环境变量中。`;
   }
 }

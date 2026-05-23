@@ -7,9 +7,9 @@ AI 数字伙伴 / 互动数字人项目。当前支持：
 - 点击部位交互
 - 浏览器语音兜底与后端 TTS 代理
 - 本地 Node 后端代理接口
-- `/api/dialogue` 前端主对话入口，支持本地 Stub 演示与未来 RAG / Memory / n8n / Agent 后端编排
+- `/api/dialogue` 前端主对话入口，支持本地 Stub 演示、后端短期 Memory 与未来 RAG / n8n / Agent 编排
 
-当前项目已完成“阶段 1：架构基座搭建”和“阶段 2：MVP 交互闭环与稳定性验收”。下一阶段才进入真实 RAG / Memory / n8n / Agent 能力建设。
+当前项目已完成“阶段 1：架构基座搭建”和“阶段 2：MVP 交互闭环与稳定性验收”，Phase 3 正在逐步接入真实智能能力。当前 Memory 是后端进程内短期记忆，前端只保存开关偏好和 sessionId，不保存对话正文。
 
 ## Quick Start
 

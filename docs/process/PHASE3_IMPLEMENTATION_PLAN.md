@@ -127,7 +127,56 @@ npm run smoke
 
 - 内存 memory 不是产品级长期记忆，必须在 UI 和文档中标注为临时能力。
 
-## Phase 3.4：RAG 数据源与检索方案
+## Phase 3.4：Memory 前端开关与 Debug 可观测
+
+### 目标
+
+- 让用户可以在 LLM 设置区开启 / 关闭后端短期 Memory。
+- 让前端请求 `/api/dialogue` 时携带 `sessionId` 与 `options.useMemory`。
+- 让 Debug Panel 显示 `memory.enabled / memory.used / memory.turnCount / memory.sessionId`。
+
+### 修改范围
+
+- `index.html`
+- `css/style.css`
+- `js/app/AppController.js`
+- `js/ai/LLMClient.js`
+- `js/dialogue/DialogueManager.js`
+- `js/storage/LocalConfigStore.js`
+- `js/ui/LLMSettingsController.js`
+- `js/ui/DebugPanelController.js`
+- `scripts/check-mvp-flow.mjs`
+- `scripts/check-runtime-contracts.mjs`
+
+### 不做事项
+
+- 不做长期记忆管理 UI。
+- 不做记忆编辑器。
+- 不在前端保存对话正文或 assistant 回复。
+- 不接 RAG / n8n。
+
+### 验收标准
+
+- Memory 开关偏好可保存，但前端不保存对话正文。
+- `LLMClient` 请求 `/api/dialogue` 时可传递 `sessionId` 与 `options.useMemory`。
+- `DialogueManager` 能把后端返回的 memory 元数据同步到事件。
+- Debug Panel 能显示 Memory enabled / used / turnCount / sessionId。
+- `npm run check`、`npm run smoke`、`git diff --check` 通过。
+
+### 测试命令
+
+```bash
+npm run check
+npm run smoke
+git diff --check
+```
+
+### 风险
+
+- 当前 sessionId 可保存在 localStorage，但对话正文不进入前端持久化。
+- 后端 Memory 仍是进程内临时能力，刷新页面后 sessionId 保持，重启服务后上下文清空。
+
+## Phase 3.5：RAG 数据源与检索方案
 
 **目标**
 
@@ -163,7 +212,7 @@ npm run check
 
 - 本地关键词检索效果有限，但足够验证 sources、prompt 拼装和安全边界。
 
-## Phase 3.5：RAG 最小闭环
+## Phase 3.6：RAG 最小闭环
 
 **目标**
 
@@ -202,7 +251,7 @@ npm run smoke
 
 - RAG 片段进入 prompt 前必须截断，否则会影响响应稳定性。
 
-## Phase 3.6：n8n workflow 工具调用最小闭环
+## Phase 3.7：n8n workflow 工具调用最小闭环
 
 **目标**
 
@@ -240,7 +289,7 @@ npm run smoke
 
 - n8n webhook 如果无鉴权或泄露，会成为外部攻击入口。
 
-## Phase 3.7：Agent orchestration 收口
+## Phase 3.8：Agent orchestration 收口
 
 **目标**
 
@@ -278,3 +327,40 @@ npm run smoke
 **风险**
 
 - Agent 编排容易膨胀，必须坚持最小闭环和可回滚开关。
+
+## Phase 3.9：Phase 3 智能能力基线封版
+
+**目标**
+
+- 不加新功能，只收口文档、验收、浏览器测试和自动化基线。
+
+**修改范围**
+
+- `README.md`
+- `docs/product/PHASE3_ACCEPTANCE.md`
+- `docs/process/NEXT_PHASE_PLAN.md`
+- `docs/process/BROWSER_ACCEPTANCE_CHECKLIST.md`
+- `docs/refactor/REFACTOR_NOTES.md`
+
+**不做事项**
+
+- 不新增智能能力。
+- 不改模型、角色、动画、TTS 主逻辑。
+
+**验收标准**
+
+- Phase 3 已完成能力和仍未完成能力边界清楚。
+- 自动化验收与浏览器验收清单同步。
+- `npm run check`、`npm run smoke`、`git diff --check` 通过。
+
+**测试命令**
+
+```bash
+npm run check
+npm run smoke
+git diff --check
+```
+
+**风险**
+
+- 封版文档不能夸大能力；必须明确哪些能力是本地 stub、短期 Memory、本地 RAG 或 n8n 边界。

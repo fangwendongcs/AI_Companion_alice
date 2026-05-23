@@ -29,7 +29,7 @@
 - 输入提交后系统能进入 `thinking`，回复产生后进入 `speaking`。
 - 当前 MVP 对话主链路使用 `/api/dialogue`；`/api/chat` 仍保留为兼容入口。
 - 默认本地演示 provider 是 `stub`，无 API Key 时也能跑通对话闭环。
-- `/api/dialogue` 当前只启用 LLM-only 编排；Memory / RAG / Workflow 仍为 `disabled / not_configured`。
+- 阶段 2 封版时 `/api/dialogue` 只启用 LLM-only 编排；Phase 3 起已开始逐步接入后端短期 Memory。
 - TTS 成功时可播放音频；后端 TTS 失败时会回退到浏览器语音。
 - 播放结束后系统回到 `idle`。
 - 失败场景有明确提示，不应卡死在 thinking / speaking。

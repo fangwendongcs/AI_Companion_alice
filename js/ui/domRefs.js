@@ -35,6 +35,8 @@ export function createDomRefs(root = document) {
     apiKeyToggle: byId('apiKeyToggle'),
     baseUrlInput: byId('baseUrlInput'),
     llmModel: byId('llmModel'),
+    llmMemoryToggle: byId('llmMemoryToggle'),
+    llmMemorySession: byId('llmMemorySession'),
     systemPromptInput: byId('systemPromptInput'),
     saveLLMConfigBtn: byId('saveLLMConfigBtn'),
     testLLMBtn: byId('testLLMBtn'),
