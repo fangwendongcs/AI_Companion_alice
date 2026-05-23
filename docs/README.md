@@ -20,6 +20,7 @@
 
 - [DEVELOPMENT_GUIDE.md](./guides/DEVELOPMENT_GUIDE.md): 本地开发与排查
 - [CONFIG_GUIDE.md](./guides/CONFIG_GUIDE.md): 配置说明
+- [KNOWLEDGE_GUIDE.md](./guides/KNOWLEDGE_GUIDE.md): Phase 3 本地知识源与简单检索边界
 - [LOCAL_TTS.md](./guides/LOCAL_TTS.md): 本地 TTS 方案
 
 ## Product
@@ -61,6 +62,7 @@ js/
 public/avatars/
 public/models/
 backend/
+data/knowledge/
 scripts/
 ```
 

@@ -187,6 +187,14 @@ Phase 3.7 之后再评估 SQLite。不要直接从阶段 3.3 跳到 Qdrant memor
 
 Phase 3.5-3.6 推荐先走路线 C：后端边界内的本地 markdown / JSON 小型检索。
 
+Phase 3.5 已建立本地知识源边界：
+
+- `data/knowledge/` 存放后端本地 markdown / JSON 示例知识，不进入 `public/`。
+- `KnowledgeSourceService` 负责读取知识源，并只暴露相对 source 路径。
+- `SimpleRetrieverService` 负责简单关键词检索，返回 `passages / sources / matchedTerms`。
+- `RagService` 支持 `disabled / empty / local` 状态，但默认仍是 `not_configured`，避免 Phase 3.5 抢跑 `/api/dialogue` 的 RAG 回复链路。
+- Phase 3.6 才会让 `DialogueOrchestrationService` 在 `options.useRag=true` 时调用本地检索结果进入回复上下文。
+
 理由：
 
 - 最符合当前项目阶段。

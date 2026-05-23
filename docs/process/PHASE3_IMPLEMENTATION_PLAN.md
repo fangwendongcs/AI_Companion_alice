@@ -185,10 +185,12 @@ git diff --check
 
 **修改范围**
 
-- `docs/guides/`
+- `data/knowledge/`
+- `backend/services/KnowledgeSourceService.js`
+- `backend/services/SimpleRetrieverService.js`
 - `backend/services/RagService.js`
-- `backend/config/`
-- 可能新增 `data/knowledge/` 示例目录。
+- `scripts/check-knowledge-flow.mjs`
+- `docs/guides/KNOWLEDGE_GUIDE.md`
 
 **不做事项**
 
@@ -201,11 +203,14 @@ git diff --check
 - 有明确知识库目录。
 - 知识库不放在 `public/`。
 - `RagService.retrieve()` 可在 disabled / empty / local 三种状态间清晰切换。
+- 默认 `/api/dialogue options.useRag=true` 仍保持 `not_configured`，Phase 3.6 才接入真实回复链路。
 
 **测试命令**
 
 ```bash
 npm run check
+npm run smoke
+git diff --check
 ```
 
 **风险**

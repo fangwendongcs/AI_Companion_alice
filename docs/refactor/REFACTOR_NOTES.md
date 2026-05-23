@@ -1475,3 +1475,13 @@ npm run check:assets
 - Debug Panel 新增 `memory.enabled / memory.used / memory.turnCount / memory.sessionId`，方便浏览器验收当前会话记忆状态。
 - `check:mvp-flow` 与 `check:runtime-contracts` 增加 Memory 请求、事件和 Debug 字段合约。
 - 本轮不做长期记忆管理 UI、不做记忆编辑器、不接 RAG / n8n。
+
+## 46. Phase 3.5 RAG 数据源与本地知识检索准备
+
+- 新增 `data/knowledge/` 示例知识源，支持 markdown 与 JSON；该目录不在 `public/` 下，前端不能直接访问。
+- 新增 `KnowledgeSourceService`，负责读取本地知识源并输出相对 source 路径，避免暴露本地绝对路径。
+- 新增 `SimpleRetrieverService`，以简单关键词匹配返回 `passages / sources / matchedTerms`，用于后续 RAG 最小闭环。
+- `RagService` 支持 `disabled / not_configured / empty / local` 状态；默认仍保持 `not_configured`，避免本轮抢跑 `/api/dialogue options.useRag=true`。
+- 新增 `scripts/check-knowledge-flow.mjs` 并纳入 `npm run check`，覆盖 markdown/JSON 读取、关键词检索和 RAG 状态边界。
+- 新增 `docs/guides/KNOWLEDGE_GUIDE.md`，说明本地知识源目录、格式、限制和验收命令。
+- 本轮不接 Qdrant、不做 embedding、不接 n8n RAG、不做文件上传知识库。

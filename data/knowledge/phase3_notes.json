@@ -1,0 +1,12 @@
+[
+  {
+    "id": "phase3-memory",
+    "title": "Phase 3 Memory",
+    "content": "Phase 3.3 实现后端进程内短期 Memory，按 sessionId 保存最近几轮 user 和 assistant 消息。Phase 3.4 在前端增加 Memory 开关和 Debug Panel 可观测。"
+  },
+  {
+    "id": "phase3-rag-boundary",
+    "title": "Phase 3 RAG Boundary",
+    "content": "Phase 3.5 只建立本地知识源和简单检索边界，不接 Qdrant，不做 embedding，不让前端拼 RAG prompt。Phase 3.6 才把 RagService 接入 /api/dialogue。"
+  }
+]

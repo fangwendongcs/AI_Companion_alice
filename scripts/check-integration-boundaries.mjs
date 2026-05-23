@@ -109,6 +109,8 @@ async function checkBackendDialogueBoundary() {
     'backend/services/DialogueOrchestrationService.js',
     'backend/services/LLMService.js',
     'backend/services/MemoryService.js',
+    'backend/services/KnowledgeSourceService.js',
+    'backend/services/SimpleRetrieverService.js',
     'backend/services/RagService.js',
     'backend/services/N8nWorkflowService.js'
   ];
@@ -131,6 +133,14 @@ async function checkBackendDialogueBoundary() {
   assert(orchestration.includes('llmService'), 'DialogueOrchestrationService 必须通过 LLMService 复用 LLM provider 能力。');
   assert(orchestration.includes('llm_only'), 'DialogueOrchestrationService 必须支持 llm_only 编排模式。');
   assert(orchestration.includes('llm_stub'), 'DialogueOrchestrationService 必须保留本地 stub 以支持无密钥 smoke。');
+
+  const knowledgeSource = await readFile('backend/services/KnowledgeSourceService.js', 'utf8');
+  const retriever = await readFile('backend/services/SimpleRetrieverService.js', 'utf8');
+  const ragService = await readFile('backend/services/RagService.js', 'utf8');
+  assert(knowledgeSource.includes('data/knowledge'), 'KnowledgeSourceService 必须默认从 data/knowledge 读取本地知识源。');
+  assert(!knowledgeSource.includes('public/'), 'KnowledgeSourceService 不应默认读取 public/ 下的公开资源。');
+  assert(retriever.includes('matchedTerms'), 'SimpleRetrieverService 必须返回 matchedTerms，便于调试本地检索。');
+  assert(ragService.includes("status: 'not_configured'"), 'Phase 3.5 中 RagService 默认启用时仍应保持 not_configured，避免抢跑 /api/dialogue RAG 闭环。');
 }
 
 async function checkDocsBoundary() {
