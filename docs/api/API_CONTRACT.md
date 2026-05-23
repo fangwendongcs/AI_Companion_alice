@@ -136,9 +136,35 @@ validate input -> memory context -> rag context -> optional workflow -> PromptBu
   "ok": true,
   "data": {
     "reply": "我现在处于本地演示模式，还没有连接真实模型，但对话链路已经跑通了。",
+    "sources": [],
+    "memory": {
+      "used": false,
+      "status": "disabled",
+      "sessionId": null,
+      "turnCount": 0,
+      "maxTurns": 6,
+      "context": []
+    },
+    "rag": {
+      "used": false,
+      "status": "disabled",
+      "passages": []
+    },
+    "workflow": {
+      "used": false,
+      "status": "disabled",
+      "result": null
+    },
     "meta": {
       "mode": "llm_stub",
-      "provider": "stub"
+      "orchestration": "agent_pipeline",
+      "steps": {
+        "memory": "disabled",
+        "rag": "disabled",
+        "workflow": "disabled"
+      },
+      "provider": "stub",
+      "model": "stub"
     }
   }
 }

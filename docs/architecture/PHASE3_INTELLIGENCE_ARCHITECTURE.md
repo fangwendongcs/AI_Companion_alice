@@ -2,14 +2,15 @@
 
 ## 当前阶段结论
 
-阶段 2 已经封版，当前项目有稳定的本地 MVP 基线：
+阶段 2 和 Phase 3 均已封版。当前项目有稳定的本地 MVP 基线，也有可继续扩展的智能能力基线：
 
 - `/api/dialogue` 是前端主对话入口。
 - `/api/chat` 保留旧兼容入口。
 - 默认 LLM provider 是 `stub`，无需 API Key 也能演示。
 - 三角色切换、点击交互、TTS fallback、最终 `idle` 已完成验收。
+- Provider readiness、短期 Memory、本地 RAG、n8n 工具调用边界和 Agent pipeline 已完成 Phase 3 基线。
 
-Phase 3 的目标不是把所有智能能力一次性塞进去，而是在不破坏阶段 2 基线的前提下，逐步让真实 LLM、Memory、RAG、n8n workflow 和 Agent orchestration 进入后端边界。
+Phase 3 的目标不是把所有智能能力一次性塞进去，而是在不破坏阶段 2 基线的前提下，让真实 LLM 配置边界、Memory、RAG、n8n workflow 和 Agent orchestration 进入后端边界。该目标已形成基线，后续 Phase 4 再选择真实部署、安全鉴权、Qdrant / embedding、长期记忆或产品体验增强。
 
 ## 推荐总架构
 
@@ -91,7 +92,7 @@ Frontend
 - 根据 provider 走 `llm_stub` 或 `llm_only`。
 - 返回统一 `reply / sources / memory / rag / workflow / meta`。
 
-Phase 3 演进职责：
+Phase 3 基线职责：
 
 1. 读取开关和 provider 配置。
 2. 取得 Memory 上下文。
@@ -102,12 +103,14 @@ Phase 3 演进职责：
 7. 写入短期 memory 事件。
 8. 返回统一响应。
 
-Phase 3.6 当前实现：
+Phase 3.9 当前实现：
 
 - `options.useMemory=true` 时，`MemoryService` 按 `sessionId` 读取和写入后端内存短期消息。
 - `options.useMemory=false` 时，Memory 保持 disabled，不读不写。
 - `options.useRag=true` 时，`RagService` 读取 `data/knowledge/` 并执行本地关键词检索。
-- workflow 仍保持 disabled / not_configured，不接外部系统。
+- `options.useWorkflow=true` 时，`N8nWorkflowService` 只作为后端工具调用层；未配置 n8n 时返回 `not_configured`，配置后由后端调用 webhook。
+- `PromptBuilder` 统一组装 systemPrompt、Memory、RAG 和 workflow context。
+- 响应包含 `meta.orchestration = "agent_pipeline"` 与 `meta.steps`。
 
 不应该承担：
 

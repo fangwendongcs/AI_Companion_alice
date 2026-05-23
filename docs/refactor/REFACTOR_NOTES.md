@@ -1515,3 +1515,13 @@ npm run check:assets
 - 新增 `scripts/check-agent-flow.mjs` 并纳入 `npm run check`，覆盖编排顺序、独立开关、可选能力失败降级、PromptBuilder workflow context 与 stub 完整链路。
 - `smoke` 补充组合请求验收，确认默认 stub 下 `useMemory/useRag/useWorkflow` 可稳定返回，且无 n8n 配置时 workflow 保持 `not_configured`。
 - 本轮不做无限循环 Agent、多 Agent 协作、自动长期任务，不接 Qdrant、不新增 embedding、不改前端 UI。
+
+## 50. Phase 3.9 智能能力基线封版
+
+- 新增 `docs/product/PHASE3_BASELINE.md`，记录 Phase 3 封版结论、统一智能链路、已完成能力、未包含能力、自动化验收基线和浏览器复验基线。
+- `README.md` 与 `docs/README.md` 更新为“Phase 3 智能能力基线已完成”，并明确 `/api/dialogue` 是统一智能编排入口。
+- `PHASE3_ACCEPTANCE.md` 标记 Provider readiness、短期 Memory、本地 RAG、n8n 工具调用边界与 Agent pipeline 的完成状态，同时列出 Qdrant、embedding、长期记忆数据库、多 Agent 和生产级鉴权等未完成项。
+- `NEXT_PHASE_PLAN.md` 增加 Phase 3.9 封版和 Phase 4 建议方向，避免后续任务误认为 Qdrant / embedding / 长期记忆已经开始。
+- `BROWSER_ACCEPTANCE_CHECKLIST.md` 增加 Phase 3 复验项：stub 对话、Memory 开关、RAG 开关、workflow not_configured、Debug Panel 状态、最终 idle 和控制台检查。
+- API、架构、后端边界和安全文档同步 `/api/dialogue` 当前统一返回结构：`memory / rag / workflow / sources / meta.steps / meta.orchestration`。
+- 本轮只做文档封版，不修改业务功能、前端 UI、模型、角色、动画、TTS、Memory/RAG/Workflow/LLM 编排代码。

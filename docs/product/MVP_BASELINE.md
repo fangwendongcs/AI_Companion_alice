@@ -89,12 +89,14 @@ npm run smoke
 
 ## 下一阶段入口
 
-阶段 3 才进入真实 AI 能力增强：
+阶段 3 已完成智能能力接入基线，详见 [PHASE3_BASELINE.md](./PHASE3_BASELINE.md)。当前阶段 2 文档仍作为 3D 数字人 MVP 主链路的回归基线。
 
-1. 后端 PromptBuilder 与角色人格配置。
-2. MemoryService 的短期会话摘要和用户偏好存储。
-3. RagService 的真实检索边界与文档上传策略。
-4. N8nWorkflowService 的后端 webhook proxy 与鉴权。
-5. `/api/dialogue` 的真实编排：memory -> rag -> workflow -> llm。
+阶段 3 已在后端边界内完成：
 
-下一阶段仍必须保持：前端不直接连接 Qdrant / n8n / provider secret，所有敏感能力只进入后端边界。
+1. Provider readiness 与默认 stub 演示。
+2. 后端短期 Memory。
+3. 本地知识源与本地 RAG。
+4. n8n Workflow 后端工具调用边界。
+5. `/api/dialogue` 最小 Agent pipeline：Memory -> RAG -> optional Workflow -> PromptBuilder -> LLM/stub。
+
+后续阶段仍必须保持：前端不直接连接 Qdrant / n8n / provider secret，所有敏感能力只进入后端边界。

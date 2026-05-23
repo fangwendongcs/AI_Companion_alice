@@ -9,7 +9,9 @@ AI 数字伙伴 / 互动数字人项目。当前支持：
 - 本地 Node 后端代理接口
 - `/api/dialogue` 前端主对话入口，支持本地 Stub 演示、后端短期 Memory、本地 RAG 与后端 n8n 工具调用边界
 
-当前项目已完成“阶段 1：架构基座搭建”和“阶段 2：MVP 交互闭环与稳定性验收”，Phase 3 正在逐步接入真实智能能力。当前 Memory 是后端进程内短期记忆，前端只保存开关偏好和 sessionId，不保存对话正文。
+当前项目已完成“阶段 1：架构基座搭建”、“阶段 2：MVP 交互闭环与稳定性验收”和“Phase 3：真实智能能力接入基线”。当前 `/api/dialogue` 是统一智能编排入口，已具备 stub/真实 provider readiness、后端短期 Memory、本地 RAG、n8n 工具调用边界与最小 Agent pipeline。当前 Memory 是后端进程内短期记忆，前端只保存开关偏好和 sessionId，不保存对话正文。
+
+当前明确未包含：Qdrant / embedding、长期记忆数据库、多 Agent、无限循环 Agent、生产级鉴权和公网部署安全加固。
 
 ## Quick Start
 
@@ -81,8 +83,9 @@ archive/  历史配置、旧脚本、原始素材归档
 - [BROWSER_ACCEPTANCE_CHECKLIST.md](./docs/process/BROWSER_ACCEPTANCE_CHECKLIST.md)
 - [DIALOGUE_BACKEND_BOUNDARY.md](./docs/architecture/DIALOGUE_BACKEND_BOUNDARY.md)
 
-阶段 3 规划文档：
+阶段 3 智能能力基线文档：
 
 - [PHASE3_INTELLIGENCE_ARCHITECTURE.md](./docs/architecture/PHASE3_INTELLIGENCE_ARCHITECTURE.md)
 - [PHASE3_IMPLEMENTATION_PLAN.md](./docs/process/PHASE3_IMPLEMENTATION_PLAN.md)
 - [PHASE3_ACCEPTANCE.md](./docs/product/PHASE3_ACCEPTANCE.md)
+- [PHASE3_BASELINE.md](./docs/product/PHASE3_BASELINE.md)

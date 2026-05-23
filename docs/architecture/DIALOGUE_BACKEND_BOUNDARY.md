@@ -39,16 +39,18 @@ Frontend DialogueManager
 
 ### `/api/dialogue`
 
-统一对话编排入口。当前已经支持 LLM-only 编排，并已成为前端默认对话入口。
+统一对话编排入口。当前已经支持 Phase 3 智能能力基线，并已成为前端默认对话入口。
 
 当前行为：
 
 - 返回 `{ ok: true, data }`。
 - 真实 provider 配置完整时，`data.meta.mode = "llm_only"`。
+- `data.meta.orchestration = "agent_pipeline"`。
+- `data.meta.steps` 记录 Memory / RAG / Workflow 的最终状态。
 - `provider = "stub" / "local" / "boundary"` 时，返回本地 `llm_stub`，用于无 Key 本地开发演示、smoke 和边界检查。
 - 前端默认 provider 为 `stub`；显式选择 OpenAI / Qwen / DeepSeek / Custom 时，仍保留真实 provider 的配置错误与上游错误链路。
-- `memory.used = false`。
-- `rag.used = false`。
+- `options.useMemory=true` 时启用后端进程内短期 Memory。
+- `options.useRag=true` 时启用 `data/knowledge/` 本地关键词检索。
 - `workflow.used = false` 或在后端 n8n 配置完整且启用时返回 `workflow.status=success`。
 - 不连接 Qdrant。
 - 只有 `options.useWorkflow=true` 且后端配置 `N8N_WEBHOOK_URL` 时才请求 n8n webhook。
@@ -114,12 +116,13 @@ Frontend DialogueManager
 
 ## 当前阶段不做
 
-- 不实现真实 RAG 检索。
+- 不接 Qdrant / Supabase / Pinecone 等向量数据库。
+- 不实现 embedding、向量索引或语义重排。
 - 不实现长期记忆数据库。
-- 不接真实 n8n webhook。
-- 不新增向量数据库依赖。
+- 不做多 Agent、无限循环 Agent 或自动长期任务。
 - 不新增 LLM provider。
 - 不把复杂 prompt 编排塞进前端。
+- 不完成生产级鉴权、限流、审计和公网部署安全加固。
 
 ## Phase 3 推荐接入顺序
 

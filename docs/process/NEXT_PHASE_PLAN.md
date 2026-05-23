@@ -258,6 +258,50 @@ npm run check
 **下一阶段**
 
 - Phase 3 才进入真实 RAG / Memory / n8n / Agent。
+
+## Phase 3.9：智能能力基线封版
+
+**目标**
+
+- 固化 Phase 3 的智能能力接入基线，避免后续真实部署、向量库或产品体验增强误伤已经完成的主链路。
+
+**已完成事项**
+
+- `/api/dialogue` 是统一智能编排入口。
+- `/api/chat` 保留兼容入口。
+- 默认 provider 仍是 `stub`，无 Key 可演示。
+- `GET /api/providers` 提供安全 provider readiness。
+- 后端短期 Memory 可按 `sessionId` 保存最近 N 轮。
+- 本地 RAG 可读取 `data/knowledge/` 并返回 `sources`。
+- n8n workflow 作为后端可选工具调用边界，未配置时稳定返回 `not_configured`。
+- Agent pipeline 已固定为 Memory -> RAG -> optional Workflow -> PromptBuilder -> LLM/stub -> append Memory -> response。
+
+**封版文档**
+
+- `docs/product/PHASE3_BASELINE.md`
+- `docs/product/PHASE3_ACCEPTANCE.md`
+- `docs/architecture/PHASE3_INTELLIGENCE_ARCHITECTURE.md`
+- `docs/process/BROWSER_ACCEPTANCE_CHECKLIST.md`
+
+**Phase 4 建议方向**
+
+- 真实部署与安全鉴权：鉴权、CORS 白名单、限流、日志脱敏、上传隔离。
+- 真实知识库：Qdrant / embedding / 文档入库 / 检索评估。
+- 长期记忆：SQLite 或后端数据库、删除策略、隐私说明和记忆管理。
+- 产品体验增强：浏览器级自动化、引用展示、对话体验和 Agent 状态可观测。
+
+**不做事项**
+
+- Phase 3.9 不新增业务功能。
+- 不声称已完成 Qdrant、embedding、长期记忆数据库、多 Agent 或生产级鉴权。
+
+**测试命令**
+
+```bash
+npm run check
+npm run smoke
+git diff --check
+```
 - RAG、Memory、n8n、Agent 只允许从后端边界接入，不进入前端 UI 或 AppController。
 
 **测试命令**

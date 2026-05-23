@@ -346,23 +346,34 @@ git diff --check
 **目标**
 
 - 不加新功能，只收口文档、验收、浏览器测试和自动化基线。
+- 输出 Phase 3 智能能力基线：`/api/dialogue` 统一入口、Provider readiness、短期 Memory、本地 RAG、n8n 工具边界和 Agent pipeline。
 
 **修改范围**
 
 - `README.md`
+- `docs/README.md`
+- `docs/product/PHASE3_BASELINE.md`
 - `docs/product/PHASE3_ACCEPTANCE.md`
+- `docs/product/MVP_BASELINE.md`
 - `docs/process/NEXT_PHASE_PLAN.md`
 - `docs/process/BROWSER_ACCEPTANCE_CHECKLIST.md`
+- `docs/architecture/PHASE3_INTELLIGENCE_ARCHITECTURE.md`
+- `docs/architecture/DIALOGUE_BACKEND_BOUNDARY.md`
+- `docs/api/API.md`
+- `docs/api/API_CONTRACT.md`
+- `docs/security/DEPLOYMENT_SECURITY.md`
 - `docs/refactor/REFACTOR_NOTES.md`
 
 **不做事项**
 
 - 不新增智能能力。
 - 不改模型、角色、动画、TTS 主逻辑。
+- 不改 Memory/RAG/Workflow/LLM 编排代码。
 
 **验收标准**
 
 - Phase 3 已完成能力和仍未完成能力边界清楚。
+- `PHASE3_BASELINE.md` 可作为 Phase 4 前的恢复点和验收入口。
 - 自动化验收与浏览器验收清单同步。
 - `npm run check`、`npm run smoke`、`git diff --check` 通过。
 

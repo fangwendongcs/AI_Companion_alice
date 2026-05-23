@@ -72,6 +72,12 @@
     },
     "meta": {
       "mode": "llm_only",
+      "orchestration": "agent_pipeline",
+      "steps": {
+        "memory": "disabled",
+        "rag": "disabled",
+        "workflow": "disabled"
+      },
       "provider": "openai",
       "model": "gpt-4o-mini"
     }
@@ -95,7 +101,7 @@
 - `provider` 为 `stub`、`local` 或 `boundary` 时，会返回本地 `llm_stub`，用于无 Key 本地开发演示、smoke 和边界检查，不代表生产 LLM。
 - 前端默认 provider 为 `stub`，因此新环境无需 API Key 也能跑通 thinking -> speaking -> idle 的演示链路。
 - `/api/chat` 仍保留为旧兼容入口，返回旧格式 `{ "reply": "..." }`。
-- 真实 RAG、n8n、长期记忆不得直接放到前端。
+- 向量 RAG、n8n、长期记忆不得直接放到前端；当前本地 RAG 也只在后端执行。
 
 本地 stub 示例：
 
@@ -104,9 +110,16 @@
   "message": "你好",
   "sessionId": "demo-session",
   "provider": "stub",
-  "model": "stub"
+  "model": "stub",
+  "options": {
+    "useMemory": true,
+    "useRag": true,
+    "useWorkflow": true
+  }
 }
 ```
+
+成功响应会保持统一结构：`reply / sources / memory / rag / workflow / meta`。其中 `meta.orchestration` 固定为 `agent_pipeline`，`meta.steps` 记录 Memory / RAG / Workflow 的状态。
 
 短期 Memory 示例：
 

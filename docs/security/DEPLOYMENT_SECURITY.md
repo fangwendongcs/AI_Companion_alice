@@ -2,6 +2,8 @@
 
 当前 `backend/` 是本地开发服务，不应直接裸露到公网。正式部署前至少需要补齐以下能力。
 
+Phase 3 已完成智能能力基线，但这仍然不是生产部署安全基线。当前 `stub`、短期 Memory、本地 RAG、n8n 工具边界和 Agent pipeline 都默认服务于本地演示与开发验收。
+
 ## P0
 
 - 限制 CORS 来源，不要继续使用 `Access-Control-Allow-Origin: *`。

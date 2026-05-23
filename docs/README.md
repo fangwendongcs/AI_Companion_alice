@@ -30,6 +30,7 @@
 - [MVP_ACCEPTANCE.md](./product/MVP_ACCEPTANCE.md): 阶段 2 MVP 用户链路与验收标准
 - [MVP_BASELINE.md](./product/MVP_BASELINE.md): 阶段 2 封版基线与下一阶段边界
 - [PHASE3_ACCEPTANCE.md](./product/PHASE3_ACCEPTANCE.md): Phase 3 智能能力验收标准
+- [PHASE3_BASELINE.md](./product/PHASE3_BASELINE.md): Phase 3 智能能力基线封版结论
 - `产品需求文档.docx`
 - `思路和计划文档.docx`
 - `竞品与可行性分析报告.docx`

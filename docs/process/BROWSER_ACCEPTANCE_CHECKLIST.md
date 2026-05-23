@@ -18,6 +18,12 @@
 | `npm run check:mvp-flow` | 对话、音频、fallback、错误事件链路 | 否 |
 | `npm run check:avatar-flow` | registry / manifest / motions / runtime path 合约 | 否 |
 | `npm run check:runtime-contracts` | EventBus、StateStore、Debug Panel、AppController 收口合约 | 否 |
+| `npm run check:provider-config` | Provider readiness、默认 stub 与前端 secret 边界 | 否 |
+| `npm run check:memory-flow` | 后端短期 Memory、sessionId、maxTurns 裁剪 | 否 |
+| `npm run check:knowledge-flow` | 本地知识源读取与简单检索边界 | 否 |
+| `npm run check:rag-flow` | 本地 RAG、sources 与 PromptBuilder 注入 | 否 |
+| `npm run check:workflow-flow` | n8n workflow disabled / not_configured / timeout / success 边界 | 否 |
+| `npm run check:agent-flow` | Agent pipeline 顺序、独立开关与可选能力降级 | 否 |
 | `npm run smoke` | 本地服务、API、三角色资源、非法上传拒绝、短期 Memory API | 是 |
 | `npm run check:browser-capability` | 可选检测本地是否已有 Playwright，不联网安装 | 否 |
 
@@ -245,7 +251,44 @@ http://localhost:3000?debug=1
 - `backend/services/AvatarService.js`
 - `scripts/smoke-test.mjs`
 
-## 8. 控制台检查
+## 8. Phase 3 智能能力复验
+
+操作步骤：
+
+- 确认默认 provider 为 `stub`。
+- 发送一句普通测试文本，确认 stub 对话能返回。
+- 打开短期 Memory 开关，连续发送两句相关文本。
+- 打开 RAG 开关，发送包含 `Alice RAG Memory` 的测试文本。
+- 如果 UI 没有 workflow 开关，可用 API 或 smoke 验证 `options.useWorkflow=true`；无 n8n 配置时应看到 `not_configured`。
+
+预期 Debug Panel / API 状态：
+
+- `isThinking` 最终回到 `false`。
+- `isSpeaking` 最终回到 `false`。
+- `currentState` 最终回到 `idle`。
+- `memory.enabled` 与设置区一致。
+- Memory 开启后 `memory.used = true`，`memory.turnCount` 增加。
+- RAG 开启时 API 返回 `rag.status = local`，且可包含 `sources`。
+- Workflow 未配置时 API 返回 `workflow.status = not_configured`，不阻塞基础 reply。
+- `/api/dialogue` 响应 `meta.orchestration = agent_pipeline`，`meta.steps` 包含 memory / rag / workflow 状态。
+
+预期 UI：
+
+- 发送按钮不会永久禁用。
+- TTS / fallback 不会卡住 speaking。
+- 页面不会出现 secret、webhook URL 或 provider Key。
+
+失败优先检查：
+
+- `backend/services/DialogueOrchestrationService.js`
+- `backend/services/PromptBuilder.js`
+- `backend/services/MemoryService.js`
+- `backend/services/RagService.js`
+- `backend/services/N8nWorkflowService.js`
+- `scripts/check-agent-flow.mjs`
+- `scripts/smoke-test.mjs`
+
+## 9. 控制台检查
 
 操作步骤：
 
