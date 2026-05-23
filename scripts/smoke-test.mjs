@@ -115,6 +115,8 @@ async function assertDialogueBoundary() {
     throw new Error('/api/dialogue should keep memory/rag/workflow disabled in smoke');
   }
 
+  await assertMemoryFlow();
+
   const optionalPayload = await postJson('/api/dialogue', {
     message: 'smoke optional contexts check',
     provider: 'stub',
@@ -126,7 +128,8 @@ async function assertDialogueBoundary() {
     }
   });
   const optionalData = optionalPayload.data || optionalPayload;
-  if (optionalData.memory?.status !== 'not_configured') throw new Error('/api/dialogue memory should report not_configured');
+  if (optionalData.memory?.status !== 'ready') throw new Error('/api/dialogue memory should report ready when enabled');
+  if (optionalData.memory?.used !== true) throw new Error('/api/dialogue memory should report used=true when enabled');
   if (optionalData.rag?.status !== 'not_configured') throw new Error('/api/dialogue rag should report not_configured');
   if (optionalData.workflow?.status !== 'not_configured') throw new Error('/api/dialogue workflow should report not_configured');
 
@@ -141,6 +144,44 @@ async function assertDialogueBoundary() {
     provider: 'unsupported-provider',
     model: 'stub'
   }, 'LLM_PROVIDER_UNSUPPORTED');
+}
+
+async function assertMemoryFlow() {
+  const sessionId = `smoke_memory_${Date.now()}`;
+  const first = await postJson('/api/dialogue', {
+    message: 'smoke memory first turn',
+    provider: 'stub',
+    model: 'stub',
+    sessionId,
+    options: {
+      useMemory: true,
+      useRag: false,
+      useWorkflow: false
+    }
+  });
+  const firstData = first.data || first;
+  if (firstData.memory?.used !== true) throw new Error('/api/dialogue memory should be used when enabled');
+  if (firstData.memory?.turnCount !== 1) throw new Error('/api/dialogue memory first turnCount should be 1');
+
+  const second = await postJson('/api/dialogue', {
+    message: 'smoke memory second turn',
+    provider: 'stub',
+    model: 'stub',
+    sessionId,
+    options: {
+      useMemory: true,
+      useRag: false,
+      useWorkflow: false
+    }
+  });
+  const secondData = second.data || second;
+  if (secondData.memory?.turnCount !== 2) throw new Error('/api/dialogue memory second turnCount should be 2');
+  if (!secondData.memory?.context?.some((item) => String(item.content).includes('first turn'))) {
+    throw new Error('/api/dialogue memory context should include previous turn');
+  }
+  if (secondData.rag?.used !== false || secondData.workflow?.used !== false) {
+    throw new Error('/api/dialogue memory flow should keep rag/workflow disabled');
+  }
 }
 
 async function assertProviderStatus() {

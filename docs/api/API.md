@@ -9,6 +9,7 @@
 ```json
 {
   "message": "你好",
+  "sessionId": "local-session",
   "provider": "openai",
   "model": "gpt-4o-mini",
   "systemPrompt": "你是 Alice..."
@@ -54,6 +55,9 @@
     "memory": {
       "used": false,
       "status": "disabled",
+      "sessionId": null,
+      "turnCount": 0,
+      "maxTurns": 6,
       "context": []
     },
     "rag": {
@@ -78,6 +82,9 @@
 说明：
 
 - `/api/dialogue` 使用 `LLMService` 复用现有 OpenAI-compatible provider 能力。
+- `sessionId` 用于后端短期 Memory；不传时使用 `default`。
+- `options.useMemory=true` 时，后端会在内存中记录最近 N 轮 user/assistant 消息；服务重启后清空。
+- `options.useMemory=false` 时，不读取、不写入 Memory。
 - 如果 provider 未配置或缺少 API Key，会返回 `{ "ok": false, "error": { "code": "LLM_NOT_CONFIGURED", "message": "..." } }`。
 - `provider` 为 `stub`、`local` 或 `boundary` 时，会返回本地 `llm_stub`，用于无 Key 本地开发演示、smoke 和边界检查，不代表生产 LLM。
 - 前端默认 provider 为 `stub`，因此新环境无需 API Key 也能跑通 thinking -> speaking -> idle 的演示链路。
@@ -89,10 +96,48 @@
 ```json
 {
   "message": "你好",
+  "sessionId": "demo-session",
   "provider": "stub",
   "model": "stub"
 }
 ```
+
+短期 Memory 示例：
+
+```json
+{
+  "message": "继续刚才的话题",
+  "sessionId": "demo-session",
+  "provider": "stub",
+  "model": "stub",
+  "options": {
+    "useMemory": true,
+    "useRag": false,
+    "useWorkflow": false
+  }
+}
+```
+
+响应中的 `memory`：
+
+```json
+{
+  "used": true,
+  "status": "ready",
+  "sessionId": "demo-session",
+  "turnCount": 2,
+  "maxTurns": 6,
+  "context": [
+    {
+      "role": "user",
+      "content": "上一轮用户消息",
+      "at": "2026-05-23T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+说明：当前 Memory 是后端进程内短期记忆，不落盘，不是长期记忆数据库。
 
 ### POST /api/tts
 

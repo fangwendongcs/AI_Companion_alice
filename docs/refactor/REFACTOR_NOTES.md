@@ -1456,3 +1456,12 @@ npm run check:assets
 - 新增 `scripts/check-provider-config.mjs` 并纳入 `npm run check`，保护默认 stub、provider readiness 合约和前端 secret 边界。
 - `smoke` 增加 `/api/providers` 验收，确认 stub 可用且 provider status 不泄露 secret-shaped 字段。
 - 本轮不接真实 RAG、n8n、Memory 数据库，不新增依赖，不修改角色、模型、动画或 TTS 主逻辑。
+
+## 44. Phase 3.3 Memory 最小闭环
+
+- `MemoryService` 改为后端进程内短期 Memory，按 `sessionId` 保存最近 N 轮 user/assistant 消息，服务重启后自动丢失。
+- `/api/dialogue` 支持 `sessionId` 与 `options.useMemory`；`useMemory=false` 保持 disabled，不读不写。
+- `DialogueOrchestrationService` 会在 LLM/stub 回复后写入本轮 user/assistant，并在真实 provider prompt 中附加短期记忆上下文。
+- 新增 `scripts/check-memory-flow.mjs`，覆盖 disabled、记录最近轮次、maxTurns 裁剪和真实 provider prompt 注入。
+- `smoke` 增加短期 Memory 的两轮对话验收，同时确认 RAG / Workflow 仍未启用。
+- 本轮不接 Qdrant、不接 n8n、不做 SQLite/JSON 长期记忆，不把 Memory 写入前端 localStorage。

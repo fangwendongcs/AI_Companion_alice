@@ -64,6 +64,7 @@
 ```json
 {
   "message": "hello",
+  "sessionId": "local-session",
   "provider": "openai",
   "model": "gpt-4o-mini",
   "systemPrompt": "optional",
@@ -86,6 +87,9 @@
     "memory": {
       "used": false,
       "status": "disabled",
+      "sessionId": null,
+      "turnCount": 0,
+      "maxTurns": 6,
       "context": []
     },
     "rag": {
@@ -107,7 +111,9 @@
 }
 ```
 
-如果 `options.useMemory / useRag / useWorkflow` 为 `true`，当前仍不会调用外部服务，只会返回 `not_configured` 状态。正式接入时应在后端 service 层实现，不改前端 secret 边界。
+如果 `options.useMemory=true`，当前会启用后端进程内短期 Memory，并按 `sessionId` 记录最近 N 轮 user/assistant 消息。该 Memory 不落盘，服务重启后丢失。
+
+如果 `options.useRag / useWorkflow` 为 `true`，当前仍不会调用外部服务，只会返回 `not_configured` 状态。正式接入时应在后端 service 层实现，不改前端 secret 边界。
 
 无密钥本地演示和 smoke 可使用 `provider: "stub"`，当前前端默认也使用该 provider。此时返回：
 
@@ -144,6 +150,34 @@
   "error": {
     "code": "LLM_NOT_CONFIGURED",
     "message": "Missing API key..."
+  }
+}
+```
+
+Memory enabled 成功时：
+
+```json
+{
+  "ok": true,
+  "data": {
+    "memory": {
+      "used": true,
+      "status": "ready",
+      "sessionId": "local-session",
+      "turnCount": 1,
+      "maxTurns": 6,
+      "context": []
+    },
+    "rag": {
+      "used": false,
+      "status": "disabled",
+      "passages": []
+    },
+    "workflow": {
+      "used": false,
+      "status": "disabled",
+      "result": null
+    }
   }
 }
 ```

@@ -102,6 +102,12 @@ Phase 3 演进职责：
 7. 写入短期 memory 事件。
 8. 返回统一响应。
 
+Phase 3.3 当前实现：
+
+- `options.useMemory=true` 时，`MemoryService` 按 `sessionId` 读取和写入后端内存短期消息。
+- `options.useMemory=false` 时，Memory 保持 disabled，不读不写。
+- RAG / workflow 仍保持 disabled / not_configured，不接外部系统。
+
 不应该承担：
 
 - DOM 或 UI 状态处理。
@@ -147,7 +153,7 @@ Phase 3 演进职责：
 
 ### 推荐
 
-Phase 3.3 推荐先做方案 A：后端内存短期 memory。
+Phase 3.3 已按方案 A 实现：后端内存短期 memory。
 
 理由：
 
@@ -156,6 +162,14 @@ Phase 3.3 推荐先做方案 A：后端内存短期 memory。
 - 不写入敏感数据到磁盘。
 - 很容易验收：同一服务进程内连续对话能带上简短上下文，重启后清空。
 - 回滚简单：关闭 `options.useMemory` 即可。
+
+当前边界：
+
+- 按 `sessionId` 分组。
+- 保留最近 6 轮 user/assistant 消息。
+- 单条内容会截断，避免 prompt 和响应无限膨胀。
+- 不写入浏览器 localStorage。
+- 不落盘，不是长期记忆。
 
 Phase 3.7 之后再评估 SQLite。不要直接从阶段 3.3 跳到 Qdrant memory。
 

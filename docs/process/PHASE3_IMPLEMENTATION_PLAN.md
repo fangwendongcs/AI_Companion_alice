@@ -91,15 +91,15 @@ npm run smoke
 
 **目标**
 
-- 先实现后端内存短期 memory，不落盘。
-- 让同一服务进程内的最近对话可参与 prompt。
+- 已实现后端内存短期 memory，不落盘。
+- 同一服务进程内的最近对话可按 `sessionId` 参与 prompt。
 
 **修改范围**
 
 - `backend/services/MemoryService.js`
-- 新增 `backend/services/PromptBuilder.js`
 - `backend/services/DialogueOrchestrationService.js`
-- `scripts/check-mvp-flow.mjs`
+- `scripts/check-memory-flow.mjs`
+- `scripts/smoke-test.mjs`
 - API 文档。
 
 **不做事项**
@@ -114,6 +114,7 @@ npm run smoke
 - 同一进程内第二轮对话可以看到上一轮简短上下文。
 - 重启服务后 memory 清空。
 - 关闭 `useMemory` 时行为与阶段 2 一致。
+- 超过 `maxTurns` 会裁剪，只保留最近 N 轮。
 
 **测试命令**
 
