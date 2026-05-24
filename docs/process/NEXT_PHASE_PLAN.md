@@ -337,27 +337,22 @@ npm run check
 npm run smoke
 git diff --check
 ```
-- RAG、Memory、n8n、Agent 只允许从后端边界接入，不进入前端 UI 或 AppController。
 
-**测试命令**
+## Suggested Phase 4.2：私有演示安全加固
 
-```bash
-npm run check
-npm run dev
-npm run smoke
-```
+**目标**
 
-## Phase 3：真实智能能力接入
+- 在不引入真实部署平台的前提下，继续补齐公网前最小安全能力。
 
-Phase 3 的详细路线已经拆到：
+**建议任务**
 
-- [PHASE3_INTELLIGENCE_ARCHITECTURE.md](../architecture/PHASE3_INTELLIGENCE_ARCHITECTURE.md)
-- [PHASE3_IMPLEMENTATION_PLAN.md](./PHASE3_IMPLEMENTATION_PLAN.md)
-- [PHASE3_ACCEPTANCE.md](../product/PHASE3_ACCEPTANCE.md)
+- CORS 白名单配置。
+- 请求日志脱敏。
+- 简单速率限制和请求体限制文档化。
+- 上传资源隔离和审核流程设计。
 
-Phase 3 的核心原则：
+**边界**
 
-- `stub` 继续作为默认本地演示模式。
-- `/api/dialogue` 继续作为前端唯一主对话入口。
-- Memory / RAG / n8n / Agent 只从后端边界接入。
-- 不把 secret、Qdrant、n8n webhook 或复杂 prompt 拼接放进前端。
+- 不接 Qdrant / embedding / 长期记忆数据库。
+- 不新增真实 n8n workflow。
+- 不把 RAG、Memory、n8n、Agent 逻辑移入前端 UI 或 AppController。

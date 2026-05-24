@@ -1,12 +1,13 @@
 # Architecture
 
-本项目当前是一个静态前端 + 本地 Node 后端的 AI Digital Companion 原型。目标不是一次性做成大型框架项目，而是在保持可运行的基础上，逐步把模型、动作、语音、对话、后端代理和未来 RAG/Agent 能力模块化。
+本项目当前是一个静态前端 + 本地 Node 后端的 AI Digital Companion 原型。目标不是一次性做成大型框架项目，而是在保持可运行的基础上，逐步把模型、动作、语音、对话、后端代理、Memory、RAG、workflow 和 Agent 能力模块化。
 
 ## 当前阶段
 
-- 阶段 1“架构基座搭建”已基本完成。
+- 阶段 1“架构基座搭建”已完成。
 - 阶段 2“MVP 交互闭环与稳定性验收”已收口，当前基线见 [MVP_BASELINE.md](../product/MVP_BASELINE.md)。
-- 下一阶段才进入真实 RAG / Memory / n8n / Agent 能力建设，不再继续重复打磨阶段 2 的主链路。
+- Phase 3“智能能力接入基线”已收口，当前基线见 [PHASE3_BASELINE.md](../product/PHASE3_BASELINE.md)。
+- Phase 4.1 已建立部署安全与公网前检查基线，当前仍不是生产级公网服务。
 
 ## 运行时结构
 
@@ -69,7 +70,7 @@ backend/
   config/         端口、上传限制、provider endpoint、MIME 等服务端配置
   middleware/     CORS 与顶层错误处理
   routes/         HTTP 输入输出：health、avatar、dialogue、tts
-  services/       角色注册表、上传校验、静态资源、对话编排边界等业务逻辑
+  services/       角色注册表、上传校验、静态资源、对话编排、Memory/RAG/workflow 等业务逻辑
   utils/          response、request、logger、http error 等基础工具
 ```
 
@@ -80,10 +81,10 @@ backend/
 - `UIController` 只协调 UI 子模块，不直接承担 Three.js 细节。
 - UI 子模块通过 Manager 接口、EventBus、StateStore 协作，DOM listener 统一交给 `DisposableRegistry` 清理。
 - `backend/server.js` 只负责创建服务、调用 middleware/router 和启动监听。
-- 当前 MVP 前端主对话链路已走 `/api/dialogue`；`/api/chat` 只保留为旧兼容入口。Memory / RAG / n8n / Agent 仍只在后端边界预留，详见 [DIALOGUE_BACKEND_BOUNDARY.md](./DIALOGUE_BACKEND_BOUNDARY.md)。
+- 当前前端主对话链路已走 `/api/dialogue`；`/api/chat` 只保留为旧兼容入口。Memory / RAG / n8n / Agent orchestration 只进入后端边界，详见 [DIALOGUE_BACKEND_BOUNDARY.md](./DIALOGUE_BACKEND_BOUNDARY.md)。
 
 ## 后续演进方向
 
-短期继续保持原生模块结构。阶段 3 优先从后端边界接入真实 RAG / Memory / n8n / Agent，不把这些能力塞进 UI Controller。只有当 UI 面板、状态和路由复杂到明显阻碍开发时，再考虑 Vite/TypeScript 或前端框架迁移。
+短期继续保持原生模块结构。下一阶段优先做公网前安全加固、浏览器级验收、产品 UI polish 或更真实的知识库能力，不把这些能力塞进 UI Controller。只有当 UI 面板、状态和路由复杂到明显阻碍开发时，再考虑 Vite/TypeScript 或前端框架迁移。
 
-公网部署前的安全事项见 [DEPLOYMENT_SECURITY.md](../security/DEPLOYMENT_SECURITY.md)。
+公网部署前的安全事项见 [DEPLOYMENT_SECURITY.md](../security/DEPLOYMENT_SECURITY.md) 与 [PHASE4_DEPLOYMENT_SECURITY_BASELINE.md](../security/PHASE4_DEPLOYMENT_SECURITY_BASELINE.md)。

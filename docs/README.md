@@ -27,6 +27,7 @@
 
 - [PRD.md](./product/PRD.md): 产品需求
 - [DESIGN.md](./product/DESIGN.md): 设计说明
+- [PROJECT_SHOWCASE.md](./product/PROJECT_SHOWCASE.md): GitHub 展示型项目介绍
 - [MVP_ACCEPTANCE.md](./product/MVP_ACCEPTANCE.md): 阶段 2 MVP 用户链路与验收标准
 - [MVP_BASELINE.md](./product/MVP_BASELINE.md): 阶段 2 封版基线与下一阶段边界
 - [PHASE3_ACCEPTANCE.md](./product/PHASE3_ACCEPTANCE.md): Phase 3 智能能力验收标准
