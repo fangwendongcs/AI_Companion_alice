@@ -8,7 +8,7 @@ An interactive AI digital companion prototype with 3D avatar interaction, state-
 
 Alice is not a plain chatbot UI. It explores how an AI companion can exist as an embodied, stateful, and interactive experience: users can switch avatars, click body regions, trigger motion feedback, send dialogue messages, hear TTS / browser fallback audio, and observe companion state through a debug panel.
 
-This repository is currently a **local MVP / product prototype**, not a production SaaS. It intentionally keeps the default LLM provider as `stub`, so the full local demo can run without real API keys while still preserving a backend path for real providers.
+This repository is organized as a **local MVP / product prototype** with a staged path toward a production-grade AI companion system. It intentionally keeps the default LLM provider as `stub`, so the full local demo can run without real API keys while still preserving a clean backend path for real providers.
 
 ## Demo Preview
 
@@ -22,9 +22,9 @@ This repository is currently a **local MVP / product prototype**, not a producti
 - **State-driven architecture**: separates app state, avatar state, animation state, dialogue state, audio state, and interaction events.
 - **Animation-ready runtime**: supports boot / idle / gesture / speaking / listening motion slots with queue and state-machine checks.
 - **Unified AI backend boundary**: frontend dialogue flows through `/api/dialogue`, while `/api/chat` remains as a compatibility endpoint.
-- **Local intelligence baseline**: supports stub provider, provider readiness, short-term Memory, local keyword RAG, optional n8n workflow boundary, and minimal Agent orchestration.
+- **Intelligence integration baseline**: supports stub provider, provider readiness, short-term Memory, local keyword RAG, optional n8n workflow boundary, and minimal Agent orchestration.
 - **Security-aware evolution**: API keys, TTS keys, n8n webhook URL / secret, and future vector credentials stay behind the backend boundary.
-- **Validation-first workflow**: includes regression, asset, config, API, security, Memory, RAG, workflow, Agent, and smoke checks.
+- **Validation-first delivery**: includes regression, asset, config, API, security, Memory, RAG, workflow, Agent, and smoke checks.
 
 ## Architecture
 
@@ -74,7 +74,7 @@ Notes:
 | Local RAG | MVP | Local markdown / JSON keyword retrieval from `data/knowledge/`; no embeddings yet. |
 | n8n Workflow | Boundary | Optional backend workflow invocation boundary; not a main orchestrator. |
 | Agent Orchestration | MVP boundary | Minimal Memory -> RAG -> optional Workflow -> PromptBuilder -> LLM pipeline. |
-| Deployment Security | Baseline | Pre-public checklist, optional API token boundary, security checks; not full production auth. |
+| Deployment Security | Baseline | Pre-public checklist, optional API token boundary, security checks, and next-step hardening plan. |
 
 ## Quick Start
 
@@ -108,7 +108,7 @@ npm run check:security-boundaries
 npm run check:browser-capability
 ```
 
-Recommended local baseline:
+I usually verify the local baseline with:
 
 ```bash
 npm run check
@@ -142,22 +142,22 @@ Most AI product prototypes stop at a chat box. This project explores a different
 
 > What does an AI companion feel like when it has a body, visible state, motion feedback, voice, memory boundaries, and interaction beyond text input?
 
-The current MVP focuses on the companion loop: avatar presence, user interaction, dialogue state, audio feedback, and safe backend integration boundaries. The goal is not to overbuild a production platform too early, but to keep the product direction tangible while gradually hardening the architecture.
+The current MVP focuses on the companion loop: avatar presence, user interaction, dialogue state, audio feedback, and safe backend integration boundaries. The engineering direction is deliberately staged: prove the embodied interaction first, then harden intelligence, security, deployment, and product experience without collapsing everything into one large rewrite.
 
-## What This Project Demonstrates
+## What I Focused On
 
-This project demonstrates the ability to:
+In this project, I focused on:
 
-- Translate an AI companion concept into an interactive product prototype.
-- Design frontend-backend boundaries for AI capability integration.
-- Think beyond chatbot UI and explore embodied AI interaction.
-- Structure a local MVP with acceptance criteria, API contracts, security notes, and regression scripts.
-- Separate avatar loading, animation, interaction, dialogue, audio, state, and backend orchestration concerns.
-- Use AI-assisted development while maintaining staged documentation, validation, and recovery points.
+- Turning an AI companion concept into a runnable interactive prototype.
+- Designing frontend-backend boundaries for AI capability integration.
+- Thinking beyond chatbot UI and exploring embodied AI interaction.
+- Managing the MVP with acceptance criteria, API contracts, security notes, and regression scripts.
+- Separating avatar loading, animation, interaction, dialogue, audio, state, and backend orchestration concerns.
+- Using AI-assisted development while keeping staged documentation, validation, and recovery points.
 
 ## Roadmap
 
-### Current MVP / Baseline
+### Current Baseline
 
 - Three selectable avatars: Alice, Shiro, Wambo.
 - Click interactions and motion-slot-driven feedback.
@@ -169,20 +169,20 @@ This project demonstrates the ability to:
 - Minimal Agent orchestration pipeline.
 - Deployment security baseline and validation scripts.
 
-### Next Phase
+### My Next Focus: Demo-grade Hardening
 
-- Public-demo readiness: CORS whitelist, rate limiting, request logging, upload isolation, and stronger authentication.
-- Better GitHub/demo presentation: screenshots, short GIF, project logo, and browser acceptance evidence.
-- Product UI polish around dialogue state, source display, and debug visibility.
+- I want to make the project safe enough for a private public-facing demo: CORS whitelist, rate limiting, request logging, upload isolation, and stronger authentication.
+- I plan to add better presentation material: screenshots, a short GIF, a simple project logo, and browser acceptance evidence.
+- I will keep polishing the product experience around dialogue state, source display, and debug visibility.
 
-### Future Direction
+### Longer-term Direction
 
-- Real vector RAG with embedding and a vector database such as Qdrant.
-- Persistent long-term memory with deletion and privacy controls.
-- More robust avatar authoring and animation retargeting.
-- Higher-quality TTS provider options and voice persona presets.
-- Tool workflows through n8n as explicit backend tools, not frontend secrets.
-- More expressive emotional / behavioral state models.
+- Move from local keyword RAG to vector RAG with embeddings and a vector database such as Qdrant.
+- Upgrade short-term memory into persistent memory with deletion and privacy controls.
+- Improve avatar authoring, model replacement, and animation retargeting.
+- Add higher-quality TTS provider options and voice persona presets.
+- Keep n8n as explicit backend tools, not frontend secrets or the main dialogue brain.
+- Explore richer emotional and behavioral state models after the core loop stays stable.
 
 ## Key Documents
 
@@ -194,12 +194,3 @@ This project demonstrates the ability to:
 - [API Overview](./docs/api/API.md)
 - [API Contract](./docs/api/API_CONTRACT.md)
 - [Next Phase Plan](./docs/process/NEXT_PHASE_PLAN.md)
-
-## Current Limitations
-
-- This is a local prototype, not a deployed production service.
-- The default AI response is local `stub` mode unless real backend provider keys are configured.
-- Current RAG is local keyword retrieval, not embedding-based vector search.
-- Current Memory is short-term process memory, not persistent long-term memory.
-- Current auth is a lightweight private-demo boundary, not a full user system.
-- No demo screenshots or GIFs are committed yet.

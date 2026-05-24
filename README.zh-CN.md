@@ -8,7 +8,7 @@
 
 Alice 不是一个普通聊天框 Demo。这个项目探索的是：AI 伙伴如何以“具身化、状态化、可交互”的形式存在。用户可以切换角色、点击身体部位、触发动作反馈、发送对话、听到 TTS 或浏览器语音兜底，并通过 Debug Panel 观察当前状态。
 
-当前仓库是一个 **本地 MVP / 产品原型**，不是生产级 SaaS。项目默认使用 `stub` 作为本地 LLM provider，因此无需真实 API Key 也能跑通完整本地演示，同时保留了接入真实 provider 的后端路径。
+当前仓库以 **本地 MVP / 产品原型** 的方式组织，并保留了通向生产级 AI 伙伴系统的阶段化演进路径。项目默认使用 `stub` 作为本地 LLM provider，因此无需真实 API Key 也能跑通完整本地演示，同时保留了接入真实 provider 的清晰后端路径。
 
 ## Demo Preview
 
@@ -22,9 +22,9 @@ Alice 不是一个普通聊天框 Demo。这个项目探索的是：AI 伙伴如
 - **状态驱动架构**：拆分 app、avatar、animation、dialogue、audio、interaction 等状态。
 - **面向动画扩展的运行时**：支持 boot / idle / gesture / speaking / listening 等动作槽位，并有队列与状态机检查。
 - **统一 AI 后端边界**：前端对话流走 `/api/dialogue`，`/api/chat` 保留为兼容入口。
-- **本地智能能力基线**：支持 stub provider、provider readiness、短期 Memory、本地关键词 RAG、可选 n8n workflow 边界和最小 Agent 编排。
+- **智能能力接入基线**：支持 stub provider、provider readiness、短期 Memory、本地关键词 RAG、可选 n8n workflow 边界和最小 Agent 编排。
 - **安全边界清晰**：API Key、TTS Key、n8n webhook URL / secret、未来向量库凭据都留在后端。
-- **验证优先的迭代方式**：包含 regression、asset、config、API、安全、Memory、RAG、workflow、Agent 和 smoke 检查。
+- **验证优先的交付方式**：包含 regression、asset、config、API、安全、Memory、RAG、workflow、Agent 和 smoke 检查。
 
 ## 架构图
 
@@ -74,7 +74,7 @@ flowchart LR
 | Local RAG | MVP | 从 `data/knowledge/` 读取 markdown / JSON 并做关键词检索，没有 embedding。 |
 | n8n Workflow | Boundary | 可选后端 workflow 调用边界，不是主编排器。 |
 | Agent Orchestration | MVP boundary | 最小 Memory -> RAG -> optional Workflow -> PromptBuilder -> LLM pipeline。 |
-| Deployment Security | Baseline | 公网前检查清单、可选 API token 边界、安全脚本，不是完整生产鉴权。 |
+| Deployment Security | Baseline | 公网前检查清单、可选 API token 边界、安全脚本和后续加固计划。 |
 
 ## 快速启动
 
@@ -108,7 +108,7 @@ npm run check:security-boundaries
 npm run check:browser-capability
 ```
 
-推荐本地基线验收：
+我通常用这组命令做本地基线验收：
 
 ```bash
 npm run check
@@ -142,22 +142,22 @@ npm run smoke
 
 > 当 AI 伙伴拥有身体、可见状态、动作反馈、声音、记忆边界，以及文本之外的互动方式时，体验会有什么不同？
 
-当前 MVP 聚焦的是 AI 伙伴的基础循环：角色存在感、用户交互、对话状态、音频反馈和安全的后端集成边界。项目没有过早堆生产平台，而是在可运行的原型基础上逐步强化架构。
+当前 MVP 聚焦的是 AI 伙伴的基础循环：角色存在感、用户交互、对话状态、音频反馈和安全的后端集成边界。整体工程策略是分阶段推进：先证明具身交互体验，再逐步强化智能能力、安全边界、部署能力和产品体验，而不是一开始就把所有能力堆成一次性大重构。
 
-## 这个项目体现的能力
+## 我重点做了什么
 
-这个项目体现了：
+这个项目里，我重点做了：
 
-- 把 AI companion 概念转化成可运行交互原型的能力。
-- 为 AI 能力接入设计前后端边界的能力。
-- 跳出传统 chatbot UI，探索具身化 AI 交互的产品思考。
+- 把 AI companion 概念转化成可运行的交互原型。
+- 为 AI 能力接入设计清晰的前后端边界。
+- 跳出传统 chatbot UI，探索具身化 AI 交互。
 - 用验收标准、API 合约、安全文档和回归脚本管理 MVP。
 - 拆分 avatar loading、animation、interaction、dialogue、audio、state 和 backend orchestration。
-- 使用 AI 辅助开发时，仍然保持阶段化交付、文档基线和可恢复节点。
+- 在使用 AI 辅助开发的同时，保留阶段化交付、文档基线和可恢复节点。
 
 ## 路线图
 
-### 当前 MVP / Baseline
+### 当前 Baseline
 
 - 三个可切换角色：Alice、Shiro、Wambo。
 - 点击交互和 motion-slot 动作反馈。
@@ -169,20 +169,20 @@ npm run smoke
 - 最小 Agent orchestration pipeline。
 - 部署安全基线和验证脚本。
 
-### 下一阶段
+### 我下一步会重点做：Demo 级加固
 
-- 私有演示安全：CORS 白名单、限流、请求日志、上传隔离和更强鉴权。
-- 更好的 GitHub / Demo 展示：截图、短 GIF、项目 Logo 和浏览器验收记录。
-- 围绕对话状态、引用展示和 Debug 可视化做产品 UI polish。
+- 我会先把项目打磨到更适合私有公开演示的状态：CORS 白名单、限流、请求日志、上传隔离和更强鉴权。
+- 我会补项目展示材料：截图、短 GIF、简单 Logo，以及浏览器验收记录。
+- 我会继续打磨产品体验，重点放在对话状态、引用展示和 Debug 可视化上。
 
-### 未来方向
+### 更长期的方向
 
-- 基于 embedding 和 Qdrant 等向量数据库的真实向量 RAG。
-- 带删除和隐私控制的持久化长期记忆。
-- 更完整的角色编辑和动画重定向能力。
-- 更高质量的 TTS provider 与声音人格预设。
-- 通过 n8n 作为显式后端工具能力，而不是前端 secret。
-- 更丰富的情绪 / 行为状态模型。
+- 从本地关键词 RAG 升级到 embedding + Qdrant 这类向量检索。
+- 把短期 Memory 升级成带删除和隐私控制的持久化记忆。
+- 继续完善角色编辑、模型替换和动画重定向能力。
+- 增加更高质量的 TTS provider 和声音人格预设。
+- 让 n8n 继续作为后端工具能力，而不是前端 secret 或主对话大脑。
+- 在核心链路稳定之后，再探索更丰富的情绪和行为状态模型。
 
 ## 关键文档
 
@@ -194,12 +194,3 @@ npm run smoke
 - [API Overview](./docs/api/API.md)
 - [API Contract](./docs/api/API_CONTRACT.md)
 - [Next Phase Plan](./docs/process/NEXT_PHASE_PLAN.md)
-
-## 当前限制
-
-- 这是本地原型，不是已上线的生产服务。
-- 默认 AI 回复来自本地 `stub` 模式，除非配置真实后端 provider key。
-- 当前 RAG 是本地关键词检索，不是 embedding / vector search。
-- 当前 Memory 是后端进程内短期记忆，不是持久化长期记忆。
-- 当前鉴权是私有演示级 token 边界，不是完整用户系统。
-- 暂未提交 demo 截图或 GIF。
