@@ -2,17 +2,15 @@
 
 **Language**: [English](./README.md) | [简体中文](./README.zh-CN.md)
 
-**AI 数字伙伴 / 互动数字人产品原型**
-
-An interactive AI digital companion prototype with 3D avatar interaction, state-driven dialogue flow, backend API boundaries, and extensible Memory / RAG / workflow integration design.
+An interactive AI digital companion project with 3D avatar interaction, state-driven dialogue flow, backend API boundaries, and extensible Memory / RAG / workflow integration design.
 
 Alice is not a plain chatbot UI. It explores how an AI companion can exist as an embodied, stateful, and interactive experience: users can switch avatars, click body regions, trigger motion feedback, send dialogue messages, hear TTS / browser fallback audio, and observe companion state through a debug panel.
 
-This repository is organized as a **local MVP / product prototype** with a staged path toward a production-grade AI companion system. It intentionally keeps the default LLM provider as `stub`, so the full local demo can run without real API keys while still preserving a clean backend path for real providers.
+This repository is organized as a **local MVP system** with a staged path toward a production-grade AI companion. It intentionally keeps the default LLM provider as `stub`, so the main local flow can run without real API keys while still preserving a clean backend path for real providers.
 
-## Demo Preview
+## Preview
 
-> Demo screenshots / GIFs can be added here after the next UI polish pass.
+> Screenshots / GIFs can be added here after the next UI polish pass.
 
 ## Highlights
 
@@ -53,7 +51,7 @@ flowchart LR
 
 Notes:
 
-- `stub` is the default local demo provider.
+- `stub` is the default local provider for no-key development.
 - RAG is currently local keyword retrieval from `data/knowledge/`, not vector search.
 - n8n is an optional backend tool boundary, not the main dialogue orchestrator.
 - Qdrant / embedding / long-term memory database / multi-agent loops are future directions, not current completed features.
@@ -94,7 +92,7 @@ For debug state inspection:
 http://localhost:3000?debug=1
 ```
 
-Default LLM provider is `stub`, so no API key is required for local demo. To use real OpenAI-compatible providers or cloud TTS, configure backend environment variables only. Do not put secrets in frontend code.
+Default LLM provider is `stub`, so no API key is required for local development. To use real OpenAI-compatible providers or cloud TTS, configure backend environment variables only. Do not put secrets in frontend code.
 
 ## Validation
 
@@ -126,7 +124,7 @@ Then complete the browser checklist:
 .
 ├── backend/              # Native Node backend, API routes, provider boundaries, upload validation
 ├── css/                  # Frontend styling
-├── data/knowledge/       # Local knowledge source for current keyword RAG prototype
+├── data/knowledge/       # Local knowledge source for current keyword RAG module
 ├── docs/                 # Product, architecture, API, process, security and refactor docs
 ├── js/                   # Frontend ES modules: app, avatar, animation, dialogue, UI, state
 ├── public/avatars/       # Replaceable avatar registry and per-avatar manifests
@@ -138,7 +136,7 @@ Then complete the browser checklist:
 
 ## Product Thinking
 
-Most AI product prototypes stop at a chat box. This project explores a different product question:
+Most AI products still start from a chat box. This project explores a different product question:
 
 > What does an AI companion feel like when it has a body, visible state, motion feedback, voice, memory boundaries, and interaction beyond text input?
 
@@ -148,7 +146,7 @@ The current MVP focuses on the companion loop: avatar presence, user interaction
 
 In this project, I focused on:
 
-- Turning an AI companion concept into a runnable interactive prototype.
+- Turning an AI companion concept into a runnable interactive system.
 - Designing frontend-backend boundaries for AI capability integration.
 - Thinking beyond chatbot UI and exploring embodied AI interaction.
 - Managing the MVP with acceptance criteria, API contracts, security notes, and regression scripts.
@@ -162,7 +160,7 @@ In this project, I focused on:
 - Three selectable avatars: Alice, Shiro, Wambo.
 - Click interactions and motion-slot-driven feedback.
 - `/api/dialogue` as the main dialogue entry.
-- Local `stub` provider for no-key demos.
+- Local `stub` provider for no-key development.
 - Short-term backend Memory.
 - Local keyword RAG from `data/knowledge/`.
 - Optional n8n workflow boundary.
@@ -171,7 +169,7 @@ In this project, I focused on:
 
 ### My Next Focus: Demo-grade Hardening
 
-- I want to make the project safe enough for a private public-facing demo: CORS whitelist, rate limiting, request logging, upload isolation, and stronger authentication.
+- I want to make the project safe enough for a private public-facing preview: CORS whitelist, rate limiting, request logging, upload isolation, and stronger authentication.
 - I plan to add better presentation material: screenshots, a short GIF, a simple project logo, and browser acceptance evidence.
 - I will keep polishing the product experience around dialogue state, source display, and debug visibility.
 

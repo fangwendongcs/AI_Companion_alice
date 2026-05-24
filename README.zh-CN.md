@@ -2,15 +2,13 @@
 
 **语言**: [English](./README.md) | [简体中文](./README.zh-CN.md)
 
-**AI 数字伙伴 / 互动数字人产品原型**
-
-一个交互式 AI 数字伙伴原型，结合了 3D Avatar 交互、状态化对话流程、后端 API 边界，以及可扩展的 Memory / RAG / workflow 集成设计。
+一个交互式 AI 数字伙伴项目，结合了 3D Avatar 交互、状态化对话流程、后端 API 边界，以及可扩展的 Memory / RAG / workflow 集成设计。
 
 Alice 不是一个普通聊天框 Demo。这个项目探索的是：AI 伙伴如何以“具身化、状态化、可交互”的形式存在。用户可以切换角色、点击身体部位、触发动作反馈、发送对话、听到 TTS 或浏览器语音兜底，并通过 Debug Panel 观察当前状态。
 
-当前仓库以 **本地 MVP / 产品原型** 的方式组织，并保留了通向生产级 AI 伙伴系统的阶段化演进路径。项目默认使用 `stub` 作为本地 LLM provider，因此无需真实 API Key 也能跑通完整本地演示，同时保留了接入真实 provider 的清晰后端路径。
+当前仓库以 **本地 MVP 系统** 的方式组织，并保留了通向生产级 AI 伙伴系统的阶段化演进路径。项目默认使用 `stub` 作为本地 LLM provider，因此无需真实 API Key 也能跑通主要本地链路，同时保留了接入真实 provider 的清晰后端路径。
 
-## Demo Preview
+## 项目预览
 
 > 后续 UI polish 之后，可以在这里补充项目截图或 GIF。
 
@@ -53,7 +51,7 @@ flowchart LR
 
 说明：
 
-- `stub` 是默认本地演示 provider。
+- `stub` 是默认本地开发 provider。
 - 当前 RAG 是基于 `data/knowledge/` 的本地关键词检索，不是向量检索。
 - n8n 当前是可选后端工具边界，不是主对话编排器。
 - Qdrant / embedding / 长期记忆数据库 / 多 Agent 循环属于未来方向，不是当前已完成能力。
@@ -94,7 +92,7 @@ http://localhost:3000
 http://localhost:3000?debug=1
 ```
 
-默认 LLM provider 是 `stub`，所以本地演示不需要 API Key。如果要使用真实 OpenAI-compatible provider 或云端 TTS，需要只在后端环境变量中配置 Key，不要把 secret 写入前端。
+默认 LLM provider 是 `stub`，所以本地开发不需要 API Key。如果要使用真实 OpenAI-compatible provider 或云端 TTS，需要只在后端环境变量中配置 Key，不要把 secret 写入前端。
 
 ## 验证命令
 
@@ -126,7 +124,7 @@ npm run smoke
 .
 ├── backend/              # 原生 Node 后端、API routes、provider 边界、上传校验
 ├── css/                  # 前端样式
-├── data/knowledge/       # 当前本地关键词 RAG 的知识源
+├── data/knowledge/       # 当前本地关键词 RAG 的知识源目录
 ├── docs/                 # 产品、架构、API、流程、安全和重构文档
 ├── js/                   # 前端 ES Modules：app、avatar、animation、dialogue、UI、state
 ├── public/avatars/       # 可替换角色 registry 和 per-avatar manifests
@@ -138,7 +136,7 @@ npm run smoke
 
 ## 产品思考
 
-很多 AI 产品原型停留在聊天框。这个项目探索的是另一个问题：
+很多 AI 产品仍然从聊天框开始。这个项目探索的是另一个问题：
 
 > 当 AI 伙伴拥有身体、可见状态、动作反馈、声音、记忆边界，以及文本之外的互动方式时，体验会有什么不同？
 
@@ -148,7 +146,7 @@ npm run smoke
 
 这个项目里，我重点做了：
 
-- 把 AI companion 概念转化成可运行的交互原型。
+- 把 AI companion 概念转化成可运行的交互系统。
 - 为 AI 能力接入设计清晰的前后端边界。
 - 跳出传统 chatbot UI，探索具身化 AI 交互。
 - 用验收标准、API 合约、安全文档和回归脚本管理 MVP。
@@ -162,7 +160,7 @@ npm run smoke
 - 三个可切换角色：Alice、Shiro、Wambo。
 - 点击交互和 motion-slot 动作反馈。
 - `/api/dialogue` 作为主对话入口。
-- 本地 `stub` provider 支持无 Key 演示。
+- 本地 `stub` provider 支持无 Key 开发。
 - 后端短期 Memory。
 - 来自 `data/knowledge/` 的本地关键词 RAG。
 - 可选 n8n workflow 边界。
@@ -171,7 +169,7 @@ npm run smoke
 
 ### 我下一步会重点做：Demo 级加固
 
-- 我会先把项目打磨到更适合私有公开演示的状态：CORS 白名单、限流、请求日志、上传隔离和更强鉴权。
+- 我会先把项目打磨到更适合私有公开访问的状态：CORS 白名单、限流、请求日志、上传隔离和更强鉴权。
 - 我会补项目展示材料：截图、短 GIF、简单 Logo，以及浏览器验收记录。
 - 我会继续打磨产品体验，重点放在对话状态、引用展示和 Debug 可视化上。
 
