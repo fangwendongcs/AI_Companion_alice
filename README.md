@@ -1,5 +1,7 @@
 # AI Companion Alice
 
+**Language**: [English](./README.md) | [简体中文](./README.zh-CN.md)
+
 **AI 数字伙伴 / 互动数字人产品原型**
 
 An interactive AI digital companion prototype with 3D avatar interaction, state-driven dialogue flow, backend API boundaries, and extensible Memory / RAG / workflow integration design.
