@@ -344,10 +344,19 @@ git diff --check
 - 增加上传隔离目录总配额 `UPLOAD_MAX_TOTAL_BYTES`。
 - 新增 `check:upload-boundaries` 并纳入 `npm run check`。
 
-**Phase 4.5 可选方向**
+**Phase 4.5：API 鉴权边界基线**
+
+- 单 token API 鉴权边界收口。
+- 支持 `Authorization: Bearer <token>` 与 `X-API-Token`。
+- 公开 `GET /api/health`、`GET /api/providers`、`GET /api/avatars` 和静态资源。
+- 保护敏感写接口和非明确公开的 `POST / PUT / PATCH / DELETE` API。
+- 稳定错误码：`API_AUTH_REQUIRED`、`API_AUTH_INVALID`、`API_AUTH_MISCONFIGURED`。
+- 新增 `check:api-auth-boundaries` 并纳入 `npm run check`。
+
+**Phase 4.6 可选方向**
 
 - 真实部署平台配置。
-- 正式鉴权和用户体系。
+- 正式身份系统和用户体系。
 - 对象存储隔离桶、上传审核、内容扫描。
 - 外部日志平台、请求 ID 采集和审计查询。
 
@@ -365,7 +374,7 @@ npm run smoke
 git diff --check
 ```
 
-## Suggested Phase 4.5：私有演示安全加固
+## Suggested Phase 4.6：私有演示安全加固
 
 **目标**
 

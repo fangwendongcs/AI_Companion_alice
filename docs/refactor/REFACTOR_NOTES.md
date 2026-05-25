@@ -1567,3 +1567,14 @@ npm run check:assets
 - 新增 `scripts/check-upload-boundaries.mjs` 和 `npm run check:upload-boundaries`，覆盖路径穿越、危险扩展、伪装文件、合法 `.glb/.gltf/.vrm` 样本、默认隔离目录和配额超限。
 - `.gitignore` 忽略 `data/uploads/`，避免本地隔离上传文件进入仓库。
 - 本轮不做病毒扫描、沙箱解析、对象存储隔离桶、CDN 隔离、用户级鉴权配额、多租户隔离、内容审核或异步审核发布流。
+
+## 55. Phase 4.5 API 鉴权边界基线
+
+- `authMiddleware` 收口为统一 API 鉴权边界，集中定义 public routes 与 sensitive routes。
+- 支持 `Authorization: Bearer <token>` 与 `X-API-Token`，token 只从后端 `API_AUTH_TOKEN` 读取。
+- 本地 `REQUIRE_API_AUTH=false` 保持 smoke / stub 演示兼容；`REQUIRE_API_AUTH=true` 或 `DEPLOYMENT_MODE=production` 时敏感写接口必须鉴权。
+- 非明确公开的 `POST / PUT / PATCH / DELETE` API 默认需要鉴权，降低后续新增接口忘记保护的风险。
+- 鉴权错误码稳定为 `API_AUTH_REQUIRED`、`API_AUTH_INVALID`、`API_AUTH_MISCONFIGURED`，响应保持 `{ ok:false, error:{ code, message } }`。
+- token 比较使用 `timingSafeEqual`，错误响应不回显 token；日志继续通过 `redact` 脱敏 Authorization、X-API-Token 和 token-like 字段。
+- 新增 `scripts/check-api-auth-boundaries.mjs` 和 `npm run check:api-auth-boundaries`，覆盖公开 health、上传无 token、错误 token、Bearer、X-API-Token、未知写接口默认保护和稳定错误码。
+- 本轮不做完整用户登录系统、OAuth、RBAC、多用户 session、refresh token、前端登录态、管理后台、多租户权限隔离或审计后台。

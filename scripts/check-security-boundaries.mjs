@@ -45,9 +45,16 @@ async function checkApiAuthBoundary() {
   ['/api/dialogue', '/api/chat', '/api/tts', '/api/avatars'].forEach((path) => {
     assert(auth.includes(path), `authMiddleware 必须保护 ${path} 的敏感写接口。`);
   });
+  ['API_AUTH_REQUIRED', 'API_AUTH_INVALID', 'API_AUTH_MISCONFIGURED'].forEach((code) => {
+    assert(auth.includes(code), `authMiddleware 必须提供稳定错误码 ${code}。`);
+  });
+  assert(auth.includes('publicRoutes') && auth.includes('sensitiveRoutes'), 'authMiddleware 必须集中定义公开路由和敏感路由。');
+  assert(auth.includes("['POST', 'PUT', 'PATCH', 'DELETE']"), '非明确公开的写接口必须默认保护。');
+  assert(auth.includes('timingSafeEqual'), 'authMiddleware 应使用安全 token 比较。');
   assert(auth.includes('Authorization') || auth.includes('authorization'), 'authMiddleware 必须支持 Authorization Bearer token。');
   assert(auth.includes('x-api-token'), 'authMiddleware 必须支持 x-api-token，便于私有演示。');
   assert(auth.includes('requireApiAuth'), 'authMiddleware 必须默认可关闭，保证本地 smoke 不依赖 token。');
+  assert(auth.includes('deploymentMode === \'production\''), 'production 模式必须强制启用 API auth。');
 }
 
 async function checkEnvExample() {

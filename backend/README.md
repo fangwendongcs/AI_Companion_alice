@@ -71,7 +71,7 @@ http://localhost:3000
 - `POST /api/avatars`
 - `GET /api/health`
 
-## 私有演示鉴权
+## API 鉴权边界
 
 本地开发默认不启用 API token，保证 `npm run smoke` 和默认 stub 演示可以直接运行。
 
@@ -90,6 +90,14 @@ API_AUTH_TOKEN=replace_with_private_token
 - `POST /api/avatars`
 
 `GET /api/health`、`GET /api/providers` 和静态资源仍可公开读取；`GET /api/providers` 只能返回安全 readiness 状态。
+
+鉴权错误使用稳定错误码：
+
+- `API_AUTH_REQUIRED`
+- `API_AUTH_INVALID`
+- `API_AUTH_MISCONFIGURED`
+
+未知的非公开 `POST / PUT / PATCH / DELETE` API 默认按敏感写接口处理，避免后续新增接口时忘记保护。当前能力是单 token API 鉴权基线，不是完整用户登录系统，不包含 OAuth、RBAC、多用户 session、refresh token、前端登录态、管理后台、多租户权限隔离或审计后台。
 
 ## 角色上传限制
 
@@ -120,7 +128,7 @@ API_AUTH_TOKEN=replace_with_private_token
 - API Key 只保留在后端环境变量或密钥管理系统中
 - n8n webhook URL / secret 只保留在后端环境变量中，前端不能直连 n8n
 
-当前内置的 CORS、请求大小限制、内存限流、日志脱敏和上传隔离是私有演示 / 单实例部署前的基线，不是完整登录系统、WAF、多实例风控、病毒扫描、沙箱解析、CDN 隔离、多租户隔离或内容审核。
+当前内置的 CORS、请求大小限制、内存限流、单 token API 鉴权、日志脱敏和上传隔离是私有演示 / 单实例部署前的基线，不是完整登录系统、WAF、多实例风控、病毒扫描、沙箱解析、CDN 隔离、多租户隔离或内容审核。
 
 ## 部署前配置检查与请求追踪
 

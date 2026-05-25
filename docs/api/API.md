@@ -9,7 +9,15 @@
 - `POST /api/tts`
 - `POST /api/avatars`
 
-Phase 4.1 提供默认关闭的轻量 token 边界。启用 `REQUIRE_API_AUTH=true` 后，请求需要携带 `Authorization: Bearer <token>` 或 `X-API-Token: <token>`。`GET /api/health`、`GET /api/providers` 和静态资源可公开读取；`GET /api/providers` 不得返回 secret。
+Phase 4.5 收口为单 token API 鉴权边界。启用 `REQUIRE_API_AUTH=true` 后，请求需要携带 `Authorization: Bearer <token>` 或 `X-API-Token: <token>`。`GET /api/health`、`GET /api/providers`、`GET /api/avatars` 和静态资源可公开读取；`GET /api/providers` 不得返回 secret。
+
+鉴权错误使用 `{ ok:false, error:{ code, message } }`：
+
+- `API_AUTH_REQUIRED`：敏感接口缺少 token。
+- `API_AUTH_INVALID`：token 不正确。
+- `API_AUTH_MISCONFIGURED`：后端要求鉴权但 token 未正确配置。
+
+非明确公开的 `POST / PUT / PATCH / DELETE` API 默认需要鉴权。当前只是单 token API 鉴权基线，不包含用户注册 / 登录、OAuth、RBAC、多用户 session、refresh token、前端登录态、管理后台、多租户隔离或审计后台。
 
 ## 公网前请求边界
 

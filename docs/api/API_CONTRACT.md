@@ -14,18 +14,34 @@
 - `POST /api/chat`
 - `POST /api/tts`
 - `POST /api/avatars`
+- 非明确公开的 `POST / PUT / PATCH / DELETE` API
 
 公开读取接口：
 
 - `GET /api/health`
 - `GET /api/providers`，只能返回安全 readiness 状态
+- `GET /api/avatars`
 - 静态资源
 
-未授权时返回：
+鉴权失败时返回 `{ ok:false, error:{ code, message } }`：
 
 ```json
-{ "error": "Unauthorized" }
+{
+  "ok": false,
+  "error": {
+    "code": "API_AUTH_REQUIRED",
+    "message": "API authentication is required."
+  }
+}
 ```
+
+稳定错误码：
+
+- `API_AUTH_REQUIRED`
+- `API_AUTH_INVALID`
+- `API_AUTH_MISCONFIGURED`
+
+当前只是单 token API 鉴权基线，不是完整登录系统，不包含 OAuth、RBAC、多用户 session、refresh token、前端登录态、管理后台、多租户权限隔离或审计后台。
 
 ## 请求边界兼容期
 

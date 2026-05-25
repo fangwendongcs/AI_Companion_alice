@@ -7,7 +7,7 @@ Phase 3 已完成智能能力基线，但这仍然不是生产部署安全基线
 ## P0
 
 - 限制 CORS 来源，不要继续使用 `Access-Control-Allow-Origin: *` 面向公网；Phase 4.2 已提供 `ALLOWED_ORIGINS`、`CORS_ALLOW_LOCALHOST` 和 `DEPLOYMENT_MODE` 配置。
-- 给 `POST /api/dialogue`、`POST /api/chat`、`POST /api/tts`、`POST /api/avatars` 增加鉴权；Phase 4.1 已提供默认关闭的 `REQUIRE_API_AUTH` / `API_AUTH_TOKEN` 轻量边界，公网前必须启用或替换为正式鉴权。
+- 给 `POST /api/dialogue`、`POST /api/chat`、`POST /api/tts`、`POST /api/avatars` 增加鉴权；Phase 4.5 已收口单 token API 鉴权边界，支持 `Authorization: Bearer` 和 `X-API-Token`，公网前必须启用或替换为正式鉴权。
 - `GET /api/health` 可以公开；`GET /api/providers` 可以公开但只能返回安全 readiness 状态；静态资源可以公开。
 - 给上传接口增加速率限制、用户级配额、文件数量限制；Phase 4.2 已提供单进程内存限流和请求体上限，但还不是生产级配额系统。
 - 对上传模型做更严格扫描；Phase 4.4 已提供上传隔离、危险扩展拒绝、`.vrm/.glb/.gltf` 基础内容校验和隔离目录配额，但还不是完整文件安全系统。
@@ -15,6 +15,7 @@ Phase 3 已完成智能能力基线，但这仍然不是生产部署安全基线
 - `GET /api/providers` 只能返回非敏感 readiness 状态，不得返回 Key、secret、token、Bearer 或真实上游地址。
 - `N8N_WEBHOOK_URL` 和 `N8N_WEBHOOK_SECRET` 只能保存在后端环境变量或密钥管理系统中，不得写入前端、文档真实值或公开资源。
 - `API_AUTH_TOKEN` 只能保存在后端环境变量或密钥管理系统中，不得写入前端或仓库。
+- 当前 API 鉴权不是完整用户系统；生产环境仍建议接入正式身份系统、细粒度权限、HTTPS、secret 管理、requestId 日志和审计。
 
 ## P1
 

@@ -72,7 +72,7 @@ Notes:
 | Local RAG | MVP | Local markdown / JSON keyword retrieval from `data/knowledge/`; no embeddings yet. |
 | n8n Workflow | Boundary | Optional backend workflow invocation boundary; not a main orchestrator. |
 | Agent Orchestration | MVP boundary | Minimal Memory -> RAG -> optional Workflow -> PromptBuilder -> LLM pipeline. |
-| Deployment Security | Baseline | API token boundary, CORS whitelist config, request/upload body limits, lightweight rate limits, request IDs, structured redacted logs, upload quarantine, readiness checks, and next-step hardening plan. |
+| Deployment Security | Baseline | Single-token API auth boundary, CORS whitelist config, request/upload body limits, lightweight rate limits, request IDs, structured redacted logs, upload quarantine, readiness checks, and next-step hardening plan. |
 
 ## Quick Start
 
@@ -167,7 +167,7 @@ In this project, I focused on:
 - Local keyword RAG from `data/knowledge/`.
 - Optional n8n workflow boundary.
 - Minimal Agent orchestration pipeline.
-- Deployment security baseline: optional API auth, CORS whitelist, request/upload limits, lightweight rate limiting, request IDs, structured redacted logs, upload quarantine, deployment readiness checks, and validation scripts.
+- Deployment security baseline: single-token API auth, CORS whitelist, request/upload limits, lightweight rate limiting, request IDs, structured redacted logs, upload quarantine, deployment readiness checks, and validation scripts.
 
 ### My Next Focus: Demo-grade Hardening
 

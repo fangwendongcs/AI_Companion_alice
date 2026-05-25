@@ -2,7 +2,7 @@
 
 ## 结论
 
-Phase 4.1 建立公网部署前的 API 鉴权基线；Phase 4.2 继续收口 CORS 白名单、请求大小限制、轻量速率限制和日志脱敏基线；Phase 4.3 增加部署配置校验、请求 ID、结构化日志和生产启动前检查；Phase 4.4 增加上传隔离与文件安全边界。本阶段不做真实部署、不接新 provider、不接 Qdrant、不新增 n8n workflow。
+Phase 4.1 建立公网部署前的 API 鉴权基线；Phase 4.2 继续收口 CORS 白名单、请求大小限制、轻量速率限制和日志脱敏基线；Phase 4.3 增加部署配置校验、请求 ID、结构化日志和生产启动前检查；Phase 4.4 增加上传隔离与文件安全边界；Phase 4.5 收口单 token API 鉴权边界。本阶段不做真实部署、不接新 provider、不接 Qdrant、不新增 n8n workflow。
 
 当前后端仍默认服务本地开发。公网或半公网私有演示前，必须至少开启 API 鉴权、配置正式域名白名单、限制请求体和上传体积、保护上传接口、确认 secret 只在后端环境变量中。
 
@@ -101,6 +101,45 @@ X-API-Token: <token>
 ```
 
 本地开发默认 `REQUIRE_API_AUTH=false`，因此 `npm run smoke` 不需要 token。
+
+## Phase 4.5 API 鉴权边界
+
+当前支持两种 token 传递方式：
+
+```text
+Authorization: Bearer <token>
+X-API-Token: <token>
+```
+
+公开接口：
+
+- `GET /api/health`
+- `GET /api/providers`
+- `GET /api/avatars`
+- 静态资源
+
+敏感接口：
+
+- `POST /api/dialogue`
+- `POST /api/chat`
+- `POST /api/tts`
+- `POST /api/avatars`
+- 非明确公开的 `POST / PUT / PATCH / DELETE` API
+
+稳定错误码：
+
+- `API_AUTH_REQUIRED`
+- `API_AUTH_INVALID`
+- `API_AUTH_MISCONFIGURED`
+
+策略：
+
+- `local` 默认放宽，便于本地 smoke 和 stub 演示。
+- `local` 下如果 `REQUIRE_API_AUTH=true`，敏感接口仍必须鉴权。
+- `demo` 建议启用 `REQUIRE_API_AUTH=true`。
+- `production` 强制要求 `REQUIRE_API_AUTH=true` 和非占位 `API_AUTH_TOKEN`，readiness 缺失时失败。
+
+当前只是单 token API 鉴权基线，不是完整用户系统。
 
 ## Phase 4.2 请求边界
 
@@ -289,6 +328,15 @@ Phase 4.4 扩展检查：
 - 上传隔离目录默认不在 `public/` 下。
 - 配额超限返回 `UPLOAD_QUOTA_EXCEEDED`。
 
+Phase 4.5 扩展检查：
+
+- `GET /api/health` 无 token 可通过。
+- `POST /api/avatars` 无 token 返回 `API_AUTH_REQUIRED`。
+- 错误 token 返回 `API_AUTH_INVALID`。
+- `Authorization: Bearer` 和 `X-API-Token` 都可通过。
+- 未知写接口默认需要鉴权。
+- 鉴权错误不泄露 token，并继续带 requestId。
+
 ## Phase 4 不包含
 
 - 不上线真实部署平台。
@@ -303,3 +351,4 @@ Phase 4.4 扩展检查：
 - 不配置 HTTPS 证书。
 - 不接外部日志平台、Sentry 或 OpenTelemetry。
 - 不提供对象存储隔离桶、CDN 隔离、病毒扫描、沙箱解析、用户级鉴权配额、多租户隔离、内容审核或文件异步审核发布流。
+- 不提供用户注册 / 登录、OAuth、RBAC、多用户 session、refresh token、前端登录态、管理后台、多租户权限隔离或审计后台。
