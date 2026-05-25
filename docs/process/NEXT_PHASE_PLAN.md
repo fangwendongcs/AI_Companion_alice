@@ -353,12 +353,13 @@ git diff --check
 - 稳定错误码：`API_AUTH_REQUIRED`、`API_AUTH_INVALID`、`API_AUTH_MISCONFIGURED`。
 - 新增 `check:api-auth-boundaries` 并纳入 `npm run check`。
 
-**Phase 4.6 可选方向**
+**Phase 4.6：部署配置、Secret 管理与公网前收口**
 
-- 真实部署平台配置。
-- 正式身份系统和用户体系。
-- 对象存储隔离桶、上传审核、内容扫描。
-- 外部日志平台、请求 ID 采集和审计查询。
+- local / demo / production 三种运行模式已文档化。
+- `.env.example` 收口为占位值和部署前配置提示，不包含真实 secret。
+- production 配置校验继续要求正式 `ALLOWED_ORIGINS`、`REQUIRE_API_AUTH=true`、非占位 `API_AUTH_TOKEN`、`RATE_LIMIT_ENABLED=true` 和明确上传 / 公开资源目录。
+- `check:deployment-readiness` 增加 `.env.example`、部署文档和 Secret 管理说明检查。
+- 新增 `docs/deployment/ENVIRONMENT_MODES.md` 与 `docs/deployment/DEPLOYMENT_CHECKLIST.md`。
 
 **不做事项**
 
@@ -374,17 +375,18 @@ npm run smoke
 git diff --check
 ```
 
-## Suggested Phase 4.6：私有演示安全加固
+## Suggested Phase 4.7：部署平台适配或产品体验增强
 
 **目标**
 
-- 在不引入真实部署平台的前提下，继续补齐公网前最小安全能力。
+- 在 Phase 4.6 的配置基线之上，选择一个明确方向继续推进，不要一次性做完整生产化。
 
 **建议任务**
 
-- 上传资源隔离和审核流程设计。
-- 正式鉴权策略与私有预览访问控制。
-- 平台 secret 管理、HTTPS 与反向代理限流。
+- 部署平台适配：Render / Railway / VPS / Docker 任选其一，补充实际部署步骤和平台变量映射。
+- 正式身份系统方案：把单 token API auth 升级为真正用户访问控制的设计与最小实现。
+- 上传发布流：对象存储隔离桶、审核后发布、内容扫描。
+- 可观测性：平台日志、requestId 检索、错误告警和审计查询。
 
 **边界**
 

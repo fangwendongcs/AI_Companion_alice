@@ -55,6 +55,8 @@ Phase 4.2 已增加公网部署前请求边界，当前约定如下：
 - 日志不得包含 Authorization、cookie、API Key、token、secret、password 或完整 request body。
 - 每个响应都会带 `X-Request-ID`；客户端报错时可以把 requestId 带回，后端日志用同一 ID 排查。
 - 生产启动前可以运行 `npm run check:deployment-readiness` 检查配置是否适合 demo / production。
+- `DEPLOYMENT_MODE=local` 保持本地默认值；`demo` 面向受控私有演示；`production` 必须使用非 localhost-only origin、启用 API auth、启用 rate limit，并显式配置上传隔离目录和公开资源目录。
+- `.env.example` 只能包含 placeholder；真实 provider key、TTS key、n8n webhook、API token、未来向量库凭证只允许在后端环境变量或部署平台 Secret Manager 中配置。
 
 这些边界保持本地开发兼容，但公网部署前仍需要正式域名白名单、HTTPS、平台 secret 管理、上传隔离与更完整审计。
 

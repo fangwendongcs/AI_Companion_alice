@@ -52,7 +52,9 @@
 - [PHASE3_IMPLEMENTATION_PLAN.md](./process/PHASE3_IMPLEMENTATION_PLAN.md): Phase 3 分阶段实施计划
 - [BROWSER_ACCEPTANCE_CHECKLIST.md](./process/BROWSER_ACCEPTANCE_CHECKLIST.md): 浏览器手动验收清单与自动化覆盖矩阵
 - [DEPLOYMENT_SECURITY.md](./security/DEPLOYMENT_SECURITY.md): 部署前安全清单
-- [PHASE4_DEPLOYMENT_SECURITY_BASELINE.md](./security/PHASE4_DEPLOYMENT_SECURITY_BASELINE.md): Phase 4.1 公网前安全基线
+- [PHASE4_DEPLOYMENT_SECURITY_BASELINE.md](./security/PHASE4_DEPLOYMENT_SECURITY_BASELINE.md): Phase 4 公网前安全基线
+- [ENVIRONMENT_MODES.md](./deployment/ENVIRONMENT_MODES.md): local / demo / production 配置边界与 Secret 管理
+- [DEPLOYMENT_CHECKLIST.md](./deployment/DEPLOYMENT_CHECKLIST.md): 私有演示 / 公网前部署检查清单
 
 ## Runtime Paths
 

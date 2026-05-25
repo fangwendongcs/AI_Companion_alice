@@ -94,6 +94,26 @@ http://localhost:3000?debug=1
 
 Default LLM provider is `stub`, so no API key is required for local development. To use real OpenAI-compatible providers or cloud TTS, configure backend environment variables only. Do not put secrets in frontend code.
 
+## Deployment Modes And Secrets
+
+The project now separates deployment configuration into three modes:
+
+| Mode | Use case | Security posture |
+| --- | --- | --- |
+| `local` | Developer machine | Allows localhost defaults and keeps API auth off by default for fast local checks. |
+| `demo` | Controlled private preview | Requires explicit origins and should enable single-token API auth. |
+| `production` | Public deployment candidate | Requires non-local CORS origins, API auth, non-placeholder token, rate limit, and explicit upload/public asset directories. |
+
+Secrets are backend-only. Real API keys, provider tokens, n8n webhook values, TTS keys, future vector credentials, `.env`, `.env.local`, logs, and upload quarantine files should never be committed. Use deployment platform Environment Variables / Secret Manager instead.
+
+This is still not a complete production security system. It does not include user login, OAuth/RBAC, WAF, object storage, CDN isolation, virus scanning, sandbox parsing, external tracing, or multi-instance rate limiting.
+
+Deployment references:
+
+- [Environment Modes](./docs/deployment/ENVIRONMENT_MODES.md)
+- [Deployment Checklist](./docs/deployment/DEPLOYMENT_CHECKLIST.md)
+- [Phase 4 Deployment Security Baseline](./docs/security/PHASE4_DEPLOYMENT_SECURITY_BASELINE.md)
+
 ## Validation
 
 Available scripts are defined in `package.json`:
@@ -171,7 +191,7 @@ In this project, I focused on:
 
 ### My Next Focus: Demo-grade Hardening
 
-- I want to make the project safe enough for a private public-facing preview: stronger authentication, upload isolation, platform-level secret management, HTTPS, and deploy-time observability.
+- I want to make the project safer for a controlled public-facing preview: platform-level secret management, HTTPS, stricter hosting isolation, and deploy-time observability.
 - I plan to add better presentation material: screenshots, a short GIF, a simple project logo, and browser acceptance evidence.
 - I will keep polishing the product experience around dialogue state, source display, and debug visibility.
 
@@ -189,6 +209,8 @@ In this project, I focused on:
 - [Project Showcase](./docs/product/PROJECT_SHOWCASE.md)
 - [Phase 3 Intelligence Baseline](./docs/product/PHASE3_BASELINE.md)
 - [Phase 4 Deployment Security Baseline](./docs/security/PHASE4_DEPLOYMENT_SECURITY_BASELINE.md)
+- [Environment Modes](./docs/deployment/ENVIRONMENT_MODES.md)
+- [Deployment Checklist](./docs/deployment/DEPLOYMENT_CHECKLIST.md)
 - [Architecture](./docs/architecture/ARCHITECTURE.md)
 - [Dialogue Backend Boundary](./docs/architecture/DIALOGUE_BACKEND_BOUNDARY.md)
 - [API Overview](./docs/api/API.md)

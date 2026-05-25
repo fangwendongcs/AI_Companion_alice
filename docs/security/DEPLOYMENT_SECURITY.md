@@ -21,6 +21,8 @@ Phase 3 已完成智能能力基线，但这仍然不是生产部署安全基线
 
 - 增加结构化请求日志和错误日志，隐藏密钥、token、用户隐私字段；Phase 4.3 已提供 `X-Request-ID`、结构化 `serverLogger` 和基础脱敏，但还没有生产级日志采集平台。
 - 使用 `DEPLOYMENT_MODE=production` 前运行 `npm run check:deployment-readiness`，确认 CORS、auth、rate limit、body limit、日志脱敏和 requestId 边界没有误配。
+- 部署前按 `docs/deployment/ENVIRONMENT_MODES.md` 区分 `local / demo / production`，并按 `docs/deployment/DEPLOYMENT_CHECKLIST.md` 核对 CORS、API auth、上传隔离、provider secret、日志脱敏和 readiness 检查。
+- 真实 secret 只放在部署平台 Environment Variables / Secret Manager；`.env.example` 只能保留 placeholder，`.env`、`.env.local`、上传目录和日志目录不得提交。
 - 为 LLM/TTS 上游请求增加 provider 级超时、重试和降级策略。
 - 为 Memory / RAG / n8n / Agent 增加后端开关、请求体截断和错误脱敏。
 - n8n workflow 当前只作为工具调用层；公网部署前需要为 workflow 增加鉴权、超时、调用审计和高风险动作确认。

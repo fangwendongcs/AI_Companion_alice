@@ -72,7 +72,7 @@ flowchart LR
 | Local RAG | MVP | 从 `data/knowledge/` 读取 markdown / JSON 并做关键词检索，没有 embedding。 |
 | n8n Workflow | Boundary | 可选后端 workflow 调用边界，不是主编排器。 |
 | Agent Orchestration | MVP boundary | 最小 Memory -> RAG -> optional Workflow -> PromptBuilder -> LLM pipeline。 |
-| Deployment Security | Baseline | 公网前检查清单、可选 API token 边界、安全脚本和后续加固计划。 |
+| Deployment Security | Baseline | 单 token API 鉴权、CORS 白名单、请求 / 上传大小限制、轻量限流、requestId、结构化脱敏日志、上传隔离、deployment readiness 检查和配置文档。 |
 
 ## 快速启动
 
@@ -94,6 +94,26 @@ http://localhost:3000?debug=1
 
 默认 LLM provider 是 `stub`，所以本地开发不需要 API Key。如果要使用真实 OpenAI-compatible provider 或云端 TTS，需要只在后端环境变量中配置 Key，不要把 secret 写入前端。
 
+## 部署模式与 Secret 管理
+
+当前项目把部署配置分成三种模式：
+
+| 模式 | 使用场景 | 安全边界 |
+| --- | --- | --- |
+| `local` | 本地开发 | 允许 localhost 默认值，API auth 默认关闭，方便快速检查。 |
+| `demo` | 受控私有演示 | 需要显式配置来源域名，建议开启单 token API auth。 |
+| `production` | 公网部署候选 | 必须配置非 localhost-only 来源、API auth、非占位 token、rate limit 和明确的上传 / 公开资源目录。 |
+
+真实 API Key、provider token、n8n webhook、TTS key、未来向量库凭证、`.env`、`.env.local`、日志和上传隔离目录都不应该提交到仓库。它们只应该存在于本地未提交配置或部署平台的 Environment Variables / Secret Manager。
+
+这仍然不是完整生产级安全系统：当前不包含用户登录、OAuth/RBAC、WAF、对象存储、CDN 隔离、病毒扫描、沙箱解析、外部链路追踪或多实例限流。
+
+部署资料：
+
+- [Environment Modes](./docs/deployment/ENVIRONMENT_MODES.md)
+- [Deployment Checklist](./docs/deployment/DEPLOYMENT_CHECKLIST.md)
+- [Phase 4 Deployment Security Baseline](./docs/security/PHASE4_DEPLOYMENT_SECURITY_BASELINE.md)
+
 ## 验证命令
 
 所有脚本以 `package.json` 为准：
@@ -103,6 +123,7 @@ npm run check
 npm run smoke
 npm run check:regression
 npm run check:security-boundaries
+npm run check:deployment-readiness
 npm run check:browser-capability
 ```
 
@@ -165,11 +186,11 @@ npm run smoke
 - 来自 `data/knowledge/` 的本地关键词 RAG。
 - 可选 n8n workflow 边界。
 - 最小 Agent orchestration pipeline。
-- 部署安全基线和验证脚本。
+- 部署安全基线：单 token API auth、CORS 白名单、请求 / 上传限制、轻量限流、requestId、结构化脱敏日志、上传隔离、deployment readiness checks。
 
 ### 我下一步会重点做：Demo 级加固
 
-- 我会先把项目打磨到更适合私有公开访问的状态：CORS 白名单、限流、请求日志、上传隔离和更强鉴权。
+- 我会继续把项目打磨到更适合受控公开访问的状态：平台级 secret 管理、HTTPS、部署隔离和运行时可观测。
 - 我会补项目展示材料：截图、短 GIF、简单 Logo，以及浏览器验收记录。
 - 我会继续打磨产品体验，重点放在对话状态、引用展示和 Debug 可视化上。
 
@@ -187,6 +208,8 @@ npm run smoke
 - [Project Showcase](./docs/product/PROJECT_SHOWCASE.md)
 - [Phase 3 Intelligence Baseline](./docs/product/PHASE3_BASELINE.md)
 - [Phase 4 Deployment Security Baseline](./docs/security/PHASE4_DEPLOYMENT_SECURITY_BASELINE.md)
+- [Environment Modes](./docs/deployment/ENVIRONMENT_MODES.md)
+- [Deployment Checklist](./docs/deployment/DEPLOYMENT_CHECKLIST.md)
 - [Architecture](./docs/architecture/ARCHITECTURE.md)
 - [Dialogue Backend Boundary](./docs/architecture/DIALOGUE_BACKEND_BOUNDARY.md)
 - [API Overview](./docs/api/API.md)

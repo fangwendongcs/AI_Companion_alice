@@ -1,12 +1,15 @@
+import { relative } from 'node:path';
 import {
   allowedOrigins,
   apiAuthToken,
   corsAllowLocalhost,
   deploymentMode,
   jsonBodyLimitBytes,
+  publicAssetDir,
   rateLimitEnabled,
   requireApiAuth,
   uploadBodyLimitBytes,
+  uploadStorageDir,
   uploadMaxTotalBytes
 } from './serverConfig.js';
 
@@ -40,8 +43,14 @@ export function validateServerConfig() {
     if (!process.env.UPLOAD_STORAGE_DIR) {
       errors.push('DEPLOYMENT_MODE=production requires explicit UPLOAD_STORAGE_DIR.');
     }
+    if (!process.env.PUBLIC_ASSET_DIR) {
+      errors.push('DEPLOYMENT_MODE=production requires explicit PUBLIC_ASSET_DIR.');
+    }
     if (!process.env.AVATAR_ASSET_DIR) {
       errors.push('DEPLOYMENT_MODE=production requires explicit AVATAR_ASSET_DIR.');
+    }
+    if (isSameOrChildPath(uploadStorageDir, publicAssetDir)) {
+      errors.push('DEPLOYMENT_MODE=production requires UPLOAD_STORAGE_DIR to stay outside PUBLIC_ASSET_DIR.');
     }
   }
 
@@ -89,4 +98,9 @@ function isLocalOrigin(origin) {
   } catch {
     return false;
   }
+}
+
+function isSameOrChildPath(child, parent) {
+  const result = relative(parent, child);
+  return result === '' || (!result.startsWith('..') && !result.startsWith('/') && !result.startsWith('\\'));
 }

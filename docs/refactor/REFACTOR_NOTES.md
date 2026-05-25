@@ -1578,3 +1578,13 @@ npm run check:assets
 - token 比较使用 `timingSafeEqual`，错误响应不回显 token；日志继续通过 `redact` 脱敏 Authorization、X-API-Token 和 token-like 字段。
 - 新增 `scripts/check-api-auth-boundaries.mjs` 和 `npm run check:api-auth-boundaries`，覆盖公开 health、上传无 token、错误 token、Bearer、X-API-Token、未知写接口默认保护和稳定错误码。
 - 本轮不做完整用户登录系统、OAuth、RBAC、多用户 session、refresh token、前端登录态、管理后台、多租户权限隔离或审计后台。
+
+## 56. Phase 4.6 部署配置、Secret 管理与公网前收口
+
+- 将部署模式收口为 `local / demo / production` 的清晰文档边界，明确各模式的 CORS、API auth、rate limit、上传目录和 Secret 管理要求。
+- `.env.example` 增加部署模式、API auth、请求限制、上传隔离和限流分组说明，仍只保留 placeholder，不包含真实 key/token/secret。
+- `validateServerConfig` 在 production 模式下要求显式 `PUBLIC_ASSET_DIR`，并校验 `UPLOAD_STORAGE_DIR` 不能与公开资源目录相同。
+- `check:deployment-readiness` 增加 `.env.example` 必要变量、明显真实 secret、部署文档、Secret 管理说明和“非完整生产系统”声明检查。
+- 新增 `docs/deployment/ENVIRONMENT_MODES.md` 与 `docs/deployment/DEPLOYMENT_CHECKLIST.md`，说明本地、私有演示和公网部署候选的配置方式。
+- README、backend README、部署安全文档和下一阶段计划同步 Phase 4.6 收口结果。
+- 本轮不做真实部署平台适配、不接正式身份系统、不接对象存储 / CDN / WAF / 外部日志平台，不改业务主链路。

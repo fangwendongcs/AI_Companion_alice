@@ -2,11 +2,49 @@
 
 ## 结论
 
-Phase 4.1 建立公网部署前的 API 鉴权基线；Phase 4.2 继续收口 CORS 白名单、请求大小限制、轻量速率限制和日志脱敏基线；Phase 4.3 增加部署配置校验、请求 ID、结构化日志和生产启动前检查；Phase 4.4 增加上传隔离与文件安全边界；Phase 4.5 收口单 token API 鉴权边界。本阶段不做真实部署、不接新 provider、不接 Qdrant、不新增 n8n workflow。
+Phase 4.1 建立公网部署前的 API 鉴权基线；Phase 4.2 继续收口 CORS 白名单、请求大小限制、轻量速率限制和日志脱敏基线；Phase 4.3 增加部署配置校验、请求 ID、结构化日志和生产启动前检查；Phase 4.4 增加上传隔离与文件安全边界；Phase 4.5 收口单 token API 鉴权边界；Phase 4.6 收口 local / demo / production 配置、Secret 管理与部署检查文档。本阶段不做真实部署、不接新 provider、不接 Qdrant、不新增 n8n workflow。
 
 当前后端仍默认服务本地开发。公网或半公网私有演示前，必须至少开启 API 鉴权、配置正式域名白名单、限制请求体和上传体积、保护上传接口、确认 secret 只在后端环境变量中。
 
-## Phase 4.3 配置分层与可观测性
+## Phase 4.3 / 4.6 配置分层、Secret 管理与可观测性
+
+### 运行模式
+
+当前部署模式固定为：
+
+- `local`：本地开发，允许 localhost，默认关闭 API token，适合 stub provider、smoke 和浏览器调试。
+- `demo`：受控私有演示，需要显式 `ALLOWED_ORIGINS`，建议启用 `REQUIRE_API_AUTH=true`，并使用部署平台 secret 管理 `API_AUTH_TOKEN`。
+- `production`：公网部署候选模式，启动前必须通过严格配置校验。
+
+`DEPLOYMENT_MODE=production` 时必须满足：
+
+- `ALLOWED_ORIGINS` 已配置且不能只有 localhost。
+- `REQUIRE_API_AUTH=true`。
+- `API_AUTH_TOKEN` 非空且不是占位值。
+- `RATE_LIMIT_ENABLED=true`。
+- `UPLOAD_STORAGE_DIR`、`PUBLIC_ASSET_DIR`、`AVATAR_ASSET_DIR` 显式配置。
+- `UPLOAD_STORAGE_DIR` 与 `PUBLIC_ASSET_DIR` 保持分离。
+
+### Secret 管理
+
+以下值只能存在于后端环境变量、本地未提交 `.env` 文件或部署平台 Secret Manager：
+
+- `API_AUTH_TOKEN`
+- LLM provider key：`OPENAI_API_KEY`、`QWEN_API_KEY`、`DEEPSEEK_API_KEY`、`CUSTOM_API_KEY`
+- TTS provider key：`MINIMAX_API_KEY`
+- `N8N_WEBHOOK_URL`、`N8N_WEBHOOK_SECRET`
+- future Qdrant / tracing credentials
+
+`.env.example` 只保留 placeholder。`.env`、`.env.local`、日志目录、上传隔离目录、平台生成文件不应提交。
+
+### 部署资料
+
+新增部署资料：
+
+- `docs/deployment/ENVIRONMENT_MODES.md`
+- `docs/deployment/DEPLOYMENT_CHECKLIST.md`
+
+当前仍不是完整生产级系统，不包含完整登录系统、OAuth/RBAC、对象存储、CDN 隔离、WAF、病毒扫描、沙箱解析、外部日志平台、OpenTelemetry/Sentry、多实例 rate limit 或正式审计后台。
 
 ### 部署模式
 

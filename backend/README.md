@@ -61,6 +61,16 @@ http://localhost:3000
 - `N8N_WEBHOOK_SECRET`：可选 n8n webhook secret，只通过后端 header 发送
 - `N8N_TIMEOUT_MS`：n8n workflow 调用超时，默认 `8000`
 
+### local / demo / production
+
+- `local`：本地开发模式，允许 localhost / 127.0.0.1，默认不要求 API token，适合 `stub` provider 和 smoke 验证。
+- `demo`：受控私有演示模式，需要设置正式 `ALLOWED_ORIGINS`，建议启用 `REQUIRE_API_AUTH=true` 和非占位 `API_AUTH_TOKEN`。
+- `production`：公网部署候选模式，启动前强制校验 CORS、API auth、rate limit、上传隔离目录和公开资源目录。
+
+`production` 模式下，`UPLOAD_STORAGE_DIR`、`PUBLIC_ASSET_DIR`、`AVATAR_ASSET_DIR` 必须显式配置，且上传隔离目录不能和公开资源目录相同。
+
+真实 secret 只应进入本地忽略文件或部署平台 Environment Variables / Secret Manager，不要写入仓库、文档正文示例、前端代码或公开资源。
+
 ## 接口
 
 - `POST /api/chat`
@@ -147,3 +157,5 @@ npm run check:deployment-readiness
 每个请求都会带 `X-Request-ID` 响应头。后端请求日志会记录 `requestId / method / path / statusCode / durationMs`，错误日志会记录 `requestId / errorCode`，并继续通过 `redact` 脱敏 token、cookie、secret 和 provider key。
 
 详细清单见 [DEPLOYMENT_SECURITY.md](../docs/security/DEPLOYMENT_SECURITY.md) 与 [PHASE4_DEPLOYMENT_SECURITY_BASELINE.md](../docs/security/PHASE4_DEPLOYMENT_SECURITY_BASELINE.md)。
+
+部署模式与检查步骤见 [ENVIRONMENT_MODES.md](../docs/deployment/ENVIRONMENT_MODES.md) 与 [DEPLOYMENT_CHECKLIST.md](../docs/deployment/DEPLOYMENT_CHECKLIST.md)。
