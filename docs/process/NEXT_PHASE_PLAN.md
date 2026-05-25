@@ -317,12 +317,30 @@ git diff --check
 - 新增 `check:security-boundaries`，覆盖前端 secret 边界、上传基础保护、provider readiness 安全和部署文档完整性。
 - 新增 `docs/security/PHASE4_DEPLOYMENT_SECURITY_BASELINE.md`。
 
-**Phase 4.2 可选方向**
+**Phase 4.2：公网部署前请求边界治理**
+
+- CORS 白名单落地，同时保留本地 localhost 开发体验。
+- JSON 请求体、角色上传体积和 avatar 上传上限配置化。
+- 敏感写接口增加单进程轻量 rate limit。
+- `serverLogger` 接入基础日志脱敏，不记录 token、secret、cookie、Authorization 或完整 request body。
+- 扩展 `check:security-boundaries`，让 CORS / body limit / rate limit / log redaction 进入自动检查。
+
+**Phase 4.3 可选方向**
+
+**Phase 4.3：部署配置收敛与运行可观测性基线**
+
+- `DEPLOYMENT_MODE` 收敛为 `local / demo / production`。
+- 服务启动前执行配置校验，production 模式缺少 `ALLOWED_ORIGINS`、API auth 或安全 token 时直接失败。
+- 新增 `X-Request-ID`，响应头、请求日志和错误日志可按 requestId 追踪。
+- `serverLogger` 输出结构化字段，并继续经过 `redact` 脱敏。
+- 新增 `check:deployment-readiness`，用于部署前检查配置、边界文件和高风险日志模式。
+
+**Phase 4.4 可选方向**
 
 - 真实部署平台配置。
 - 正式鉴权和用户体系。
-- CORS 白名单落地。
-- 速率限制与结构化日志脱敏。
+- 上传资源隔离、审核和扫描。
+- 外部日志平台、请求 ID 采集和审计查询。
 
 **不做事项**
 
@@ -338,7 +356,7 @@ npm run smoke
 git diff --check
 ```
 
-## Suggested Phase 4.2：私有演示安全加固
+## Suggested Phase 4.4：私有演示安全加固
 
 **目标**
 
@@ -346,10 +364,9 @@ git diff --check
 
 **建议任务**
 
-- CORS 白名单配置。
-- 请求日志脱敏。
-- 简单速率限制和请求体限制文档化。
 - 上传资源隔离和审核流程设计。
+- 正式鉴权策略与私有预览访问控制。
+- 平台 secret 管理、HTTPS 与反向代理限流。
 
 **边界**
 

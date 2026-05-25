@@ -4,6 +4,7 @@ import { handleHealth } from './healthRoutes.js';
 import { handleProviders } from './providerRoutes.js';
 import { handleTTS } from './ttsRoutes.js';
 import { enforceApiAuth } from '../middleware/authMiddleware.js';
+import { enforceRateLimit } from '../middleware/rateLimitMiddleware.js';
 import { serveStatic } from '../services/StaticAssetService.js';
 import { sendJson } from '../utils/response.js';
 
@@ -17,6 +18,10 @@ export async function routeRequest(req, res) {
 
   if (url.pathname === '/api/providers' && req.method === 'GET') {
     handleProviders(req, res);
+    return;
+  }
+
+  if (enforceRateLimit(req, res, url)) {
     return;
   }
 

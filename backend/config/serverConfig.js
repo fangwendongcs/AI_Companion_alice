@@ -2,18 +2,29 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const backendDir = fileURLToPath(new URL('..', import.meta.url));
+const megabyte = 1024 * 1024;
 
 export const rootDir = resolve(backendDir, '..');
-export const port = Number(process.env.PORT || 3000);
+export const port = readNumber('PORT', 3000);
 export const deploymentMode = process.env.DEPLOYMENT_MODE || 'local';
 export const requireApiAuth = process.env.REQUIRE_API_AUTH === 'true';
 export const apiAuthToken = process.env.API_AUTH_TOKEN || '';
-export const maxJsonBodyBytes = 1024 * 1024;
-export const maxUploadBodyBytes = 80 * 1024 * 1024;
-export const upstreamTimeoutMs = Number(process.env.UPSTREAM_TIMEOUT_MS || 45000);
+export const allowedOrigins = readCsv('ALLOWED_ORIGINS');
+export const corsAllowLocalhost = readBoolean('CORS_ALLOW_LOCALHOST', deploymentMode !== 'production');
+export const corsFallbackOrigin = allowedOrigins[0] || (deploymentMode === 'production' ? 'null' : '*');
+export const jsonBodyLimitBytes = readBytes('JSON_BODY_LIMIT', megabyte);
+export const avatarUploadMaxMb = readNumber('AVATAR_UPLOAD_MAX_MB', 80);
+export const uploadBodyLimitBytes = readBytes('UPLOAD_BODY_LIMIT', avatarUploadMaxMb * megabyte);
+export const maxJsonBodyBytes = jsonBodyLimitBytes;
+export const maxUploadBodyBytes = uploadBodyLimitBytes;
+export const rateLimitEnabled = readBoolean('RATE_LIMIT_ENABLED', true);
+export const rateLimitWindowMs = readNumber('RATE_LIMIT_WINDOW_MS', 60_000);
+export const rateLimitMaxRequests = readNumber('RATE_LIMIT_MAX_REQUESTS', 240);
+export const rateLimitSensitiveMaxRequests = readNumber('RATE_LIMIT_SENSITIVE_MAX_REQUESTS', 60);
+export const upstreamTimeoutMs = readNumber('UPSTREAM_TIMEOUT_MS', 45000);
 export const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL || '';
 export const n8nWebhookSecret = process.env.N8N_WEBHOOK_SECRET || '';
-export const n8nTimeoutMs = Number(process.env.N8N_TIMEOUT_MS || 8000);
+export const n8nTimeoutMs = readNumber('N8N_TIMEOUT_MS', 8000);
 export const avatarsDir = join(rootDir, 'public', 'avatars');
 export const avatarRegistryPath = join(avatarsDir, 'registry.json');
 
@@ -83,3 +94,37 @@ export const mimeTypes = {
   '.wav': 'audio/wav',
   '.mp3': 'audio/mpeg'
 };
+
+function readCsv(name) {
+  return String(process.env[name] || '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+function readBoolean(name, fallback) {
+  const raw = process.env[name];
+  if (raw === undefined || raw === '') return fallback;
+  return String(raw).toLowerCase() === 'true';
+}
+
+function readNumber(name, fallback) {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function readBytes(name, fallback) {
+  const raw = String(process.env[name] || '').trim();
+  if (!raw) return fallback;
+
+  const match = raw.match(/^(\d+(?:\.\d+)?)(b|kb|mb)?$/i);
+  if (!match) return fallback;
+
+  const value = Number(match[1]);
+  if (!Number.isFinite(value) || value <= 0) return fallback;
+
+  const unit = (match[2] || 'b').toLowerCase();
+  if (unit === 'mb') return Math.round(value * megabyte);
+  if (unit === 'kb') return Math.round(value * 1024);
+  return Math.round(value);
+}

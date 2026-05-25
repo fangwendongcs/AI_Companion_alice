@@ -7,9 +7,13 @@ const frontendFiles = [];
 await collectFiles('js', frontendFiles);
 
 await checkApiAuthBoundary();
+await checkCorsBoundary();
 await checkEnvExample();
 await checkFrontendSecretBoundary();
 await checkProviderStatusSafety();
+await checkRequestSizeAndRateLimit();
+await checkDeploymentReadiness();
+await checkLogRedaction();
 await checkUploadSafety();
 await checkSecurityDocs();
 
@@ -48,11 +52,41 @@ async function checkApiAuthBoundary() {
 
 async function checkEnvExample() {
   const env = await readFile('.env.example', 'utf8');
-  ['DEPLOYMENT_MODE', 'REQUIRE_API_AUTH', 'API_AUTH_TOKEN', 'OPENAI_API_KEY', 'N8N_WEBHOOK_URL', 'N8N_WEBHOOK_SECRET'].forEach((name) => {
+  [
+    'DEPLOYMENT_MODE',
+    'ALLOWED_ORIGINS',
+    'CORS_ALLOW_LOCALHOST',
+    'JSON_BODY_LIMIT',
+    'UPLOAD_BODY_LIMIT',
+    'AVATAR_UPLOAD_MAX_MB',
+    'RATE_LIMIT_ENABLED',
+    'RATE_LIMIT_WINDOW_MS',
+    'RATE_LIMIT_MAX_REQUESTS',
+    'RATE_LIMIT_SENSITIVE_MAX_REQUESTS',
+    'REQUIRE_API_AUTH',
+    'API_AUTH_TOKEN',
+    'OPENAI_API_KEY',
+    'N8N_WEBHOOK_URL',
+    'N8N_WEBHOOK_SECRET'
+  ].forEach((name) => {
     assert(env.includes(name), `.env.example 必须包含 ${name} 占位说明。`);
   });
   assert(!/sk-[A-Za-z0-9_-]{20,}/.test(env), '.env.example 不得包含真实 OpenAI-shaped key。');
   assert(!/Bearer\s+[A-Za-z0-9._-]+/i.test(env), '.env.example 不得包含真实 Bearer token。');
+}
+
+async function checkCorsBoundary() {
+  const config = await readFile('backend/config/serverConfig.js', 'utf8');
+  const server = await readFile('backend/server.js', 'utf8');
+  const cors = await readFile('backend/middleware/corsMiddleware.js', 'utf8');
+  const response = await readFile('backend/utils/response.js', 'utf8');
+
+  assert(config.includes('ALLOWED_ORIGINS'), 'serverConfig 必须提供 ALLOWED_ORIGINS 白名单配置。');
+  assert(config.includes('CORS_ALLOW_LOCALHOST'), 'serverConfig 必须提供 CORS_ALLOW_LOCALHOST 本地开发开关。');
+  assert(cors.includes('isAllowedOrigin'), 'corsMiddleware 必须显式判断 Origin 是否允许。');
+  assert(cors.includes('CORS_ORIGIN_DENIED'), 'corsMiddleware 必须对未授权 Origin 返回稳定错误码。');
+  assert(server.includes('enforceCors'), 'server 必须在路由前挂载 CORS 边界。');
+  assert(!response.includes("Access-Control-Allow-Origin', '*'"), 'response 不应硬编码公网 CORS *。');
 }
 
 async function checkFrontendSecretBoundary() {
@@ -109,6 +143,64 @@ async function checkUploadSafety() {
   assert(requestUtils.includes('sanitizeFilename'), 'multipart 文件名必须做路径分隔符清洗。');
   assert(avatarService.includes('relativeAvatarDir.startsWith'), 'AvatarService 必须防止 avatar 目录逃逸。');
   assert(!avatarService.includes('meta.json'), '上传新角色不应生成 legacy meta.json。');
+}
+
+async function checkRequestSizeAndRateLimit() {
+  const config = await readFile('backend/config/serverConfig.js', 'utf8');
+  const router = await readFile('backend/routes/router.js', 'utf8');
+  const rateLimit = await readFile('backend/middleware/rateLimitMiddleware.js', 'utf8');
+  const requestUtils = await readFile('backend/utils/request.js', 'utf8');
+
+  ['jsonBodyLimitBytes', 'uploadBodyLimitBytes', 'avatarUploadMaxMb', 'maxJsonBodyBytes', 'maxUploadBodyBytes'].forEach((name) => {
+    assert(config.includes(name), `serverConfig 必须定义 ${name}。`);
+  });
+  ['RATE_LIMIT_ENABLED', 'RATE_LIMIT_WINDOW_MS', 'RATE_LIMIT_MAX_REQUESTS', 'RATE_LIMIT_SENSITIVE_MAX_REQUESTS'].forEach((name) => {
+    assert(config.includes(name), `serverConfig 必须定义 ${name}。`);
+  });
+  assert(requestUtils.includes('REQUEST_BODY_TOO_LARGE'), '请求体超限必须返回稳定错误码。');
+  assert(router.includes('enforceRateLimit'), 'router 必须挂载 rate limit 边界。');
+  assert(rateLimit.includes('RATE_LIMIT_EXCEEDED'), 'rateLimitMiddleware 必须返回稳定 429 错误码。');
+  assert(rateLimit.includes('isProtectedApiRoute'), 'rateLimitMiddleware 必须识别敏感写接口。');
+}
+
+async function checkLogRedaction() {
+  const redact = await readFile('backend/utils/redact.js', 'utf8');
+  const logger = await readFile('backend/utils/serverLogger.js', 'utf8');
+  const requestId = await readFile('backend/middleware/requestIdMiddleware.js', 'utf8');
+  const requestLog = await readFile('backend/middleware/requestLogMiddleware.js', 'utf8');
+  const backendFiles = [];
+  await collectFiles('backend', backendFiles);
+
+  ['authorization', 'cookie', 'api[_-]?key', 'token', 'secret', 'password'].forEach((term) => {
+    assert(redact.toLowerCase().includes(term.toLowerCase()), `redact.js 必须覆盖 ${term} 脱敏。`);
+  });
+  assert(logger.includes('redactForLog'), 'serverLogger 必须接入 redactForLog。');
+  assert(logger.includes('timestamp') && logger.includes('level'), 'serverLogger 必须输出结构化日志字段。');
+  assert(requestId.includes('X-Request-ID'), 'requestIdMiddleware 必须返回 X-Request-ID。');
+  assert(requestLog.includes('durationMs') && requestLog.includes('statusCode'), 'requestLogMiddleware 必须记录 statusCode 和 durationMs。');
+
+  for (const file of backendFiles) {
+    const source = await readFile(file, 'utf8');
+    assert(!/console\.log\s*\([^)]*req\.body/i.test(source), `${file} 不应直接打印 req.body。`);
+    assert(!/console\.(log|info|warn|error)\s*\([^)]*authorization/i.test(source), `${file} 不应直接打印 authorization。`);
+  }
+}
+
+async function checkDeploymentReadiness() {
+  const configValidation = await readFile('backend/config/validateServerConfig.js', 'utf8');
+  const server = await readFile('backend/server.js', 'utf8');
+  const packageJson = await readFile('package.json', 'utf8');
+  const deploymentCheck = await readFile('scripts/check-deployment-readiness.mjs', 'utf8');
+
+  assert(configValidation.includes('validateServerConfig'), '必须提供 validateServerConfig 配置校验。');
+  assert(configValidation.includes('production'), '配置校验必须覆盖 production 模式。');
+  assert(configValidation.includes('ALLOWED_ORIGINS'), '配置校验必须覆盖 ALLOWED_ORIGINS。');
+  assert(configValidation.includes('API_AUTH_TOKEN'), '配置校验必须覆盖 API_AUTH_TOKEN。');
+  assert(server.includes('assertValidServerConfig'), 'server 启动前必须执行配置校验。');
+  assert(server.includes('attachRequestId'), 'server 必须挂载 requestId middleware。');
+  assert(server.includes('attachRequestLogger'), 'server 必须挂载 request logger。');
+  assert(packageJson.includes('check:deployment-readiness'), 'package.json 必须提供 check:deployment-readiness。');
+  assert(deploymentCheck.includes('check-deployment-readiness'), '必须提供生产启动前检查脚本。');
 }
 
 async function checkSecurityDocs() {

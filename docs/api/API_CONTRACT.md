@@ -27,6 +27,21 @@
 { "error": "Unauthorized" }
 ```
 
+## 请求边界兼容期
+
+Phase 4.2 已增加公网部署前请求边界，当前约定如下：
+
+- CORS 由 `ALLOWED_ORIGINS` 控制，未命中白名单的浏览器请求返回 `403` 与 `CORS_ORIGIN_DENIED`。
+- 没有 `Origin` 的非浏览器请求可以通过 CORS 层，便于 smoke、curl、health check 和后端间调用。
+- JSON 请求体超限返回 `413`，错误码 `REQUEST_BODY_TOO_LARGE`。
+- API 速率超限返回 `429`，错误码 `RATE_LIMIT_EXCEEDED`，并带 `Retry-After`。
+- `GET /api/health` 不做严格限流；敏感写接口使用更低阈值。
+- 日志不得包含 Authorization、cookie、API Key、token、secret、password 或完整 request body。
+- 每个响应都会带 `X-Request-ID`；客户端报错时可以把 requestId 带回，后端日志用同一 ID 排查。
+- 生产启动前可以运行 `npm run check:deployment-readiness` 检查配置是否适合 demo / production。
+
+这些边界保持本地开发兼容，但公网部署前仍需要正式域名白名单、HTTPS、平台 secret 管理、上传隔离与更完整审计。
+
 ### GET /api/health
 
 ```json

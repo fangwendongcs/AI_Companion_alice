@@ -6,10 +6,10 @@ Phase 3 已完成智能能力基线，但这仍然不是生产部署安全基线
 
 ## P0
 
-- 限制 CORS 来源，不要继续使用 `Access-Control-Allow-Origin: *` 面向公网。
+- 限制 CORS 来源，不要继续使用 `Access-Control-Allow-Origin: *` 面向公网；Phase 4.2 已提供 `ALLOWED_ORIGINS`、`CORS_ALLOW_LOCALHOST` 和 `DEPLOYMENT_MODE` 配置。
 - 给 `POST /api/dialogue`、`POST /api/chat`、`POST /api/tts`、`POST /api/avatars` 增加鉴权；Phase 4.1 已提供默认关闭的 `REQUIRE_API_AUTH` / `API_AUTH_TOKEN` 轻量边界，公网前必须启用或替换为正式鉴权。
 - `GET /api/health` 可以公开；`GET /api/providers` 可以公开但只能返回安全 readiness 状态；静态资源可以公开。
-- 给上传接口增加速率限制、用户级配额、文件数量限制。
+- 给上传接口增加速率限制、用户级配额、文件数量限制；Phase 4.2 已提供单进程内存限流和请求体上限，但还不是生产级配额系统。
 - 对上传模型做更严格扫描；当前只做 `.vrm/.glb/.gltf` 基础格式校验。
 - 不在前端或公开静态资源中写入任何 API Key。
 - `GET /api/providers` 只能返回非敏感 readiness 状态，不得返回 Key、secret、token、Bearer 或真实上游地址。
@@ -18,7 +18,8 @@ Phase 3 已完成智能能力基线，但这仍然不是生产部署安全基线
 
 ## P1
 
-- 增加结构化请求日志和错误日志，隐藏密钥、token、用户隐私字段。
+- 增加结构化请求日志和错误日志，隐藏密钥、token、用户隐私字段；Phase 4.3 已提供 `X-Request-ID`、结构化 `serverLogger` 和基础脱敏，但还没有生产级日志采集平台。
+- 使用 `DEPLOYMENT_MODE=production` 前运行 `npm run check:deployment-readiness`，确认 CORS、auth、rate limit、body limit、日志脱敏和 requestId 边界没有误配。
 - 为 LLM/TTS 上游请求增加 provider 级超时、重试和降级策略。
 - 为 Memory / RAG / n8n / Agent 增加后端开关、请求体截断和错误脱敏。
 - n8n workflow 当前只作为工具调用层；公网部署前需要为 workflow 增加鉴权、超时、调用审计和高风险动作确认。
@@ -27,7 +28,7 @@ Phase 3 已完成智能能力基线，但这仍然不是生产部署安全基线
 - RAG 文档与 Memory 数据不得放入 `public/`，需要删除策略和访问边界。
 - 当前短期 Memory 仅保存在后端进程内；接入持久化前必须设计用户删除、保留期限和隐私说明。
 - 将角色上传目录与公开访问目录隔离，审核通过后再发布到 `public/avatars`。
-- 给公网服务增加请求体大小限制和反向代理层限制。
+- 给公网服务增加请求体大小限制和反向代理层限制；Phase 4.2 已在 Node 层提供 `JSON_BODY_LIMIT`、`UPLOAD_BODY_LIMIT`、`AVATAR_UPLOAD_MAX_MB`，部署时仍需要同步配置反向代理 / 平台上限。
 
 ## P2
 

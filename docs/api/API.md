@@ -11,6 +11,20 @@
 
 Phase 4.1 提供默认关闭的轻量 token 边界。启用 `REQUIRE_API_AUTH=true` 后，请求需要携带 `Authorization: Bearer <token>` 或 `X-API-Token: <token>`。`GET /api/health`、`GET /api/providers` 和静态资源可公开读取；`GET /api/providers` 不得返回 secret。
 
+## 公网前请求边界
+
+Phase 4.2 增加了公网部署前的最小请求边界：
+
+- CORS 白名单：`ALLOWED_ORIGINS` 支持逗号分隔；本地可通过 `CORS_ALLOW_LOCALHOST=true` 继续允许 localhost / 127.0.0.1。
+- JSON 请求体限制：`JSON_BODY_LIMIT`，覆盖 `POST /api/dialogue`、`POST /api/chat`、`POST /api/tts`。
+- 上传请求体限制：`UPLOAD_BODY_LIMIT` / `AVATAR_UPLOAD_MAX_MB`，覆盖 `POST /api/avatars`。
+- 轻量 rate limit：`RATE_LIMIT_ENABLED`、`RATE_LIMIT_WINDOW_MS`、`RATE_LIMIT_MAX_REQUESTS`、`RATE_LIMIT_SENSITIVE_MAX_REQUESTS`。
+- 日志脱敏：后端 logger 不应打印 token、secret、cookie、Authorization 或完整 request body。
+- 请求追踪：响应头返回 `X-Request-ID`，请求日志和错误日志使用同一个 requestId。
+- 部署前检查：`npm run check:deployment-readiness` 会检查 production / demo 配置是否缺少 CORS、auth、rate limit 或日志边界。
+
+没有 `Origin` 的非浏览器请求，例如 curl、smoke 或平台 health check，可以通过 CORS 层；敏感写接口仍由鉴权和限流保护。以上能力是私有演示 / 单实例公网前基线，不是完整登录系统、WAF 或多实例生产级风控。
+
 ### POST /api/chat
 
 浏览器只提交对话参数，API Key 和上游 Base URL 均由后端环境变量读取。

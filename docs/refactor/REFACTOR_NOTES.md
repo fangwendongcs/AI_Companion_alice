@@ -1534,3 +1534,24 @@ npm run check:assets
 - 新增 `docs/security/PHASE4_DEPLOYMENT_SECURITY_BASELINE.md`，明确接口分级、上传风险、secret 边界、日志安全、CORS 边界和 Phase 4.1 不包含事项。
 - `.env.example`、`backend/README.md`、API 文档、安全文档和下一阶段计划已同步部署前安全要求。
 - 本轮不新增真实部署平台配置、不接 Qdrant、不做 embedding、不实现长期记忆数据库、不新增真实 n8n workflow。
+
+## 52. Phase 4.2 公网部署前请求边界治理
+
+- CORS 从固定 `*` 收口为可配置白名单：`ALLOWED_ORIGINS`、`CORS_ALLOW_LOCALHOST`、`DEPLOYMENT_MODE`，本地继续允许 localhost，生产 / 鉴权模式下拒绝未命中 Origin。
+- JSON 请求体和上传请求体上限配置化：`JSON_BODY_LIMIT`、`UPLOAD_BODY_LIMIT`、`AVATAR_UPLOAD_MAX_MB`，超限返回 `REQUEST_BODY_TOO_LARGE`。
+- 新增单进程轻量 rate limit 中间件，普通 API 和敏感写接口使用不同阈值；超限返回 `RATE_LIMIT_EXCEEDED` 和 `Retry-After`。
+- 新增 `redact.js` 并让 `serverLogger` 自动脱敏 Authorization、cookie、API key、token、secret、password 等字段，避免错误日志带出敏感内容。
+- `check:security-boundaries` 扩展覆盖 CORS、body limit、rate limit、日志脱敏和高风险日志模式。
+- `.env.example`、README、backend README、API 文档、部署安全文档和下一阶段计划已同步 Phase 4.2 边界。
+- 本轮不做完整登录系统、不实现 WAF、不接 Qdrant / embedding / 长期记忆数据库、不新增 n8n workflow、不做真实部署。
+
+## 53. Phase 4.3 部署配置收敛与运行可观测性基线
+
+- 新增 `validateServerConfig`，将 `DEPLOYMENT_MODE` 收敛为 `local / demo / production`，production 模式缺少 CORS 白名单、API auth、安全 token 或 rate limit 时启动前失败。
+- 新增 `requestIdMiddleware`，为每个请求生成或复用 `X-Request-ID`，并写回响应头。
+- 新增 `requestLogMiddleware`，在响应完成时记录 `requestId / method / path / statusCode / durationMs`，用于部署前基础链路追踪。
+- `serverLogger` 改为结构化输出，包含 `timestamp / level / message` 等字段；production 模式输出 JSON line，同时继续通过 `redact` 脱敏。
+- 新增 `scripts/check-deployment-readiness.mjs` 和 `npm run check:deployment-readiness`，用于模拟 demo / production 部署前配置检查。
+- `check:security-boundaries` 扩展覆盖配置校验、requestId、请求日志、结构化日志和部署 readiness 脚本。
+- 文档同步 local / demo / production 差异、requestId 排查方式和部署前检查命令。
+- 本轮不做真实部署、不接外部日志平台、不做完整登录系统、不接 Qdrant / embedding / 长期记忆数据库 / 新 n8n workflow。

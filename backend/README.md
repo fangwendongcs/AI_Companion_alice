@@ -25,9 +25,18 @@ http://localhost:3000
 ## 环境变量
 
 - `PORT`：服务端口，默认 `3000`
-- `DEPLOYMENT_MODE`：部署模式标记，默认 `local`
+- `DEPLOYMENT_MODE`：部署模式标记，允许 `local` / `demo` / `production`，默认 `local`
+- `ALLOWED_ORIGINS`：CORS 白名单，逗号分隔；公网前必须配置正式域名
+- `CORS_ALLOW_LOCALHOST`：是否额外允许 localhost / 127.0.0.1，默认本地允许
 - `REQUIRE_API_AUTH`：是否保护敏感写接口，默认 `false`
 - `API_AUTH_TOKEN`：`REQUIRE_API_AUTH=true` 时的后端私有演示 token
+- `JSON_BODY_LIMIT`：JSON 请求体上限，默认 `1mb`
+- `UPLOAD_BODY_LIMIT`：上传请求体上限，默认跟随 `AVATAR_UPLOAD_MAX_MB`
+- `AVATAR_UPLOAD_MAX_MB`：角色上传体积上限，默认 `80`
+- `RATE_LIMIT_ENABLED`：是否启用轻量内存限流，默认 `true`
+- `RATE_LIMIT_WINDOW_MS`：限流窗口，默认 `60000`
+- `RATE_LIMIT_MAX_REQUESTS`：普通 API 窗口内最大请求数，默认 `240`
+- `RATE_LIMIT_SENSITIVE_MAX_REQUESTS`：敏感写接口窗口内最大请求数，默认 `60`
 - `OPENAI_API_KEY`：OpenAI Chat/TTS
 - `MINIMAX_API_KEY`：MiniMax TTS
 - `QWEN_API_KEY`：通义千问 OpenAI-compatible 接口
@@ -90,11 +99,31 @@ API_AUTH_TOKEN=replace_with_private_token
 
 当前服务默认面向本地开发，不建议直接暴露公网。部署前请先完成：
 
-- CORS 白名单
-- 接口鉴权
-- 上传限流和文件安全扫描
-- 日志脱敏
+- CORS 白名单：`ALLOWED_ORIGINS=https://your-domain.example`
+- 接口鉴权：`REQUIRE_API_AUTH=true`
+- 请求体限制：`JSON_BODY_LIMIT`、`UPLOAD_BODY_LIMIT`、`AVATAR_UPLOAD_MAX_MB`
+- 轻量限流：`RATE_LIMIT_ENABLED=true`
+- 上传隔离和文件安全扫描
+- 日志脱敏和请求正文最小化记录
 - API Key 只保留在后端环境变量或密钥管理系统中
 - n8n webhook URL / secret 只保留在后端环境变量中，前端不能直连 n8n
+
+当前内置的 CORS、请求大小限制、内存限流和日志脱敏是私有演示 / 单实例部署前的基线，不是完整登录系统、WAF、多实例风控或上传内容安全扫描。
+
+## 部署前配置检查与请求追踪
+
+服务启动前会执行轻量配置校验：
+
+- `local`：保留本地开发友好默认值。
+- `demo`：允许私有演示，但建议启用 `REQUIRE_API_AUTH=true`。
+- `production`：必须配置 `ALLOWED_ORIGINS`，不能只使用 localhost，必须启用 `REQUIRE_API_AUTH=true`，并使用非占位 `API_AUTH_TOKEN`。
+
+可以在部署前单独运行：
+
+```bash
+npm run check:deployment-readiness
+```
+
+每个请求都会带 `X-Request-ID` 响应头。后端请求日志会记录 `requestId / method / path / statusCode / durationMs`，错误日志会记录 `requestId / errorCode`，并继续通过 `redact` 脱敏 token、cookie、secret 和 provider key。
 
 详细清单见 [DEPLOYMENT_SECURITY.md](../docs/security/DEPLOYMENT_SECURITY.md) 与 [PHASE4_DEPLOYMENT_SECURITY_BASELINE.md](../docs/security/PHASE4_DEPLOYMENT_SECURITY_BASELINE.md)。

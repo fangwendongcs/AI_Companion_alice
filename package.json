@@ -17,6 +17,7 @@
     "check:integration-boundaries": "node scripts/check-integration-boundaries.mjs",
     "check:provider-config": "node scripts/check-provider-config.mjs",
     "check:security-boundaries": "node scripts/check-security-boundaries.mjs",
+    "check:deployment-readiness": "node scripts/check-deployment-readiness.mjs",
     "check:memory-flow": "node scripts/check-memory-flow.mjs",
     "check:knowledge-flow": "node scripts/check-knowledge-flow.mjs",
     "check:rag-flow": "node scripts/check-rag-flow.mjs",

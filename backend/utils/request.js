@@ -7,7 +7,9 @@ export async function readRequestBuffer(req, maxBytes) {
   for await (const chunk of req) {
     totalBytes += chunk.length;
     if (totalBytes > maxBytes) {
-      throw createHttpError('Request body too large', 413);
+      const error = createHttpError('Request body too large', 413);
+      error.code = 'REQUEST_BODY_TOO_LARGE';
+      throw error;
     }
     chunks.push(chunk);
   }
