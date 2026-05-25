@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node backend/server.js",
-    "check": "npm run check:js && npm run check:config && npm run check:assets && npm run check:legacy-avatar && npm run check:regression && npm run check:mvp-flow && npm run check:avatar-flow && npm run check:runtime-contracts && npm run check:integration-boundaries && npm run check:provider-config && npm run check:security-boundaries && npm run check:memory-flow && npm run check:knowledge-flow && npm run check:rag-flow && npm run check:workflow-flow && npm run check:agent-flow",
+    "check": "npm run check:js && npm run check:config && npm run check:assets && npm run check:legacy-avatar && npm run check:regression && npm run check:mvp-flow && npm run check:avatar-flow && npm run check:runtime-contracts && npm run check:integration-boundaries && npm run check:provider-config && npm run check:security-boundaries && npm run check:upload-boundaries && npm run check:memory-flow && npm run check:knowledge-flow && npm run check:rag-flow && npm run check:workflow-flow && npm run check:agent-flow",
     "check:js": "node scripts/check-js.mjs",
     "check:config": "node scripts/check-config.mjs",
     "check:assets": "node scripts/check-assets.mjs",
@@ -17,6 +17,7 @@
     "check:integration-boundaries": "node scripts/check-integration-boundaries.mjs",
     "check:provider-config": "node scripts/check-provider-config.mjs",
     "check:security-boundaries": "node scripts/check-security-boundaries.mjs",
+    "check:upload-boundaries": "node scripts/check-upload-boundaries.mjs",
     "check:deployment-readiness": "node scripts/check-deployment-readiness.mjs",
     "check:memory-flow": "node scripts/check-memory-flow.mjs",
     "check:knowledge-flow": "node scripts/check-knowledge-flow.mjs",

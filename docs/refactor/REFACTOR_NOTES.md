@@ -1555,3 +1555,15 @@ npm run check:assets
 - `check:security-boundaries` 扩展覆盖配置校验、requestId、请求日志、结构化日志和部署 readiness 脚本。
 - 文档同步 local / demo / production 差异、requestId 排查方式和部署前检查命令。
 - 本轮不做真实部署、不接外部日志平台、不做完整登录系统、不接 Qdrant / embedding / 长期记忆数据库 / 新 n8n workflow。
+
+## 54. Phase 4.4 上传隔离与文件安全边界
+
+- 新增上传隔离配置：`UPLOAD_STORAGE_DIR`、`UPLOAD_TMP_DIR`、`PUBLIC_ASSET_DIR`、`AVATAR_ASSET_DIR`、`UPLOAD_MAX_TOTAL_BYTES`、`UPLOAD_MAX_FILES`。
+- `POST /api/avatars` 的原始上传模型先写入 `UPLOAD_STORAGE_DIR`，验证通过后再发布到 `AVATAR_ASSET_DIR`，公开模型文件名由后端随机生成。
+- 上传校验拒绝路径穿越、绝对路径、空字节、异常分隔符和危险扩展名；原始文件名只作为 metadata，不参与真实路径拼接。
+- `.vrm/.glb` 保留 GLB magic header 校验，`.gltf` 保留 JSON 与 `asset.version` 校验；`.vrm` 当前只做容器级基础校验。
+- 新增上传隔离目录配额检查，超过 `UPLOAD_MAX_TOTAL_BYTES` 时返回 `UPLOAD_QUOTA_EXCEEDED`。
+- 上传错误码收口为 `UPLOAD_PATH_INVALID`、`UPLOAD_FILE_TYPE_INVALID`、`UPLOAD_FILE_CONTENT_INVALID`、`UPLOAD_STORAGE_FAILED`、`UPLOAD_QUOTA_EXCEEDED` 和 `REQUEST_BODY_TOO_LARGE`。
+- 新增 `scripts/check-upload-boundaries.mjs` 和 `npm run check:upload-boundaries`，覆盖路径穿越、危险扩展、伪装文件、合法 `.glb/.gltf/.vrm` 样本、默认隔离目录和配额超限。
+- `.gitignore` 忽略 `data/uploads/`，避免本地隔离上传文件进入仓库。
+- 本轮不做病毒扫描、沙箱解析、对象存储隔离桶、CDN 隔离、用户级鉴权配额、多租户隔离、内容审核或异步审核发布流。

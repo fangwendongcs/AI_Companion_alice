@@ -85,6 +85,25 @@ Phase 4.2 已增加公网部署前请求边界，当前约定如下：
 }
 ```
 
+Phase 4.4 上传边界：
+
+- 原始上传文件先写入 `UPLOAD_STORAGE_DIR` 隔离区。
+- 验证通过后，后端生成安全模型文件名并发布到 `AVATAR_ASSET_DIR`。
+- 原始文件名只保留为 metadata，不参与真实路径拼接。
+- `.vrm/.glb` 必须通过 `glTF` magic header 校验。
+- `.gltf` 必须是合法 JSON 且包含 `asset.version`。
+- `.html/.htm/.js/.mjs/.svg/.php/.sh/.bat/.cmd/.exe/.dll/.dmg/.pkg/.zip/.rar/.7z` 等类型会被拒绝。
+- 隔离目录超过 `UPLOAD_MAX_TOTAL_BYTES` 时返回 `UPLOAD_QUOTA_EXCEEDED`。
+
+上传错误使用 `{ ok:false, error:{ code, message } }`，稳定错误码包括：
+
+- `UPLOAD_PATH_INVALID`
+- `UPLOAD_FILE_TYPE_INVALID`
+- `UPLOAD_FILE_CONTENT_INVALID`
+- `UPLOAD_STORAGE_FAILED`
+- `UPLOAD_QUOTA_EXCEEDED`
+- `REQUEST_BODY_TOO_LARGE`
+
 ### POST /api/chat
 
 旧兼容对话入口。当前前端默认不再调用该接口，但后端仍保留它，并复用 `LLMService` 通过环境变量代理 LLM 请求。成功返回：

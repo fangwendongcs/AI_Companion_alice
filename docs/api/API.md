@@ -18,6 +18,7 @@ Phase 4.2 增加了公网部署前的最小请求边界：
 - CORS 白名单：`ALLOWED_ORIGINS` 支持逗号分隔；本地可通过 `CORS_ALLOW_LOCALHOST=true` 继续允许 localhost / 127.0.0.1。
 - JSON 请求体限制：`JSON_BODY_LIMIT`，覆盖 `POST /api/dialogue`、`POST /api/chat`、`POST /api/tts`。
 - 上传请求体限制：`UPLOAD_BODY_LIMIT` / `AVATAR_UPLOAD_MAX_MB`，覆盖 `POST /api/avatars`。
+- 上传隔离：原始文件先进入 `UPLOAD_STORAGE_DIR`，验证后才发布到 `AVATAR_ASSET_DIR`。
 - 轻量 rate limit：`RATE_LIMIT_ENABLED`、`RATE_LIMIT_WINDOW_MS`、`RATE_LIMIT_MAX_REQUESTS`、`RATE_LIMIT_SENSITIVE_MAX_REQUESTS`。
 - 日志脱敏：后端 logger 不应打印 token、secret、cookie、Authorization 或完整 request body。
 - 请求追踪：响应头返回 `X-Request-ID`，请求日志和错误日志使用同一个 requestId。
@@ -380,8 +381,30 @@ OpenAI 请求可额外传入 `instructions`，后端会使用 `gpt-4o-mini-tts` 
 上传成功后，后端会写入：
 
 ```text
-public/avatars/{avatarId}/model.{vrm|glb|gltf}
+data/uploads/quarantine/{generated-file-name}
+public/avatars/{avatarId}/{generated-model-file-name}.{vrm|glb|gltf}
 public/avatars/{avatarId}/manifest.json
 public/avatars/{avatarId}/motions.json
 public/avatars/{avatarId}/skeleton.mixamo.json
 ```
+
+上传安全边界：
+
+- 原始文件名只作为 metadata，不参与真实存储路径。
+- 公开模型文件名由后端生成，不使用用户上传文件名。
+- 拒绝路径穿越、绝对路径、空字节、异常分隔符。
+- 只接受 `.vrm` / `.glb` / `.gltf`。
+- `.vrm/.glb` 检查 GLB magic header：`glTF`。
+- `.gltf` 必须是 JSON 且包含 `asset.version`。
+- `.vrm` 当前只做 GLB 容器基础校验，暂不做完整 VRM schema 校验。
+- 明确拒绝 `.html/.js/.mjs/.svg/.php/.sh/.exe/.zip` 等危险或当前不需要的类型。
+- 隔离目录超过 `UPLOAD_MAX_TOTAL_BYTES` 时返回 `UPLOAD_QUOTA_EXCEEDED`。
+
+稳定错误码：
+
+- `UPLOAD_PATH_INVALID`
+- `UPLOAD_FILE_TYPE_INVALID`
+- `UPLOAD_FILE_CONTENT_INVALID`
+- `UPLOAD_STORAGE_FAILED`
+- `UPLOAD_QUOTA_EXCEEDED`
+- `REQUEST_BODY_TOO_LARGE`

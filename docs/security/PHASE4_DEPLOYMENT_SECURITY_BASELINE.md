@@ -2,7 +2,7 @@
 
 ## 结论
 
-Phase 4.1 建立公网部署前的 API 鉴权基线；Phase 4.2 继续收口 CORS 白名单、请求大小限制、轻量速率限制和日志脱敏基线；Phase 4.3 增加部署配置校验、请求 ID、结构化日志和生产启动前检查。本阶段不做真实部署、不接新 provider、不接 Qdrant、不新增 n8n workflow。
+Phase 4.1 建立公网部署前的 API 鉴权基线；Phase 4.2 继续收口 CORS 白名单、请求大小限制、轻量速率限制和日志脱敏基线；Phase 4.3 增加部署配置校验、请求 ID、结构化日志和生产启动前检查；Phase 4.4 增加上传隔离与文件安全边界。本阶段不做真实部署、不接新 provider、不接 Qdrant、不新增 n8n workflow。
 
 当前后端仍默认服务本地开发。公网或半公网私有演示前，必须至少开启 API 鉴权、配置正式域名白名单、限制请求体和上传体积、保护上传接口、确认 secret 只在后端环境变量中。
 
@@ -179,13 +179,30 @@ RATE_LIMIT_SENSITIVE_MAX_REQUESTS=60
 当前已有基础保护：
 
 - 请求体上限：`UPLOAD_BODY_LIMIT` / `AVATAR_UPLOAD_MAX_MB`
+- 原始上传文件先写入 `UPLOAD_STORAGE_DIR` 隔离区
+- 验证通过后才发布到 `AVATAR_ASSET_DIR`
+- 公开模型文件名由后端生成，不使用用户原始文件名
+- 原始文件名只作为 metadata
+- 拒绝路径穿越、绝对路径、空字节、异常分隔符
 - `.vrm/.glb` GLB magic 校验
 - `.gltf` JSON 与 `asset.version` 校验
+- `.vrm` 当前按 GLB 容器做基础校验，不做完整 VRM schema 校验
+- 危险扩展名显式拒绝：`.html/.htm/.js/.mjs/.svg/.php/.sh/.bat/.cmd/.exe/.dll/.dmg/.pkg/.zip/.rar/.7z`
+- 上传隔离目录配额：`UPLOAD_MAX_TOTAL_BYTES`
 - avatarId 清洗
 - multipart filename 清洗
 - avatar 目录逃逸检查
 - 上传新角色只生成 `manifest.json`，不生成 legacy `meta.json`
 - 上传失败不能污染 registry
+
+稳定错误码：
+
+- `UPLOAD_PATH_INVALID`
+- `UPLOAD_FILE_TYPE_INVALID`
+- `UPLOAD_FILE_CONTENT_INVALID`
+- `UPLOAD_STORAGE_FAILED`
+- `UPLOAD_QUOTA_EXCEEDED`
+- `REQUEST_BODY_TOO_LARGE`
 
 公网前仍必须补充：
 
@@ -194,6 +211,7 @@ RATE_LIMIT_SENSITIVE_MAX_REQUESTS=60
 - 资源审核或隔离目录
 - 病毒扫描或对象存储扫描
 - 发布前审核机制，而不是直接写入公开 `public/avatars`
+- CDN 隔离、沙箱解析、多租户隔离、完整 VRM schema 校验和内容审核
 
 ## Secret 边界
 
@@ -261,6 +279,16 @@ Phase 4.3 扩展检查：
 - `serverLogger` 输出结构化字段并继续脱敏。
 - 存在 `check:deployment-readiness`。
 
+Phase 4.4 扩展检查：
+
+- 存在 `check:upload-boundaries`。
+- 路径穿越输入会被拒绝。
+- 危险扩展名会被拒绝。
+- 伪装扩展但内容非法会被拒绝。
+- `.glb/.gltf/.vrm` 基础合法样本能通过。
+- 上传隔离目录默认不在 `public/` 下。
+- 配额超限返回 `UPLOAD_QUOTA_EXCEEDED`。
+
 ## Phase 4 不包含
 
 - 不上线真实部署平台。
@@ -274,3 +302,4 @@ Phase 4.3 扩展检查：
 - 不提供上传内容安全扫描。
 - 不配置 HTTPS 证书。
 - 不接外部日志平台、Sentry 或 OpenTelemetry。
+- 不提供对象存储隔离桶、CDN 隔离、病毒扫描、沙箱解析、用户级鉴权配额、多租户隔离、内容审核或文件异步审核发布流。

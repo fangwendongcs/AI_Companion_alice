@@ -335,11 +335,20 @@ git diff --check
 - `serverLogger` 输出结构化字段，并继续经过 `redact` 脱敏。
 - 新增 `check:deployment-readiness`，用于部署前检查配置、边界文件和高风险日志模式。
 
-**Phase 4.4 可选方向**
+**Phase 4.4：上传隔离与文件安全边界**
+
+- 原始上传文件先进入 `UPLOAD_STORAGE_DIR` 隔离区。
+- 验证后生成安全文件名，再发布到 `AVATAR_ASSET_DIR`。
+- 拒绝路径穿越、危险扩展名和伪装模型文件。
+- 对 `.vrm/.glb/.gltf` 做基础内容校验。
+- 增加上传隔离目录总配额 `UPLOAD_MAX_TOTAL_BYTES`。
+- 新增 `check:upload-boundaries` 并纳入 `npm run check`。
+
+**Phase 4.5 可选方向**
 
 - 真实部署平台配置。
 - 正式鉴权和用户体系。
-- 上传资源隔离、审核和扫描。
+- 对象存储隔离桶、上传审核、内容扫描。
 - 外部日志平台、请求 ID 采集和审计查询。
 
 **不做事项**
@@ -356,7 +365,7 @@ npm run smoke
 git diff --check
 ```
 
-## Suggested Phase 4.4：私有演示安全加固
+## Suggested Phase 4.5：私有演示安全加固
 
 **目标**
 

@@ -19,6 +19,7 @@ coverage/
 logs/
 *.log
 .playwright-cli/
+data/uploads/
 
 # Mac
 .DS_Store

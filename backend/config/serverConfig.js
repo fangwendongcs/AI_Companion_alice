@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 const backendDir = fileURLToPath(new URL('..', import.meta.url));
 const megabyte = 1024 * 1024;
+const defaultPublicDir = join(resolve(backendDir, '..'), 'public');
 
 export const rootDir = resolve(backendDir, '..');
 export const port = readNumber('PORT', 3000);
@@ -15,6 +16,12 @@ export const corsFallbackOrigin = allowedOrigins[0] || (deploymentMode === 'prod
 export const jsonBodyLimitBytes = readBytes('JSON_BODY_LIMIT', megabyte);
 export const avatarUploadMaxMb = readNumber('AVATAR_UPLOAD_MAX_MB', 80);
 export const uploadBodyLimitBytes = readBytes('UPLOAD_BODY_LIMIT', avatarUploadMaxMb * megabyte);
+export const uploadStorageDir = readPath('UPLOAD_STORAGE_DIR', join(rootDir, 'data', 'uploads', 'quarantine'));
+export const uploadTmpDir = readPath('UPLOAD_TMP_DIR', join(rootDir, 'data', 'uploads', 'tmp'));
+export const publicAssetDir = readPath('PUBLIC_ASSET_DIR', defaultPublicDir);
+export const avatarAssetDir = readPath('AVATAR_ASSET_DIR', join(publicAssetDir, 'avatars'));
+export const uploadMaxTotalBytes = readBytes('UPLOAD_MAX_TOTAL_BYTES', 500 * megabyte);
+export const uploadMaxFiles = readNumber('UPLOAD_MAX_FILES', 200);
 export const maxJsonBodyBytes = jsonBodyLimitBytes;
 export const maxUploadBodyBytes = uploadBodyLimitBytes;
 export const rateLimitEnabled = readBoolean('RATE_LIMIT_ENABLED', true);
@@ -25,7 +32,7 @@ export const upstreamTimeoutMs = readNumber('UPSTREAM_TIMEOUT_MS', 45000);
 export const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL || '';
 export const n8nWebhookSecret = process.env.N8N_WEBHOOK_SECRET || '';
 export const n8nTimeoutMs = readNumber('N8N_TIMEOUT_MS', 8000);
-export const avatarsDir = join(rootDir, 'public', 'avatars');
+export const avatarsDir = avatarAssetDir;
 export const avatarRegistryPath = join(avatarsDir, 'registry.json');
 
 export const providerBaseUrls = {
@@ -127,4 +134,10 @@ function readBytes(name, fallback) {
   if (unit === 'mb') return Math.round(value * megabyte);
   if (unit === 'kb') return Math.round(value * 1024);
   return Math.round(value);
+}
+
+function readPath(name, fallback) {
+  const value = String(process.env[name] || '').trim();
+  if (!value) return fallback;
+  return resolve(rootDir, value);
 }

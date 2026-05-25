@@ -10,7 +10,7 @@ Phase 3 已完成智能能力基线，但这仍然不是生产部署安全基线
 - 给 `POST /api/dialogue`、`POST /api/chat`、`POST /api/tts`、`POST /api/avatars` 增加鉴权；Phase 4.1 已提供默认关闭的 `REQUIRE_API_AUTH` / `API_AUTH_TOKEN` 轻量边界，公网前必须启用或替换为正式鉴权。
 - `GET /api/health` 可以公开；`GET /api/providers` 可以公开但只能返回安全 readiness 状态；静态资源可以公开。
 - 给上传接口增加速率限制、用户级配额、文件数量限制；Phase 4.2 已提供单进程内存限流和请求体上限，但还不是生产级配额系统。
-- 对上传模型做更严格扫描；当前只做 `.vrm/.glb/.gltf` 基础格式校验。
+- 对上传模型做更严格扫描；Phase 4.4 已提供上传隔离、危险扩展拒绝、`.vrm/.glb/.gltf` 基础内容校验和隔离目录配额，但还不是完整文件安全系统。
 - 不在前端或公开静态资源中写入任何 API Key。
 - `GET /api/providers` 只能返回非敏感 readiness 状态，不得返回 Key、secret、token、Bearer 或真实上游地址。
 - `N8N_WEBHOOK_URL` 和 `N8N_WEBHOOK_SECRET` 只能保存在后端环境变量或密钥管理系统中，不得写入前端、文档真实值或公开资源。
@@ -28,6 +28,7 @@ Phase 3 已完成智能能力基线，但这仍然不是生产部署安全基线
 - RAG 文档与 Memory 数据不得放入 `public/`，需要删除策略和访问边界。
 - 当前短期 Memory 仅保存在后端进程内；接入持久化前必须设计用户删除、保留期限和隐私说明。
 - 将角色上传目录与公开访问目录隔离，审核通过后再发布到 `public/avatars`。
+- 生产环境建议使用对象存储隔离桶，上传区和公开资源区分离，公开资源目录只读，并在后台审核 / 安全扫描后再发布。
 - 给公网服务增加请求体大小限制和反向代理层限制；Phase 4.2 已在 Node 层提供 `JSON_BODY_LIMIT`、`UPLOAD_BODY_LIMIT`、`AVATAR_UPLOAD_MAX_MB`，部署时仍需要同步配置反向代理 / 平台上限。
 
 ## P2

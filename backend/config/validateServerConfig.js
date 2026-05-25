@@ -6,7 +6,8 @@ import {
   jsonBodyLimitBytes,
   rateLimitEnabled,
   requireApiAuth,
-  uploadBodyLimitBytes
+  uploadBodyLimitBytes,
+  uploadMaxTotalBytes
 } from './serverConfig.js';
 
 const allowedModes = new Set(['local', 'demo', 'production']);
@@ -36,6 +37,12 @@ export function validateServerConfig() {
     if (!rateLimitEnabled) {
       errors.push('DEPLOYMENT_MODE=production should keep RATE_LIMIT_ENABLED=true.');
     }
+    if (!process.env.UPLOAD_STORAGE_DIR) {
+      errors.push('DEPLOYMENT_MODE=production requires explicit UPLOAD_STORAGE_DIR.');
+    }
+    if (!process.env.AVATAR_ASSET_DIR) {
+      errors.push('DEPLOYMENT_MODE=production requires explicit AVATAR_ASSET_DIR.');
+    }
   }
 
   if (deploymentMode === 'demo' && !requireApiAuth) {
@@ -51,6 +58,9 @@ export function validateServerConfig() {
   }
   if (!uploadBodyLimitBytes || uploadBodyLimitBytes < 1024) {
     errors.push('UPLOAD_BODY_LIMIT is too small or invalid.');
+  }
+  if (!uploadMaxTotalBytes || uploadMaxTotalBytes < uploadBodyLimitBytes) {
+    errors.push('UPLOAD_MAX_TOTAL_BYTES must be at least UPLOAD_BODY_LIMIT.');
   }
 
   return { ok: errors.length === 0, errors, warnings };

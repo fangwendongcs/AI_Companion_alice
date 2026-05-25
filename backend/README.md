@@ -33,6 +33,12 @@ http://localhost:3000
 - `JSON_BODY_LIMIT`：JSON 请求体上限，默认 `1mb`
 - `UPLOAD_BODY_LIMIT`：上传请求体上限，默认跟随 `AVATAR_UPLOAD_MAX_MB`
 - `AVATAR_UPLOAD_MAX_MB`：角色上传体积上限，默认 `80`
+- `UPLOAD_STORAGE_DIR`：上传隔离目录，默认 `data/uploads/quarantine`
+- `UPLOAD_TMP_DIR`：上传临时目录，默认 `data/uploads/tmp`
+- `PUBLIC_ASSET_DIR`：公开资源根目录，默认 `public`
+- `AVATAR_ASSET_DIR`：审核后发布的 avatar 资源目录，默认 `public/avatars`
+- `UPLOAD_MAX_TOTAL_BYTES`：上传隔离目录总配额，默认 `500mb`
+- `UPLOAD_MAX_FILES`：上传隔离目录文件数量规划值，默认 `200`
 - `RATE_LIMIT_ENABLED`：是否启用轻量内存限流，默认 `true`
 - `RATE_LIMIT_WINDOW_MS`：限流窗口，默认 `60000`
 - `RATE_LIMIT_MAX_REQUESTS`：普通 API 窗口内最大请求数，默认 `240`
@@ -92,8 +98,14 @@ API_AUTH_TOKEN=replace_with_private_token
 - `.vrm/.glb` 必须是 GLB 容器，文件头为 `glTF`
 - `.gltf` 必须是合法 JSON，并包含 `asset.version`
 - 单次上传体积上限为 80MB
+- 原始上传文件先进入 `UPLOAD_STORAGE_DIR` 隔离区
+- 公开资源使用后端生成的安全文件名，不使用用户原始文件名
+- 拒绝路径穿越、绝对路径、空字节和危险扩展名
+- 超过 `UPLOAD_MAX_TOTAL_BYTES` 时拒绝新上传
 
-如果后续部署公网，需要在该接口前增加鉴权、来源限制和更严格的文件扫描。
+当前成功上传后仍会把验证后的 avatar 资源发布到 `AVATAR_ASSET_DIR`，供前端通过 `public/avatars/{avatarId}/manifest.json` 加载。生产环境应把上传隔离区和公开资源区分开，经过后台审核 / 安全扫描后再发布。
+
+如果后续部署公网，需要在该接口前增加正式鉴权、来源限制、对象存储隔离、文件扫描和内容审核。
 
 ## 部署安全
 
@@ -108,7 +120,7 @@ API_AUTH_TOKEN=replace_with_private_token
 - API Key 只保留在后端环境变量或密钥管理系统中
 - n8n webhook URL / secret 只保留在后端环境变量中，前端不能直连 n8n
 
-当前内置的 CORS、请求大小限制、内存限流和日志脱敏是私有演示 / 单实例部署前的基线，不是完整登录系统、WAF、多实例风控或上传内容安全扫描。
+当前内置的 CORS、请求大小限制、内存限流、日志脱敏和上传隔离是私有演示 / 单实例部署前的基线，不是完整登录系统、WAF、多实例风控、病毒扫描、沙箱解析、CDN 隔离、多租户隔离或内容审核。
 
 ## 部署前配置检查与请求追踪
 

@@ -1,8 +1,21 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { extname, join, relative } from 'node:path';
-import { avatarRegistryPath, avatarsDir, rootDir } from '../config/serverConfig.js';
+import {
+  avatarRegistryPath,
+  avatarsDir,
+  rootDir,
+  uploadMaxTotalBytes,
+  uploadStorageDir
+} from '../config/serverConfig.js';
 import { createHttpError } from '../utils/httpError.js';
 import { clampNumber } from '../utils/number.js';
+import {
+  createSafeUploadFilename,
+  createUploadError,
+  ensureUploadQuotaAvailable,
+  UPLOAD_ERROR_CODES,
+  writeIsolatedUpload
+} from '../utils/uploadStorage.js';
 import {
   sanitizeAvatarId,
   sanitizeDisplayName,
@@ -28,10 +41,7 @@ export class AvatarService {
       throw createHttpError('Missing model file. Upload a .vrm, .glb, or .gltf file.', 400);
     }
 
-    const modelExt = extname(model.filename).toLowerCase();
-    if (!this.validationService.isAllowedModelExtension(modelExt)) {
-      throw createHttpError('Unsupported model format. Use .vrm, .glb, or .gltf.', 400);
-    }
+    const modelExt = this.validationService.getModelExtension(model);
     this.validationService.validateAvatarModelUpload(model, modelExt);
 
     const avatarId = sanitizeAvatarId(form.fields.avatarId || form.fields.name || model.filename);
@@ -43,11 +53,18 @@ export class AvatarService {
       throw createHttpError('Invalid avatar id.', 400);
     }
 
-    await mkdir(avatarDir, { recursive: true });
-
-    const modelFileName = `model${modelExt}`;
     const motionFile = form.files.motions?.[0] || null;
     const skeletonFile = form.files.skeleton?.[0] || null;
+    await ensureUploadQuotaAvailable(
+      uploadStorageDir,
+      totalUploadBytes([model, motionFile, skeletonFile]),
+      uploadMaxTotalBytes
+    );
+    const isolatedModel = await writeIsolatedUpload(model, {
+      directory: uploadStorageDir,
+      extension: modelExt
+    });
+
     const motions = motionFile
       ? this.validationService.parseJsonUpload(motionFile, 'motions.json')
       : createDefaultMotionManifest();
@@ -55,14 +72,22 @@ export class AvatarService {
       ? this.validationService.parseJsonUpload(skeletonFile, 'skeleton.mixamo.json')
       : createDefaultSkeletonMap();
 
-    await writeFile(join(avatarDir, modelFileName), model.buffer);
-    await writeFile(join(avatarDir, 'motions.json'), `${JSON.stringify(motions, null, 2)}\n`);
-    await writeFile(join(avatarDir, 'skeleton.mixamo.json'), `${JSON.stringify(skeletonMap, null, 2)}\n`);
+    await mkdir(avatarDir, { recursive: true });
+
+    const modelFileName = createSafeUploadFilename(modelExt);
+    try {
+      await writeFile(join(avatarDir, modelFileName), model.buffer);
+      await writeFile(join(avatarDir, 'motions.json'), `${JSON.stringify(motions, null, 2)}\n`);
+      await writeFile(join(avatarDir, 'skeleton.mixamo.json'), `${JSON.stringify(skeletonMap, null, 2)}\n`);
+    } catch {
+      throw createUploadError(UPLOAD_ERROR_CODES.STORAGE_FAILED, 'Failed to publish avatar assets.', 500);
+    }
 
     const manifest = createAvatarManifest({
       avatarId,
       avatarName,
       modelFileName,
+      isolatedModel,
       targetHeight,
       llmProvider: form.fields.llmProvider,
       llmModel: form.fields.llmModel,
@@ -134,10 +159,17 @@ export class AvatarService {
   }
 }
 
+function totalUploadBytes(files) {
+  return files
+    .filter(Boolean)
+    .reduce((total, file) => total + (file?.buffer?.length || 0), 0);
+}
+
 function createAvatarManifest({
   avatarId,
   avatarName,
   modelFileName,
+  isolatedModel,
   targetHeight,
   llmProvider,
   llmModel,
@@ -150,6 +182,11 @@ function createAvatarManifest({
     model: {
       url: `public/avatars/${avatarId}/${modelFileName}`,
       format: extname(modelFileName).replace('.', '')
+    },
+    upload: {
+      storage: 'isolated',
+      originalFilename: isolatedModel?.originalFilename || '',
+      storedFilename: isolatedModel?.filename || ''
     },
     thumbnail: '',
     motionManifest: `public/avatars/${avatarId}/motions.json`,

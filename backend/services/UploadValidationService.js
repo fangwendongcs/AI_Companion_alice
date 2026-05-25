@@ -1,22 +1,61 @@
 import { extname } from 'node:path';
 import { createHttpError } from '../utils/httpError.js';
+import {
+  assertSafeOriginalFilename,
+  createUploadError,
+  UPLOAD_ERROR_CODES
+} from '../utils/uploadStorage.js';
 
 const allowedModelExtensions = new Set(['.vrm', '.glb', '.gltf']);
+const dangerousExtensions = new Set([
+  '.html',
+  '.htm',
+  '.js',
+  '.mjs',
+  '.svg',
+  '.php',
+  '.sh',
+  '.bat',
+  '.cmd',
+  '.exe',
+  '.dll',
+  '.dmg',
+  '.pkg',
+  '.zip',
+  '.rar',
+  '.7z'
+]);
 
 export class UploadValidationService {
   isAllowedModelExtension(ext) {
     return allowedModelExtensions.has(String(ext || '').toLowerCase());
   }
 
-  validateAvatarModelUpload(file, modelExt) {
+  getModelExtension(file) {
+    assertSafeOriginalFilename(file?.originalFilename || file?.filename);
+    const ext = extname(file?.filename || file?.originalFilename || '').toLowerCase();
+    if (dangerousExtensions.has(ext)) {
+      throw createUploadError(UPLOAD_ERROR_CODES.FILE_TYPE_INVALID, 'This upload file type is not allowed.', 400);
+    }
+    if (!this.isAllowedModelExtension(ext)) {
+      throw createUploadError(UPLOAD_ERROR_CODES.FILE_TYPE_INVALID, 'Unsupported model format. Use .vrm, .glb, or .gltf.', 400);
+    }
+    return ext;
+  }
+
+  validateAvatarModelUpload(file, modelExt = this.getModelExtension(file)) {
     if (!file?.buffer || file.buffer.length === 0) {
-      throw createHttpError('Model file is empty.', 400);
+      throw createUploadError(UPLOAD_ERROR_CODES.FILE_CONTENT_INVALID, 'Model file is empty.', 400);
     }
 
     if (['.vrm', '.glb'].includes(modelExt)) {
       const magic = file.buffer.subarray(0, 4).toString('utf8');
       if (magic !== 'glTF') {
-        throw createHttpError('Invalid binary model. .vrm/.glb files must be GLB containers.', 400);
+        throw createUploadError(
+          UPLOAD_ERROR_CODES.FILE_CONTENT_INVALID,
+          'Invalid binary model. .vrm/.glb files must be GLB containers.',
+          400
+        );
       }
       return;
     }
@@ -26,16 +65,25 @@ export class UploadValidationService {
       try {
         parsed = JSON.parse(file.buffer.toString('utf8'));
       } catch {
-        throw createHttpError('Invalid .gltf file. Expected JSON glTF manifest.', 400);
+        throw createUploadError(
+          UPLOAD_ERROR_CODES.FILE_CONTENT_INVALID,
+          'Invalid .gltf file. Expected JSON glTF manifest.',
+          400
+        );
       }
 
       if (!parsed?.asset?.version) {
-        throw createHttpError('Invalid .gltf file. Missing asset.version.', 400);
+        throw createUploadError(
+          UPLOAD_ERROR_CODES.FILE_CONTENT_INVALID,
+          'Invalid .gltf file. Missing asset.version.',
+          400
+        );
       }
     }
   }
 
   parseJsonUpload(file, label) {
+    assertSafeOriginalFilename(file?.originalFilename || file?.filename);
     if (extname(file.filename).toLowerCase() !== '.json') {
       throw createHttpError(`${label} must be a JSON file.`, 400);
     }

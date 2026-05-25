@@ -78,6 +78,7 @@ export async function readMultipartForm(req, maxBytes) {
         if (disposition.filename) {
           const file = {
             fieldName: disposition.name,
+            originalFilename: String(disposition.filename || ''),
             filename: sanitizeFilename(disposition.filename),
             contentType: parseHeaderValue(headerText, 'content-type') || 'application/octet-stream',
             buffer: content
