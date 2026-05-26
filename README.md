@@ -189,16 +189,17 @@ In this project, I focused on:
 - Minimal Agent orchestration pipeline.
 - Deployment security baseline: single-token API auth, CORS whitelist, request/upload limits, lightweight rate limiting, request IDs, structured redacted logs, upload quarantine, deployment readiness checks, and validation scripts.
 
-### My Next Focus: Demo-grade Hardening
+### My Next Focus: AI Capability Mainline
 
-- I want to make the project safer for a controlled public-facing preview: platform-level secret management, HTTPS, stricter hosting isolation, and deploy-time observability.
-- I plan to add better presentation material: screenshots, a short GIF, a simple project logo, and browser acceptance evidence.
-- I will keep polishing the product experience around dialogue state, source display, and debug visibility.
+- I will shift the next development phase back to AI capability: memory architecture, stronger RAG, workflow tools, and clearer Agent behavior boundaries.
+- I will keep the current Phase 4 security baseline as the deployment guardrail instead of continuing to over-expand security work before the AI loop improves.
+- I will also add better presentation material: screenshots, a short GIF, a simple project logo, and browser acceptance evidence.
 
 ### Longer-term Direction
 
 - Move from local keyword RAG to vector RAG with embeddings and a vector database such as Qdrant.
 - Upgrade short-term memory into persistent memory with deletion and privacy controls.
+- Connect n8n as controlled backend tools for selected tasks.
 - Improve avatar authoring, model replacement, and animation retargeting.
 - Add higher-quality TTS provider options and voice persona presets.
 - Keep n8n as explicit backend tools, not frontend secrets or the main dialogue brain.

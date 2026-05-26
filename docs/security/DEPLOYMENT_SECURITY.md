@@ -4,6 +4,8 @@
 
 Phase 3 已完成智能能力基线，但这仍然不是生产部署安全基线。当前 `stub`、短期 Memory、本地 RAG、n8n 工具边界和 Agent pipeline 都默认服务于本地演示与开发验收。
 
+Phase 4 已完成公网前安全部署基线：CORS 白名单、body size limit、rate limit、日志脱敏、requestId、结构化请求日志、`DEPLOYMENT_MODE`、production readiness、上传隔离、上传校验、上传配额、单 token API 鉴权、local/demo/production 配置说明和 Secret 管理说明。后续路线切回 Phase 5 AI 能力主线，安全工作只在明确部署目标出现时继续加固。
+
 ## P0
 
 - 限制 CORS 来源，不要继续使用 `Access-Control-Allow-Origin: *` 面向公网；Phase 4.2 已提供 `ALLOWED_ORIGINS`、`CORS_ALLOW_LOCALHOST` 和 `DEPLOYMENT_MODE` 配置。

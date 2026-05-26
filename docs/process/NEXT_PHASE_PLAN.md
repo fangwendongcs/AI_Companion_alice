@@ -303,93 +303,108 @@ npm run smoke
 git diff --check
 ```
 
-## Phase 4.1：部署安全与公网前检查基线
+## Phase 4：安全部署基线收口
 
 **目标**
 
-- 为后续公网或半公网私有演示建立安全基线，不真正部署，不接新智能能力。
+- 为后续私有演示或公网部署候选建立最低限度的安全部署护栏。
+- 完成后停止继续安全化，避免项目路线偏离 AI Companion 主线。
 
 **已完成事项**
 
-- 明确公网前必须鉴权的接口：`POST /api/dialogue`、`POST /api/chat`、`POST /api/tts`、`POST /api/avatars`。
-- 明确可公开读取的接口：`GET /api/health`、`GET /api/providers` 和静态资源；`/api/providers` 只允许返回安全 readiness 状态。
-- 新增默认关闭的轻量 API auth 边界：`REQUIRE_API_AUTH` / `API_AUTH_TOKEN`。
-- 新增 `check:security-boundaries`，覆盖前端 secret 边界、上传基础保护、provider readiness 安全和部署文档完整性。
-- 新增 `docs/security/PHASE4_DEPLOYMENT_SECURITY_BASELINE.md`。
+- Phase 4.1：轻量 API 鉴权边界，保护高风险写接口。
+- Phase 4.2：CORS 白名单、JSON / upload body size limit、轻量 rate limit、日志脱敏。
+- Phase 4.3：`DEPLOYMENT_MODE`、production readiness、`X-Request-ID`、结构化请求日志。
+- Phase 4.4：上传隔离、上传文件名安全、模型文件基础内容校验、上传配额。
+- Phase 4.5：单 token API 鉴权边界，支持 `Authorization: Bearer` 和 `X-API-Token`。
+- Phase 4.6：local / demo / production 配置说明、Secret 管理和部署检查清单。
+- Phase 4.7：Phase 4 基线封版，路线切回 Phase 5 AI 能力主线。
 
-**Phase 4.2：公网部署前请求边界治理**
+**当前未包含**
 
-- CORS 白名单落地，同时保留本地 localhost 开发体验。
-- JSON 请求体、角色上传体积和 avatar 上传上限配置化。
-- 敏感写接口增加单进程轻量 rate limit。
-- `serverLogger` 接入基础日志脱敏，不记录 token、secret、cookie、Authorization 或完整 request body。
-- 扩展 `check:security-boundaries`，让 CORS / body limit / rate limit / log redaction 进入自动检查。
+- 完整登录系统、OAuth / RBAC、多用户权限。
+- 对象存储、CDN 隔离、WAF。
+- 病毒扫描、沙箱解析、正式内容审核流。
+- OpenTelemetry / Sentry、多实例 rate limit、审计后台。
 
-**Phase 4.3 可选方向**
+**短期可做**
 
-**Phase 4.3：部署配置收敛与运行可观测性基线**
+- 针对某一个真实部署平台补充变量映射和启动说明。
+- 补浏览器验收证据、截图和项目展示材料。
 
-- `DEPLOYMENT_MODE` 收敛为 `local / demo / production`。
-- 服务启动前执行配置校验，production 模式缺少 `ALLOWED_ORIGINS`、API auth 或安全 token 时直接失败。
-- 新增 `X-Request-ID`，响应头、请求日志和错误日志可按 requestId 追踪。
-- `serverLogger` 输出结构化字段，并继续经过 `redact` 脱敏。
-- 新增 `check:deployment-readiness`，用于部署前检查配置、边界文件和高风险日志模式。
+**中期增强**
 
-**Phase 4.4：上传隔离与文件安全边界**
+- 正式身份系统方案。
+- 上传审核发布流。
+- 平台日志检索和 requestId 排障流程。
 
-- 原始上传文件先进入 `UPLOAD_STORAGE_DIR` 隔离区。
-- 验证后生成安全文件名，再发布到 `AVATAR_ASSET_DIR`。
-- 拒绝路径穿越、危险扩展名和伪装模型文件。
-- 对 `.vrm/.glb/.gltf` 做基础内容校验。
-- 增加上传隔离目录总配额 `UPLOAD_MAX_TOTAL_BYTES`。
-- 新增 `check:upload-boundaries` 并纳入 `npm run check`。
+**生产级后续项**
 
-**Phase 4.5：API 鉴权边界基线**
-
-- 单 token API 鉴权边界收口。
-- 支持 `Authorization: Bearer <token>` 与 `X-API-Token`。
-- 公开 `GET /api/health`、`GET /api/providers`、`GET /api/avatars` 和静态资源。
-- 保护敏感写接口和非明确公开的 `POST / PUT / PATCH / DELETE` API。
-- 稳定错误码：`API_AUTH_REQUIRED`、`API_AUTH_INVALID`、`API_AUTH_MISCONFIGURED`。
-- 新增 `check:api-auth-boundaries` 并纳入 `npm run check`。
-
-**Phase 4.6：部署配置、Secret 管理与公网前收口**
-
-- local / demo / production 三种运行模式已文档化。
-- `.env.example` 收口为占位值和部署前配置提示，不包含真实 secret。
-- production 配置校验继续要求正式 `ALLOWED_ORIGINS`、`REQUIRE_API_AUTH=true`、非占位 `API_AUTH_TOKEN`、`RATE_LIMIT_ENABLED=true` 和明确上传 / 公开资源目录。
-- `check:deployment-readiness` 增加 `.env.example`、部署文档和 Secret 管理说明检查。
-- 新增 `docs/deployment/ENVIRONMENT_MODES.md` 与 `docs/deployment/DEPLOYMENT_CHECKLIST.md`。
-
-**不做事项**
-
-- 不接 Qdrant、不做 embedding、不实现长期记忆数据库。
-- 不新增真实 n8n workflow。
-- 不修改模型、角色、动画、TTS 主逻辑。
+- 对象存储隔离桶。
+- 内容安全扫描。
+- WAF / 平台层防护。
+- 多实例限流和正式审计后台。
 
 **测试命令**
 
 ```bash
 npm run check
 npm run smoke
+npm run check:deployment-readiness
 git diff --check
 ```
 
-## Suggested Phase 4.7：部署平台适配或产品体验增强
+## Phase 5：AI 能力主线
+
+Phase 5 重新回到 AI Companion 的智能能力，不继续把安全工作无限扩展成完整生产平台。
+
+### Phase 5.1：记忆系统架构设计
 
 **目标**
 
-- 在 Phase 4.6 的配置基线之上，选择一个明确方向继续推进，不要一次性做完整生产化。
-
-**建议任务**
-
-- 部署平台适配：Render / Railway / VPS / Docker 任选其一，补充实际部署步骤和平台变量映射。
-- 正式身份系统方案：把单 token API auth 升级为真正用户访问控制的设计与最小实现。
-- 上传发布流：对象存储隔离桶、审核后发布、内容扫描。
-- 可观测性：平台日志、requestId 检索、错误告警和审计查询。
+- 设计从当前短期进程内 Memory 过渡到可控长期记忆的架构。
+- 明确会话记忆、用户偏好、角色记忆、摘要和删除策略之间的边界。
 
 **边界**
 
-- 不接 Qdrant / embedding / 长期记忆数据库。
-- 不新增真实 n8n workflow。
-- 不把 RAG、Memory、n8n、Agent 逻辑移入前端 UI 或 AppController。
+- 不直接上数据库。
+- 不把记忆正文存到前端 localStorage。
+
+### Phase 5.2：本地 RAG / Qdrant 接入
+
+**目标**
+
+- 从当前本地关键词 RAG 过渡到 embedding + vector retrieval 的技术方案或最小实现。
+- Qdrant 只应由后端访问。
+
+**边界**
+
+- 前端不直连 Qdrant。
+- 不把向量库凭证写入前端或文档真实值。
+
+### Phase 5.3：n8n 工作流接入
+
+**目标**
+
+- 将 n8n 保持为后端工具调用层，用于具体任务，而不是主对话编排器。
+- 明确 webhook 超时、错误、审计和高风险动作确认策略。
+
+### Phase 5.4：Agent 行为边界
+
+**目标**
+
+- 收口 AI companion 的行为状态、工具调用边界和失败降级策略。
+- 避免无限循环 Agent、多 Agent 过早复杂化。
+
+## Phase 6：前端与数字人体验升级
+
+- 更清晰的对话状态和来源展示。
+- 更自然的动作 / 语音联动。
+- 角色切换、上传和动作兼容性的用户体验优化。
+- 更适合展示的 UI polish 和浏览器验收证据。
+
+## Phase 7：GitHub 展示与作品集包装
+
+- 截图、短 GIF、项目 logo 和演示说明。
+- README / PROJECT_SHOWCASE 持续维护。
+- 选择性补充在线演示或视频说明。

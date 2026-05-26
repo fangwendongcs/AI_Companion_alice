@@ -2,9 +2,49 @@
 
 ## 结论
 
-Phase 4.1 建立公网部署前的 API 鉴权基线；Phase 4.2 继续收口 CORS 白名单、请求大小限制、轻量速率限制和日志脱敏基线；Phase 4.3 增加部署配置校验、请求 ID、结构化日志和生产启动前检查；Phase 4.4 增加上传隔离与文件安全边界；Phase 4.5 收口单 token API 鉴权边界；Phase 4.6 收口 local / demo / production 配置、Secret 管理与部署检查文档。本阶段不做真实部署、不接新 provider、不接 Qdrant、不新增 n8n workflow。
+Phase 4.1 建立公网部署前的 API 鉴权基线；Phase 4.2 继续收口 CORS 白名单、请求大小限制、轻量速率限制和日志脱敏基线；Phase 4.3 增加部署配置校验、请求 ID、结构化日志和生产启动前检查；Phase 4.4 增加上传隔离与文件安全边界；Phase 4.5 收口单 token API 鉴权边界；Phase 4.6 收口 local / demo / production 配置、Secret 管理与部署检查文档；Phase 4.7 对安全部署基线做阶段封版，并把后续路线切回 AI 能力主线。本阶段不做真实部署、不接新 provider、不接 Qdrant、不新增 n8n workflow。
 
 当前后端仍默认服务本地开发。公网或半公网私有演示前，必须至少开启 API 鉴权、配置正式域名白名单、限制请求体和上传体积、保护上传接口、确认 secret 只在后端环境变量中。
+
+## Phase 4.7 收口结论
+
+Phase 4 的目标是让项目具备“公网前安全基线”，不是把当前本地服务一次性做成完整生产系统。到 Phase 4.7 为止，已完成：
+
+- CORS 白名单与本地 localhost 兼容策略。
+- JSON / upload body size limit。
+- 单进程轻量 rate limit。
+- 日志脱敏。
+- `X-Request-ID`。
+- 结构化请求日志。
+- `DEPLOYMENT_MODE=local/demo/production`。
+- production readiness 检查。
+- 上传隔离。
+- 上传文件名、类型和内容校验。
+- 上传隔离目录配额。
+- 单 token API 鉴权边界。
+- local / demo / production 配置说明。
+- Secret 管理说明。
+
+当前明确未包含：
+
+- 完整登录系统。
+- OAuth / RBAC。
+- 多用户权限。
+- 对象存储。
+- CDN 隔离。
+- WAF。
+- 病毒扫描。
+- 沙箱解析。
+- OpenTelemetry / Sentry。
+- 多实例 rate limit。
+- 审计后台。
+- 正式内容审核流。
+
+后续工作不再继续无限扩展 Phase 4。短期路线切回 Phase 5 AI 能力主线；安全相关增强按需要分层推进：
+
+- 短期可做：为具体部署平台补变量映射、HTTPS 说明、私有演示访问策略。
+- 中期增强：正式身份系统、对象存储隔离桶、上传审核流、平台日志检索。
+- 生产级后续项：WAF、内容扫描、审计后台、多实例限流、OpenTelemetry / Sentry。
 
 ## Phase 4.3 / 4.6 配置分层、Secret 管理与可观测性
 

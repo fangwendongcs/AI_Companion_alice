@@ -1588,3 +1588,12 @@ npm run check:assets
 - 新增 `docs/deployment/ENVIRONMENT_MODES.md` 与 `docs/deployment/DEPLOYMENT_CHECKLIST.md`，说明本地、私有演示和公网部署候选的配置方式。
 - README、backend README、部署安全文档和下一阶段计划同步 Phase 4.6 收口结果。
 - 本轮不做真实部署平台适配、不接正式身份系统、不接对象存储 / CDN / WAF / 外部日志平台，不改业务主链路。
+
+## 57. Phase 4.7 安全部署基线收尾与路线切换
+
+- Phase 4 安全部署基线阶段封版，文档集中说明已完成的 CORS、body limit、rate limit、日志脱敏、requestId、结构化日志、`DEPLOYMENT_MODE`、production readiness、上传隔离、上传校验、上传配额、API token 鉴权、Secret 管理和 local/demo/production 配置说明。
+- 安全文档明确当前仍不是完整生产级系统，不包含完整登录、OAuth/RBAC、多用户权限、对象存储、CDN、WAF、病毒扫描、沙箱解析、OpenTelemetry/Sentry、多实例限流、审计后台或正式内容审核流。
+- Future Work 收敛为短期可做、中期增强、生产级后续项，避免继续把所有安全能力都列为马上要做。
+- `NEXT_PHASE_PLAN.md` 切换到 Phase 5 AI 能力主线：记忆系统架构、本地 RAG / Qdrant、n8n 工作流、Agent 行为边界，并保留 Phase 6 前端体验升级与 Phase 7 GitHub 展示包装方向。
+- README 中将下一阶段叙事从部署安全加固切回 AI 能力主线，安全基线作为后续部署护栏保留。
+- 本轮只做文档、路线和验收标准收口，不修改业务逻辑、前端 UI、角色、模型、动画、TTS 或 LLM 主链路。
