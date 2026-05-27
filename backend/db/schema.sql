@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS memory_items (
   type TEXT NOT NULL CHECK (type IN ('preference', 'fact', 'goal', 'relationship', 'boundary', 'event', 'style')),
   content TEXT NOT NULL,
   confidence REAL NOT NULL DEFAULT 0.5,
+  importance REAL NOT NULL DEFAULT 0.5,
   source_message_ids TEXT,
   status TEXT NOT NULL DEFAULT 'active',
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,

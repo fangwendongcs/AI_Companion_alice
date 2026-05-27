@@ -190,6 +190,43 @@ async function assertMemoryFlow() {
   if (secondData.rag?.used !== false || secondData.workflow?.used !== false) {
     throw new Error('/api/dialogue memory flow should keep rag/workflow disabled');
   }
+
+  const longTermSessionId = `smoke_long_term_${Date.now()}`;
+  const explicit = await postJson('/api/dialogue', {
+    message: '请记住：我喜欢简短自然的中文陪伴回复',
+    provider: 'stub',
+    model: 'stub',
+    sessionId: longTermSessionId,
+    options: {
+      useMemory: true,
+      useRag: false,
+      useWorkflow: false
+    }
+  });
+  const explicitData = explicit.data || explicit;
+  if (explicitData.memory?.longTermWrite?.stored !== true) {
+    throw new Error('/api/dialogue explicit memory should write one long-term item');
+  }
+  if (explicitData.memory?.longTerm?.count !== 1) {
+    throw new Error('/api/dialogue explicit memory should expose longTerm metadata');
+  }
+
+  const ordinarySessionId = `smoke_ordinary_${Date.now()}`;
+  const ordinary = await postJson('/api/dialogue', {
+    message: '今天只是普通闲聊一下',
+    provider: 'stub',
+    model: 'stub',
+    sessionId: ordinarySessionId,
+    options: {
+      useMemory: true,
+      useRag: false,
+      useWorkflow: false
+    }
+  });
+  const ordinaryData = ordinary.data || ordinary;
+  if (ordinaryData.memory?.longTermWrite?.stored === true || ordinaryData.memory?.longTerm?.count !== 0) {
+    throw new Error('/api/dialogue ordinary chat should not create long-term memory');
+  }
 }
 
 async function assertProviderStatus() {

@@ -43,6 +43,7 @@ export class MemoryRepository {
       model,
       metadata ? JSON.stringify(metadata) : null
     );
+    return Number(this.database.prepare('SELECT last_insert_rowid() AS id').get().id);
   }
 
   listMessages({ sessionId, limit = 20 } = {}) {
@@ -71,6 +72,149 @@ export class MemoryRepository {
     this.database
       .prepare('DELETE FROM sessions WHERE session_id = ?')
       .run(normalizeText(sessionId, 'default'));
+  }
+
+  upsertMemoryItem({
+    sessionId = null,
+    avatarId = DEFAULT_AVATAR_ID,
+    scope = 'session',
+    type = 'fact',
+    content,
+    confidence = 0.7,
+    importance = 0.7,
+    sourceMessageIds = []
+  } = {}) {
+    const normalizedContent = normalizeText(content, '');
+    if (!normalizedContent) return null;
+    const normalizedSessionId = sessionId ? normalizeText(sessionId, 'default') : null;
+    const normalizedAvatarId = normalizeText(avatarId, DEFAULT_AVATAR_ID);
+    const normalizedType = normalizeMemoryType(type);
+    const existing = this.findSimilarMemoryItem({
+      sessionId: normalizedSessionId,
+      avatarId: normalizedAvatarId,
+      scope,
+      type: normalizedType,
+      content: normalizedContent
+    });
+    const sourceMessageIdsJson = JSON.stringify(sourceMessageIds.map(Number).filter(Boolean));
+
+    if (existing) {
+      this.database.prepare(`
+        UPDATE memory_items
+        SET content = ?,
+            confidence = MAX(confidence, ?),
+            importance = MAX(importance, ?),
+            source_message_ids = ?,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(normalizedContent, normalizeScore(confidence), normalizeScore(importance), sourceMessageIdsJson, existing.id);
+      this.recordMemoryEvent({
+        memoryItemId: existing.id,
+        sessionId: normalizedSessionId,
+        avatarId: normalizedAvatarId,
+        eventType: 'updated',
+        reason: 'duplicate_explicit_memory',
+        metadata: { type: normalizedType }
+      });
+      return this.getMemoryItem(existing.id);
+    }
+
+    this.database.prepare(`
+      INSERT INTO memory_items (
+        scope, session_id, avatar_id, type, content, confidence, importance, source_message_ids, status
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')
+    `).run(
+      normalizeText(scope, 'session'),
+      normalizedSessionId,
+      normalizedAvatarId,
+      normalizedType,
+      normalizedContent,
+      normalizeScore(confidence),
+      normalizeScore(importance),
+      sourceMessageIdsJson
+    );
+    const id = Number(this.database.prepare('SELECT last_insert_rowid() AS id').get().id);
+    this.recordMemoryEvent({
+      memoryItemId: id,
+      sessionId: normalizedSessionId,
+      avatarId: normalizedAvatarId,
+      eventType: 'created',
+      reason: 'explicit_memory',
+      metadata: { type: normalizedType }
+    });
+    return this.getMemoryItem(id);
+  }
+
+  getMemoryItem(id) {
+    return this.database.prepare('SELECT * FROM memory_items WHERE id = ?').get(Number(id));
+  }
+
+  findSimilarMemoryItem({ sessionId = null, avatarId = DEFAULT_AVATAR_ID, scope = 'session', type = 'fact', content }) {
+    return this.database.prepare(`
+      SELECT * FROM memory_items
+      WHERE status = 'active'
+        AND avatar_id = ?
+        AND scope = ?
+        AND type = ?
+        AND COALESCE(session_id, '') = COALESCE(?, '')
+        AND lower(content) = lower(?)
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `).get(
+      normalizeText(avatarId, DEFAULT_AVATAR_ID),
+      normalizeText(scope, 'session'),
+      normalizeMemoryType(type),
+      sessionId,
+      normalizeText(content, '')
+    );
+  }
+
+  listMemoryItems({ sessionId = null, avatarId = DEFAULT_AVATAR_ID, scope = 'session', status = 'active', limit = 6 } = {}) {
+    return this.database.prepare(`
+      SELECT * FROM memory_items
+      WHERE status = ?
+        AND avatar_id = ?
+        AND (
+          scope = 'global'
+          OR (scope = ? AND COALESCE(session_id, '') = COALESCE(?, ''))
+        )
+      ORDER BY importance DESC, updated_at DESC
+      LIMIT ?
+    `).all(
+      normalizeText(status, 'active'),
+      normalizeText(avatarId, DEFAULT_AVATAR_ID),
+      normalizeText(scope, 'session'),
+      sessionId,
+      normalizeLimit(limit)
+    );
+  }
+
+  deleteMemoryItem(id, { reason = 'manual_delete' } = {}) {
+    const item = this.getMemoryItem(id);
+    if (!item) return false;
+    this.database.prepare(`
+      UPDATE memory_items
+      SET status = 'deleted', updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(Number(id));
+    this.recordMemoryEvent({
+      memoryItemId: Number(id),
+      sessionId: item.session_id,
+      avatarId: item.avatar_id,
+      eventType: 'forgotten',
+      reason,
+      metadata: { type: item.type }
+    });
+    return true;
+  }
+
+  clearMemoryItems({ sessionId = null, avatarId = DEFAULT_AVATAR_ID, scope = 'session', reason = 'manual_clear' } = {}) {
+    const items = this.listMemoryItems({ sessionId, avatarId, scope, limit: 100 });
+    for (const item of items) {
+      this.deleteMemoryItem(item.id, { reason });
+    }
+    return items.length;
   }
 
   recordMemoryEvent({ sessionId = null, avatarId = DEFAULT_AVATAR_ID, eventType, reason = null, metadata = null, memoryItemId = null }) {
@@ -111,4 +255,16 @@ function normalizeLimit(value) {
   const number = Number(value);
   if (!Number.isFinite(number)) return 20;
   return Math.max(1, Math.min(100, Math.floor(number)));
+}
+
+function normalizeMemoryType(value) {
+  const type = normalizeText(value, 'fact');
+  if (['preference', 'fact', 'goal', 'relationship', 'boundary', 'event', 'style'].includes(type)) return type;
+  return 'fact';
+}
+
+function normalizeScore(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 0.5;
+  return Math.max(0, Math.min(1, number));
 }

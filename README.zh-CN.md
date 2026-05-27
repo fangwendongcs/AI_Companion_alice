@@ -20,7 +20,7 @@ Alice 不是一个普通聊天框 Demo。这个项目探索的是：AI 伙伴如
 - **状态驱动架构**：拆分 app、avatar、animation、dialogue、audio、interaction 等状态。
 - **面向动画扩展的运行时**：支持 boot / idle / gesture / speaking / listening 等动作槽位，并有队列与状态机检查。
 - **统一 AI 后端边界**：前端对话流走 `/api/dialogue`，`/api/chat` 保留为兼容入口。
-- **智能能力接入基线**：支持 stub provider、provider readiness、短期 Memory、本地关键词 RAG、可选 n8n workflow 边界和最小 Agent 编排。
+- **智能能力接入基线**：支持 stub provider、provider readiness、SQLite-backed Memory、保守长期记忆条目、本地关键词 RAG、可选 n8n workflow 边界和最小 Agent 编排。
 - **安全边界清晰**：API Key、TTS Key、n8n webhook URL / secret、未来向量库凭据都留在后端。
 - **验证优先的交付方式**：包含 regression、asset、config、API、安全、Memory、RAG、workflow、Agent 和 smoke 检查。
 
@@ -40,7 +40,7 @@ flowchart LR
 
   Dialogue --> API["Backend API Boundary<br/>POST /api/dialogue"]
   API --> Orchestrator["DialogueOrchestrationService"]
-  Orchestrator --> Memory["MemoryService<br/>short-term in-memory"]
+  Orchestrator --> Memory["MemoryService<br/>SQLite 短期记忆 + 保守长期记忆"]
   Orchestrator --> RAG["RagService<br/>local keyword retrieval"]
   Orchestrator --> Workflow["N8nWorkflowService<br/>optional tool boundary"]
   Orchestrator --> Prompt["PromptBuilder"]
@@ -54,7 +54,8 @@ flowchart LR
 - `stub` 是默认本地开发 provider。
 - 当前 RAG 是基于 `data/knowledge/` 的本地关键词检索，不是向量检索。
 - n8n 当前是可选后端工具边界，不是主对话编排器。
-- Qdrant / embedding / 长期记忆数据库 / 多 Agent 循环属于未来方向，不是当前已完成能力。
+- 长期记忆采用保守策略：只有用户明确要求保存的稳定信息才会进入 `memory_items`。
+- Qdrant / embedding / 多 Agent 循环仍是可选未来方向，不是当前主线。
 
 ## 当前完成度
 
@@ -68,7 +69,7 @@ flowchart LR
 | TTS / Audio | MVP | 浏览器语音兜底 + 后端 TTS proxy 边界，真实 provider Key 只在后端。 |
 | Backend API Boundary | MVP | 原生 Node 后端，包含 routes、services、provider readiness、上传校验与安全检查。 |
 | LLM Provider | MVP / configurable | 默认 `stub` 无 Key 可运行，真实 provider 需要后端环境变量。 |
-| Short-term Memory | MVP | 后端进程内 session memory，不是长期用户画像数据库。 |
+| Memory | MVP / evolving | SQLite-backed 最近上下文 + 保守长期 `memory_items`；不是自动用户画像系统。 |
 | Local RAG | MVP | 从 `data/knowledge/` 读取 markdown / JSON 并做关键词检索，没有 embedding。 |
 | n8n Workflow | Boundary | 可选后端 workflow 调用边界，不是主编排器。 |
 | Agent Orchestration | MVP boundary | 最小 Memory -> RAG -> optional Workflow -> PromptBuilder -> LLM pipeline。 |
@@ -182,7 +183,7 @@ npm run smoke
 - 点击交互和 motion-slot 动作反馈。
 - `/api/dialogue` 作为主对话入口。
 - 本地 `stub` provider 支持无 Key 开发。
-- 后端短期 Memory。
+- SQLite-backed 短期 Memory 和保守长期记忆条目。
 - 来自 `data/knowledge/` 的本地关键词 RAG。
 - 可选 n8n workflow 边界。
 - 最小 Agent orchestration pipeline。
@@ -197,11 +198,10 @@ npm run smoke
 
 ### 更长期的方向
 
-- 先设计记忆系统，再用 SQLite 做本地 sessions、memory turns、agent events 和 user settings 持久化。
-- 使用 `data/sqlite/alice.db` 作为规划中的本地记忆主库。
-- SQLite schema 基座已建立，覆盖 sessions、messages、memory items、personas、preferences 和 memory settings。
-- 开启 Memory 时，最近对话上下文已经由 SQLite 承载，基础短期记忆可以在服务重启后恢复。
-- 把短期 Memory 升级成可清除、可隔离、重视隐私的长期记忆摘要。
+- `data/sqlite/alice.db` 是当前本地记忆主库，覆盖 sessions、messages、memory items、personas、preferences 和 memory settings。
+- 开启 Memory 时，最近对话上下文由 SQLite 承载，基础短期记忆可以在服务重启后恢复。
+- 显式长期记忆已经以保守 `memory_items` 形式接入：只保存用户明确要求记住的稳定偏好、目标或事实，拒绝敏感内容，并合并重复记忆。
+- 长期记忆继续保持可清除、可解释、按 session/avatar 隔离和隐私优先。
 - 为 Alice / Shiro / Wambo 建立 persona 配置，让角色差异不只是模型不同。
 - 优先优化中文陪伴对话连续性，再扩展知识库能力。
 - RAG / Qdrant / embedding 保留为可选增强，不作为近期主线。

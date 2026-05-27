@@ -20,7 +20,7 @@ This repository is organized as a **local MVP system** with a staged path toward
 - **State-driven architecture**: separates app state, avatar state, animation state, dialogue state, audio state, and interaction events.
 - **Animation-ready runtime**: supports boot / idle / gesture / speaking / listening motion slots with queue and state-machine checks.
 - **Unified AI backend boundary**: frontend dialogue flows through `/api/dialogue`, while `/api/chat` remains as a compatibility endpoint.
-- **Intelligence integration baseline**: supports stub provider, provider readiness, short-term Memory, local keyword RAG, optional n8n workflow boundary, and minimal Agent orchestration.
+- **Intelligence integration baseline**: supports stub provider, provider readiness, SQLite-backed Memory, conservative long-term memory items, local keyword RAG, optional n8n workflow boundary, and minimal Agent orchestration.
 - **Security-aware evolution**: API keys, TTS keys, n8n webhook URL / secret, upload quarantine files, and future vector credentials stay behind the backend boundary, with pre-public request boundaries for auth, CORS, body limits, rate limits, and log redaction.
 - **Validation-first delivery**: includes regression, asset, config, API, security, Memory, RAG, workflow, Agent, and smoke checks.
 
@@ -40,7 +40,7 @@ flowchart LR
 
   Dialogue --> API["Backend API Boundary<br/>POST /api/dialogue"]
   API --> Orchestrator["DialogueOrchestrationService"]
-  Orchestrator --> Memory["MemoryService<br/>short-term in-memory"]
+  Orchestrator --> Memory["MemoryService<br/>SQLite short-term + conservative long-term"]
   Orchestrator --> RAG["RagService<br/>local keyword retrieval"]
   Orchestrator --> Workflow["N8nWorkflowService<br/>optional tool boundary"]
   Orchestrator --> Prompt["PromptBuilder"]
@@ -54,7 +54,8 @@ Notes:
 - `stub` is the default local provider for no-key development.
 - RAG is currently local keyword retrieval from `data/knowledge/`, not vector search.
 - n8n is an optional backend tool boundary, not the main dialogue orchestrator.
-- Qdrant / embedding / long-term memory database / multi-agent loops are future directions, not current completed features.
+- Long-term memory is conservative and explicit: only user-approved stable facts are promoted into `memory_items`.
+- Qdrant / embedding / multi-agent loops remain optional future directions, not the current mainline.
 
 ## Project Status
 
@@ -68,7 +69,7 @@ Notes:
 | TTS / Audio | MVP | Browser fallback plus backend TTS proxy boundary; real provider keys remain backend-only. |
 | Backend API Boundary | MVP | Native Node HTTP backend with routes, services, provider readiness, upload validation, and security checks. |
 | LLM Provider | MVP / configurable | Default `stub` provider works without keys; real providers require backend environment variables. |
-| Short-term Memory | MVP | Backend in-memory session memory; not persistent and not a long-term profile database. |
+| Memory | MVP / evolving | SQLite-backed recent context plus conservative long-term `memory_items` for explicit user-approved memories; not an automatic user-profile system. |
 | Local RAG | MVP | Local markdown / JSON keyword retrieval from `data/knowledge/`; no embeddings yet. |
 | n8n Workflow | Boundary | Optional backend workflow invocation boundary; not a main orchestrator. |
 | Agent Orchestration | MVP boundary | Minimal Memory -> RAG -> optional Workflow -> PromptBuilder -> LLM pipeline. |
@@ -183,7 +184,7 @@ In this project, I focused on:
 - Click interactions and motion-slot-driven feedback.
 - `/api/dialogue` as the main dialogue entry.
 - Local `stub` provider for no-key development.
-- Short-term backend Memory.
+- SQLite-backed short-term Memory and conservative long-term memory items.
 - Local keyword RAG from `data/knowledge/`.
 - Optional n8n workflow boundary.
 - Minimal Agent orchestration pipeline.
@@ -197,11 +198,10 @@ In this project, I focused on:
 
 ### Longer-term Direction
 
-- Design the memory system first, then add SQLite-based local persistence for sessions, memory turns, agent events, and user settings.
-- Use `data/sqlite/alice.db` as the planned local memory database.
-- The SQLite schema foundation now exists for sessions, messages, memory items, personas, preferences, and memory settings.
-- When Memory is enabled, recent dialogue context is now backed by SQLite, so basic short-term memory can survive a server restart.
-- Upgrade short-term memory into controlled long-term memory summaries with deletion, privacy, session isolation, and avatar isolation.
+- `data/sqlite/alice.db` is the local memory database for sessions, messages, memory items, personas, preferences, and memory settings.
+- When Memory is enabled, recent dialogue context is backed by SQLite, so basic short-term memory can survive a server restart.
+- Explicit long-term memory is now available through conservative `memory_items`: the system only promotes stable user-approved details such as preferences or goals, rejects sensitive content, and merges duplicates instead of saving everything.
+- Keep long-term memory clearable, explainable, session/avatar scoped, and privacy-first.
 - Build persona configuration for Alice / Shiro / Wambo so each avatar has a distinct companion experience.
 - Improve Chinese companion dialogue continuity before expanding knowledge-base features.
 - Keep RAG / Qdrant / embedding as optional enhancements instead of the immediate mainline.

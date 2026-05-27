@@ -18,9 +18,19 @@ export async function initializeSQLiteDatabase({ dbPath = sqliteDbPath } = {}) {
   const database = new DatabaseSync(dbPath);
   database.exec('PRAGMA foreign_keys = ON;');
   database.exec(await readFile(schemaPath, 'utf8'));
+  applyLightweightMigrations(database);
   return database;
 }
 
 export function getSQLiteSchemaPath() {
   return schemaPath;
+}
+
+function applyLightweightMigrations(database) {
+  const memoryItemColumns = new Set(
+    database.prepare('PRAGMA table_info(memory_items)').all().map((column) => column.name)
+  );
+  if (!memoryItemColumns.has('importance')) {
+    database.exec('ALTER TABLE memory_items ADD COLUMN importance REAL NOT NULL DEFAULT 0.5;');
+  }
 }

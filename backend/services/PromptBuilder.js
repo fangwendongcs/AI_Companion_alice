@@ -1,4 +1,5 @@
 const MAX_SYSTEM_PROMPT_CHARS = 4000;
+const MAX_LONG_TERM_MEMORY_CHARS = 240;
 const MAX_RAG_PASSAGE_CHARS = 700;
 const MAX_WORKFLOW_CHARS = 700;
 
@@ -22,12 +23,25 @@ export class PromptBuilder {
 }
 
 function buildMemorySection(memory) {
-  if (!memory?.used || !memory.context?.length) return '';
+  if (!memory?.used) return '';
 
-  const lines = memory.context
+  const sections = [];
+  if (memory.longTerm?.items?.length) {
+    const longTermLines = memory.longTerm.items
+      .slice(0, 6)
+      .map((item) => `- [${item.type || 'fact'}] ${String(item.content || '').slice(0, MAX_LONG_TERM_MEMORY_CHARS)}`)
+      .join('\n');
+    sections.push(`长期记忆（用户明确要求保存，可清除，仅供陪伴连续性参考）：\n${longTermLines}`);
+  }
+
+  if (memory.context?.length) {
+    const lines = memory.context
     .map((item) => `${item.role === 'assistant' ? 'Alice' : 'User'}: ${item.content}`)
     .join('\n');
-  return `短期对话记忆（仅供当前会话参考）：\n${lines}`;
+    sections.push(`短期对话记忆（仅供当前会话参考）：\n${lines}`);
+  }
+
+  return sections.join('\n\n');
 }
 
 function buildRagSection(rag) {

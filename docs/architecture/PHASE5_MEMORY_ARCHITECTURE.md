@@ -4,15 +4,17 @@
 
 Phase 5 is about companion memory, persona, and continuity. AI Companion Alice is not an enterprise knowledge-base Q&A system, so the next engineering line should not be Qdrant-first or RAG-first.
 
-Current state after Phase 5.3 short-term persistence:
+Current state after Phase 5.4 conservative long-term memory:
 
 - Phase 4 closed the self-hosting and deployment security baseline. It did not close database work.
 - SQLite schema initialization and a minimal repository boundary now exist.
 - The planned local database path is `data/sqlite/alice.db`.
 - Enabled short-term dialogue memory now uses SQLite-backed storage through `MemoryService`.
 - Recent session context can be restored after reopening the SQLite database.
-- Long-term Memory has not been implemented.
-- `memory_items` exists in the schema, but automatic long-term memory extraction has not started yet.
+- Conservative long-term Memory now writes a small number of explicit user-approved facts into `memory_items`.
+- Ordinary chat is not automatically promoted to long-term memory.
+- Sensitive content such as API keys, passwords, identity numbers, financial data, and secret-like tokens is rejected before long-term storage.
+- Duplicate explicit memories are merged/updated instead of appended forever.
 - Short-term Memory, local keyword RAG, n8n workflow boundary, and Agent pipeline already exist, but they are intelligence baselines, not the final companion memory system.
 - RAG / Qdrant / embedding are deferred optional enhancements.
 
@@ -42,8 +44,8 @@ SQLite should be the source of truth for companion memory. Files should only sup
 | Layer | Purpose | Storage Direction | Notes |
 | --- | --- | --- | --- |
 | Raw Session | Traceable original session and message records | SQLite `sessions` + `messages` | Used for recovery, review, and controlled summarization. |
-| Short-term Memory | Recent N turns for the current session | In memory now; SQLite in Phase 5.3 | Drives immediate context continuity. |
-| Long-term Memory | Stable preferences, facts, goals, relationship facts, important events | SQLite `memory_items` | Only important content should be promoted. |
+| Short-term Memory | Recent N turns for the current session | SQLite `messages` | Drives immediate context continuity and can recover after server restart. |
+| Long-term Memory | Stable preferences, facts, goals, relationship facts, important events | SQLite `memory_items` | Only explicit, non-sensitive, user-approved content is promoted. |
 | Persona Memory | Character persona, tone, boundaries, interaction style | SQLite/config `avatar_personas` | Alice / Shiro / Wambo should feel different beyond model assets. |
 | Memory Policy | Rules for write, update, forget, prohibited storage, privacy controls | SQLite/config `memory_settings` + policy docs | User control matters more than automatic hoarding. |
 
@@ -269,11 +271,13 @@ Phase 5.3 wires enabled short-term Memory to SQLite through `MemoryRepository`. 
 
 ### Phase 5.4
 
-Long-term memory extraction:
+Conservative long-term memory minimum loop:
 
-- promote important content into `memory_items`
-- summarize instead of saving everything forever
+- promote explicit user-approved stable content into `memory_items`
+- keep ordinary chat out of long-term memory
+- reject sensitive content
 - merge/update duplicate memories
+- expose lightweight `memory.longTerm` and `memory.longTermWrite` metadata in `/api/dialogue`
 
 ### Phase 5.5
 

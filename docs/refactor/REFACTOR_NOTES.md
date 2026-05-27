@@ -1641,3 +1641,14 @@ npm run check:assets
 - `clearSession()` 支持通过 repository 删除 session，并依赖外键清理 messages/settings。
 - `check:sqlite-flow` 增加跨数据库重开验证，确认短期记忆可在 SQLite 重新打开后恢复，并验证裁剪和清除行为。
 - 本轮不做长期记忆提取，不写自动 `memory_items`，不做记忆管理 UI，不接 Qdrant / embedding / n8n。
+
+## 62. Phase 5.4 长期 Memory 最小闭环
+
+- `MemoryRepository` 增加 `memory_items` 的 upsert、list、soft delete、clear 和 memory event 记录能力，并支持重复显式记忆合并更新。
+- `MemoryService` 增加保守长期记忆识别：只在用户明确表达“记住 / 以后你要记得 / 我喜欢 / 我的目标是”等意图时写入 `memory_items`。
+- 长期记忆会拒绝 API Key、token、密码、身份证、金融信息等敏感内容，不把普通闲聊自动提升为长期记忆。
+- `/api/dialogue` 在 `useMemory=true` 时返回 `memory.longTerm` 和 `memory.longTermWrite` 轻量状态，便于 Debug 和后续 UI 接入。
+- `PromptBuilder` 会在真实 provider prompt 中注入少量 active long-term memory，再拼接短期上下文、RAG 和 workflow 结果。
+- `check:memory-flow` 覆盖显式长期记忆写入、普通闲聊不写入、敏感记忆拒绝、重复记忆合并和 prompt 注入。
+- `check:sqlite-flow` 覆盖 `memory_items` insert/read/delete 和重复合并。
+- 本轮不做复杂用户画像、不做情绪分析、不做记忆管理 UI、不接 Qdrant / embedding / n8n、不改模型 / 动画 / TTS。

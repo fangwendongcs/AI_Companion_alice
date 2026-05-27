@@ -62,7 +62,7 @@ Phase 4.2 增加了公网部署前的最小请求边界：
 
 ### POST /api/dialogue
 
-统一对话编排入口，用于承载 Memory、RAG、n8n workflow 与 Agent orchestration。当前前端主链路已调用该接口，并支持本地 `stub`、LLM-only 编排、后端短期 Memory、本地知识检索 RAG 和可选 n8n workflow 工具调用。
+统一对话编排入口，用于承载 Memory、RAG、n8n workflow 与 Agent orchestration。当前前端主链路已调用该接口，并支持本地 `stub`、LLM-only 编排、SQLite-backed Memory、保守长期 `memory_items`、本地知识检索 RAG 和可选 n8n workflow 工具调用。
 
 请求：
 
@@ -125,8 +125,8 @@ Phase 4.2 增加了公网部署前的最小请求边界：
 
 - `/api/dialogue` 使用 `LLMService` 复用现有 OpenAI-compatible provider 能力。
 - `/api/dialogue` 的后端最小 Agent 编排顺序为：输入校验 -> Memory -> RAG -> optional Workflow -> PromptBuilder -> LLM/stub -> append Memory -> response。
-- `sessionId` 用于后端短期 Memory；不传时使用 `default`。
-- `options.useMemory=true` 时，后端会在内存中记录最近 N 轮 user/assistant 消息；服务重启后清空。
+- `sessionId` 用于后端 Memory；不传时使用 `default`。
+- `options.useMemory=true` 时，后端会用 SQLite 记录最近 N 轮 user/assistant 消息，并在用户显式要求记住稳定信息时保守写入 `memory_items`。
 - `options.useMemory=false` 时，不读取、不写入 Memory。
 - `options.useRag=true` 时，后端会读取 `data/knowledge/` 并使用简单关键词检索返回 `rag.passages` 与顶层 `sources`；当前不接 Qdrant、不做 embedding。
 - `options.useRag=false` 时，不读取本地知识源。
@@ -157,7 +157,7 @@ Phase 4.2 增加了公网部署前的最小请求边界：
 
 成功响应会保持统一结构：`reply / sources / memory / rag / workflow / meta`。其中 `meta.orchestration` 固定为 `agent_pipeline`，`meta.steps` 记录 Memory / RAG / Workflow 的状态。
 
-短期 Memory 示例：
+Memory 示例：
 
 ```json
 {
@@ -182,6 +182,25 @@ Phase 4.2 增加了公网部署前的最小请求边界：
   "sessionId": "demo-session",
   "turnCount": 2,
   "maxTurns": 6,
+  "longTerm": {
+    "used": true,
+    "status": "ready",
+    "count": 1,
+    "items": [
+      {
+        "id": 1,
+        "type": "preference",
+        "scope": "session",
+        "content": "我喜欢简短自然的中文陪伴回复"
+      }
+    ]
+  },
+  "longTermWrite": {
+    "stored": true,
+    "status": "ready",
+    "reason": "explicit_memory",
+    "type": "preference"
+  },
   "context": [
     {
       "role": "user",
@@ -192,7 +211,7 @@ Phase 4.2 增加了公网部署前的最小请求边界：
 }
 ```
 
-说明：当前 Memory 是后端进程内短期记忆，不落盘，不是长期记忆数据库。
+说明：当前 Memory 使用后端 SQLite。最近 N 轮 user/assistant 消息用于短期上下文；长期记忆采用保守 `memory_items`，只有用户明确表达“记住这个 / 以后你要记得 / 我喜欢 / 我的目标是”等稳定信息时才写入。普通闲聊不会自动变成长期记忆，敏感内容会被拒绝。
 
 本地 RAG 示例：
 

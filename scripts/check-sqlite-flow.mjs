@@ -20,6 +20,7 @@ const requiredTables = [
 await checkDefaultPathBoundary();
 await checkSchemaInitializes();
 await checkRepositoryMinimalReadWrite();
+await checkRepositoryLongTermMemoryItems();
 await checkMemoryServicePersistsAcrossInstances();
 
 if (failures.length) {
@@ -93,6 +94,58 @@ async function checkRepositoryMinimalReadWrite() {
     assert(messages.length === 2, 'repository should append and read two messages.');
     assert(messages[0].role === 'user' && messages[1].role === 'assistant', 'messages should preserve roles and ordering.');
     assert(events.length === 1 && events[0].event_type === 'created', 'repository should record memory events.');
+  } finally {
+    database.close();
+  }
+}
+
+async function checkRepositoryLongTermMemoryItems() {
+  const database = await initializeSQLiteDatabase({ dbPath: ':memory:' });
+  try {
+    const repo = new MemoryRepository({ database });
+    repo.ensureSession({ sessionId: 'long-term-sqlite-session', avatarId: 'alice', memoryEnabled: true });
+    const item = repo.upsertMemoryItem({
+      sessionId: 'long-term-sqlite-session',
+      avatarId: 'alice',
+      scope: 'session',
+      type: 'preference',
+      content: '我喜欢简短的中文陪伴回复',
+      confidence: 0.8,
+      importance: 0.75,
+      sourceMessageIds: [1]
+    });
+    const duplicate = repo.upsertMemoryItem({
+      sessionId: 'long-term-sqlite-session',
+      avatarId: 'alice',
+      scope: 'session',
+      type: 'preference',
+      content: '我喜欢简短的中文陪伴回复',
+      confidence: 0.7,
+      importance: 0.7,
+      sourceMessageIds: [2]
+    });
+    const items = repo.listMemoryItems({
+      sessionId: 'long-term-sqlite-session',
+      avatarId: 'alice',
+      scope: 'session',
+      limit: 10
+    });
+
+    assert(item?.id, 'repository should insert memory_items.');
+    assert(duplicate?.id === item.id, 'repository should merge duplicate memory_items.');
+    assert(items.length === 1, 'repository should list one merged long-term memory item.');
+    assert(items[0].type === 'preference', 'memory_items should preserve type.');
+    assert(Number(items[0].importance) >= 0.7, 'memory_items should preserve importance.');
+
+    const deleted = repo.deleteMemoryItem(item.id, { reason: 'sqlite_flow_check' });
+    const afterDelete = repo.listMemoryItems({
+      sessionId: 'long-term-sqlite-session',
+      avatarId: 'alice',
+      scope: 'session',
+      limit: 10
+    });
+    assert(deleted === true, 'repository should soft delete memory_items.');
+    assert(afterDelete.length === 0, 'deleted memory_items should not be listed as active.');
   } finally {
     database.close();
   }

@@ -70,7 +70,7 @@ These are optional enhancements, not Phase 5 mainline:
 1. Memory architecture design.
 2. SQLite / local persistence minimum loop.
 3. Short-term memory persistence.
-4. Long-term memory extraction.
+4. Conservative long-term memory minimum loop.
 5. Avatar persona system.
 6. Memory management UI and companion continuity.
 7. Optional RAG / Qdrant / n8n enhancement evaluation.

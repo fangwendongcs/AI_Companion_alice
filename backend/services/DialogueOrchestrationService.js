@@ -8,6 +8,7 @@ import { PromptBuilder } from './PromptBuilder.js';
 const MAX_MESSAGE_CHARS = 4000;
 const MAX_SYSTEM_PROMPT_CHARS = 4000;
 const MAX_SESSION_ID_CHARS = 80;
+const DEFAULT_AVATAR_ID = 'alice';
 
 export class DialogueOrchestrationService {
   constructor({
@@ -35,10 +36,12 @@ export class DialogueOrchestrationService {
     const systemPrompt = normalizeSystemPrompt(payload.systemPrompt);
     const options = normalizeOptions(payload.options);
     const sessionId = normalizeSessionId(payload.sessionId || options.sessionId);
+    const avatarId = normalizeAvatarId(payload.avatarId || options.avatarId);
     const memory = await this.getMemoryContext({
       message,
       enabled: options.useMemory,
-      sessionId
+      sessionId,
+      avatarId
     });
     const rag = await this.getRagContext(message, {
       enabled: options.useRag
@@ -56,6 +59,7 @@ export class DialogueOrchestrationService {
       const updatedMemory = await this.appendMemoryExchange({
         enabled: options.useMemory,
         sessionId,
+        avatarId,
         message,
         reply
       });
@@ -92,6 +96,7 @@ export class DialogueOrchestrationService {
     const updatedMemory = await this.appendMemoryExchange({
       enabled: options.useMemory,
       sessionId,
+      avatarId,
       message,
       reply
     });
@@ -114,37 +119,51 @@ export class DialogueOrchestrationService {
     };
   }
 
-  async appendMemoryExchange({ enabled, sessionId, message, reply }) {
+  async appendMemoryExchange({ enabled, sessionId, avatarId, message, reply }) {
     if (!enabled) return null;
     try {
-      await this.memoryService.appendExchange({
+      const stored = await this.memoryService.appendExchange({
         sessionId,
+        avatarId,
         userMessage: message,
         assistantMessage: reply
       }, { enabled });
-      return this.memoryService.getContext({
+      const context = await this.memoryService.getContext({
         enabled,
-        sessionId
+        sessionId,
+        avatarId
       });
+      return {
+        ...context,
+        longTermWrite: stored?.longTermWrite || null
+      };
     } catch (error) {
       return {
         used: false,
         status: 'error',
         reason: 'memory_append_error',
         sessionId,
+        avatarId,
         turnCount: 0,
         context: [],
+        longTerm: {
+          used: false,
+          status: 'error',
+          count: 0,
+          items: []
+        },
         error: safeErrorMessage(error)
       };
     }
   }
 
-  async getMemoryContext({ message, enabled, sessionId }) {
+  async getMemoryContext({ message, enabled, sessionId, avatarId }) {
     try {
       return await this.memoryService.getContext({
         message,
         enabled,
-        sessionId
+        sessionId,
+        avatarId
       });
     } catch (error) {
       return {
@@ -152,8 +171,15 @@ export class DialogueOrchestrationService {
         status: 'error',
         reason: 'memory_error',
         sessionId: enabled ? sessionId : null,
+        avatarId,
         turnCount: 0,
         context: [],
+        longTerm: {
+          used: false,
+          status: 'error',
+          count: 0,
+          items: []
+        },
         error: safeErrorMessage(error)
       };
     }
@@ -204,6 +230,13 @@ function normalizeSessionId(value) {
     .slice(0, MAX_SESSION_ID_CHARS) || 'default';
 }
 
+function normalizeAvatarId(value) {
+  return String(value || DEFAULT_AVATAR_ID)
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]/g, '_')
+    .slice(0, MAX_SESSION_ID_CHARS) || DEFAULT_AVATAR_ID;
+}
+
 function normalizePublicValue(value) {
   return String(value || '').trim().slice(0, 120);
 }
@@ -217,7 +250,8 @@ function normalizeOptions(options) {
     useMemory: Boolean(options?.useMemory),
     useRag: Boolean(options?.useRag),
     useWorkflow: Boolean(options?.useWorkflow),
-    sessionId: normalizeSessionId(options?.sessionId)
+    sessionId: normalizeSessionId(options?.sessionId),
+    avatarId: normalizeAvatarId(options?.avatarId)
   };
 }
 
@@ -231,6 +265,9 @@ function buildLocalStubReply(message, memory, rag) {
     return `我查到了 ${rag.passages.length} 条本地知识片段。当前仍是本地演示模式，RAG 检索链路已经跑通了。`;
   }
   if (memory?.used && memory.turnCount > 0) {
+    if (memory.longTerm?.count > 0) {
+      return `我记得 ${memory.longTerm.count} 条你明确让我保存的长期记忆。当前仍是本地演示模式，长期记忆链路已经跑通了。`;
+    }
     return `我记得我们刚聊过 ${memory.turnCount} 轮。当前仍是本地演示模式，短期记忆链路已经跑通了。`;
   }
   if (/状态|测试|链路|hello|你好/i.test(text)) {

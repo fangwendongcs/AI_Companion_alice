@@ -132,7 +132,7 @@ Phase 4.4 上传边界：
 
 ### POST /api/dialogue
 
-当前前端主对话入口。已支持本地 `stub`、LLM-only 编排、后端短期 Memory、本地知识检索 RAG 和可选 n8n workflow 工具调用。n8n 不作为主对话编排器。
+当前前端主对话入口。已支持本地 `stub`、LLM-only 编排、SQLite-backed Memory、保守长期 `memory_items`、本地知识检索 RAG 和可选 n8n workflow 工具调用。n8n 不作为主对话编排器。
 
 最小 Agent 编排顺序固定为：
 
@@ -171,7 +171,13 @@ validate input -> memory context -> rag context -> optional workflow -> PromptBu
       "sessionId": null,
       "turnCount": 0,
       "maxTurns": 6,
-      "context": []
+      "context": [],
+      "longTerm": {
+        "used": false,
+        "status": "disabled",
+        "count": 0,
+        "items": []
+      }
     },
     "rag": {
       "used": false,
@@ -198,7 +204,7 @@ validate input -> memory context -> rag context -> optional workflow -> PromptBu
 }
 ```
 
-如果 `options.useMemory=true`，当前会启用后端进程内短期 Memory，并按 `sessionId` 记录最近 N 轮 user/assistant 消息。该 Memory 不落盘，服务重启后丢失。
+如果 `options.useMemory=true`，当前会启用 SQLite-backed Memory，并按 `sessionId` 记录最近 N 轮 user/assistant 消息。用户显式表达“记住这个 / 以后你要记得 / 我喜欢 / 我的目标是”等稳定信息时，会保守写入 `memory_items`，并通过 `memory.longTerm` 与 `memory.longTermWrite` 返回轻量状态。普通闲聊不会自动进入长期记忆，敏感信息会被拒绝。
 
 如果 `options.useRag=true`，当前会调用后端本地 `RagService`，读取 `data/knowledge/` 并返回 `rag.passages` 与顶层 `sources`。当前不调用 Qdrant、不做 embedding、不访问外部网络。
 
@@ -218,7 +224,13 @@ validate input -> memory context -> rag context -> optional workflow -> PromptBu
       "sessionId": null,
       "turnCount": 0,
       "maxTurns": 6,
-      "context": []
+      "context": [],
+      "longTerm": {
+        "used": false,
+        "status": "disabled",
+        "count": 0,
+        "items": []
+      }
     },
     "rag": {
       "used": false,
