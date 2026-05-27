@@ -20,6 +20,9 @@ logs/
 *.log
 .playwright-cli/
 data/uploads/
+data/sqlite/
+data/exports/
+data/logs/
 
 # Mac
 .DS_Store

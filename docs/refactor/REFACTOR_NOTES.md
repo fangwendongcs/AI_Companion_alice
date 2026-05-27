@@ -1620,3 +1620,14 @@ npm run check:assets
 - 明确写入策略：消息先进 `messages`，重要内容才进 `memory_items`；不保存 API Key、密码、身份证、金融信息和敏感隐私；重复记忆应合并更新。
 - `NEXT_PHASE_PLAN.md` 调整为：Phase 5.2 SQLite 基础持久化、Phase 5.3 短期记忆持久化、Phase 5.4 长期记忆提取、Phase 5.5 角色人格系统、Phase 5.6 记忆管理 UI、Phase 6 人格样本沉淀与微调可行性评估。
 - README 与中文 README 同步标注 SQLite 尚未接入，`data/sqlite/alice.db` 是下一阶段规划路径。
+
+## 60. Phase 5.2 SQLite / 本地持久化最小闭环
+
+- 新增 `backend/db/`，包含 SQLite schema、初始化逻辑和最小 `MemoryRepository` 边界。
+- 使用 Node 内置 `node:sqlite`，未新增第三方数据库依赖。
+- 新增 schema 表：`sessions`、`messages`、`memory_items`、`memory_events`、`avatar_personas`、`user_preferences`、`memory_settings`，并补充基础索引。
+- 新增配置：`SQLITE_DIR` 和 `SQLITE_DB_PATH`，默认规划路径为 `data/sqlite/alice.db`。
+- `.gitignore` 忽略 `data/sqlite/`、`data/exports/`、`data/logs/`，避免本地数据库、导出和日志进入仓库。
+- 新增 `scripts/check-sqlite-flow.mjs` 与 `npm run check:sqlite-flow`，验证 schema 可初始化、默认数据库不在 `public` 下、repository 可进行 session/message/event 最小读写。
+- `npm run check` 纳入 `check:sqlite-flow`。
+- `MemoryService` 暂未全面切换到 SQLite；当前只建立数据库基础和 repository 边界，不做长期记忆提取、不做记忆管理 UI。

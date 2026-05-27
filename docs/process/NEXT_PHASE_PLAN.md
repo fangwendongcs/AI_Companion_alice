@@ -358,7 +358,7 @@ git diff --check
 
 Phase 5 的核心不是把项目做成企业知识库问答系统，而是强化 AI 数字伙伴体验：记忆、人格、陪伴连续性、语音动作反馈和中文对话稳定性。
 
-当前已有短期 Memory、本地最小 RAG、n8n workflow 边界和 Agent pipeline，但它们只是智能能力基线。SQLite 尚未接入，长期 Memory 尚未实现；RAG / Qdrant / embedding 暂缓，不作为 Phase 5 近期主线。
+当前已有短期 Memory、本地最小 RAG、n8n workflow 边界和 Agent pipeline，但它们只是智能能力基线。SQLite schema 初始化和最小 repository 边界已经建立，长期 Memory 尚未实现；RAG / Qdrant / embedding 暂缓，不作为 Phase 5 近期主线。
 
 ### Phase 5.1：记忆系统架构设计
 
@@ -379,8 +379,9 @@ Phase 5 的核心不是把项目做成企业知识库问答系统，而是强化
 **目标**
 
 - 建立 `data/sqlite/alice.db` 作为本地记忆主存储。
-- 用 SQLite 保存 `sessions`、`messages`、`memory_events`、`user_preferences`、`memory_settings`。
+- 用 SQLite 建立 `sessions`、`messages`、`memory_items`、`memory_events`、`avatar_personas`、`user_preferences`、`memory_settings`。
 - 文件目录只作为辅助：`data/uploads`、`data/knowledge`、`data/exports`、`data/logs`。
+- 新增 schema 初始化和最小 repository 读写验证。
 
 **边界**
 
@@ -388,6 +389,7 @@ Phase 5 的核心不是把项目做成企业知识库问答系统，而是强化
 - 不接 Qdrant。
 - 不做 embedding。
 - 不永久保存所有原始对话。
+- 不把现有 `MemoryService` 一次性全面迁移到 SQLite。
 
 ### Phase 5.3：短期记忆持久化
 
