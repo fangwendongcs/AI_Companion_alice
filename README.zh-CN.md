@@ -198,6 +198,7 @@ npm run smoke
 ### 更长期的方向
 
 - 先设计记忆系统，再用 SQLite 做本地 sessions、memory turns、agent events 和 user settings 持久化。
+- 计划使用 `data/sqlite/alice.db` 作为本地记忆主库；SQLite 当前尚未接入。
 - 把短期 Memory 升级成可清除、可隔离、重视隐私的长期记忆摘要。
 - 为 Alice / Shiro / Wambo 建立 persona 配置，让角色差异不只是模型不同。
 - 优先优化中文陪伴对话连续性，再扩展知识库能力。

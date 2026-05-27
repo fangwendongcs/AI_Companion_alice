@@ -198,6 +198,7 @@ In this project, I focused on:
 ### Longer-term Direction
 
 - Design the memory system first, then add SQLite-based local persistence for sessions, memory turns, agent events, and user settings.
+- Use `data/sqlite/alice.db` as the planned local memory database; SQLite is not integrated yet.
 - Upgrade short-term memory into controlled long-term memory summaries with deletion, privacy, session isolation, and avatar isolation.
 - Build persona configuration for Alice / Shiro / Wambo so each avatar has a distinct companion experience.
 - Improve Chinese companion dialogue continuity before expanding knowledge-base features.

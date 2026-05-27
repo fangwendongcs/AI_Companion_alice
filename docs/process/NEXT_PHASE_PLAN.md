@@ -378,9 +378,9 @@ Phase 5 的核心不是把项目做成企业知识库问答系统，而是强化
 
 **目标**
 
-- 用 SQLite 保存 `sessions`、`memory_turns`、`agent_events`、`user_settings`。
-- 服务重启后基础记忆可恢复。
-- 保持本地优先、可备份、易清除。
+- 建立 `data/sqlite/alice.db` 作为本地记忆主存储。
+- 用 SQLite 保存 `sessions`、`messages`、`memory_events`、`user_preferences`、`memory_settings`。
+- 文件目录只作为辅助：`data/uploads`、`data/knowledge`、`data/exports`、`data/logs`。
 
 **边界**
 
@@ -389,21 +389,34 @@ Phase 5 的核心不是把项目做成企业知识库问答系统，而是强化
 - 不做 embedding。
 - 不永久保存所有原始对话。
 
-### Phase 5.3：长期 Memory 最小闭环
+### Phase 5.3：短期记忆持久化
 
 **目标**
 
-- 基于 SQLite 做长期记忆摘要。
+- 当前 session 最近 N 轮上下文可在服务重启后恢复。
 - 支持记忆开关、清除、按 session / avatar 隔离。
-- 把“陪伴连续性”作为目标，而不是自动用户画像。
+- 保持 short-term memory 与 long-term memory 的职责分离。
+
+**边界**
+
+- 不把记忆正文存到前端 localStorage。
+- 不把所有对话都提升为长期记忆。
+
+### Phase 5.4：长期 Memory 提取
+
+**目标**
+
+- 基于 SQLite 做长期记忆摘要和 `memory_items`。
+- `memory_items.type` 包括 `preference / fact / goal / relationship / boundary / event / style`。
+- 重要内容才进入长期记忆；重复记忆合并更新，而不是无限新增。
 
 **边界**
 
 - 不自动永久保存所有原始对话。
 - 不做不可删除的用户画像。
-- 不把记忆正文存到前端 localStorage。
+- 不保存 API Key、密码、身份证、金融信息或敏感隐私。
 
-### Phase 5.4：角色人格系统
+### Phase 5.5：角色人格系统
 
 **目标**
 
@@ -416,20 +429,14 @@ Phase 5 的核心不是把项目做成企业知识库问答系统，而是强化
 - persona 配置仍由后端 / 配置层管理。
 - 不把 provider secret 或 prompt 私密配置暴露到前端。
 
-### Phase 5.5：对话体验与陪伴连续性优化
+### Phase 5.6：记忆管理 UI 与陪伴连续性优化
 
 **目标**
 
+- 增加记忆开关、清除记忆、按 session / avatar 隔离、导出记忆和隐私提示。
 - 优化错误提示、上下文连续性、重新生成、清空上下文、对话节奏。
-- 重点提升“伙伴感”，不是知识问答能力。
-- 优先服务中文 AI 伙伴体验。
-
-### Phase 5.6：语音 / 动作 / 情绪状态联动
-
-**目标**
-
 - 思考、说话、失败、记忆命中、RAG 命中、workflow 执行时有不同状态反馈。
-- 让语音、动作和状态反馈更像一个连续的伙伴，而不是一组分离功能。
+- 重点提升“伙伴感”，不是知识问答能力。
 
 **边界**
 

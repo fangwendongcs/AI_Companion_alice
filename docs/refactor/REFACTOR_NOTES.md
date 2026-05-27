@@ -1594,7 +1594,7 @@ npm run check:assets
 - Phase 4 安全部署基线阶段封版，文档集中说明已完成的 CORS、body limit、rate limit、日志脱敏、requestId、结构化日志、`DEPLOYMENT_MODE`、production readiness、上传隔离、上传校验、上传配额、API token 鉴权、Secret 管理和 local/demo/production 配置说明。
 - 安全文档明确当前仍不是完整生产级系统，不包含完整登录、OAuth/RBAC、多用户权限、对象存储、CDN、WAF、病毒扫描、沙箱解析、OpenTelemetry/Sentry、多实例限流、审计后台或正式内容审核流。
 - Future Work 收敛为短期可做、中期增强、生产级后续项，避免继续把所有安全能力都列为马上要做。
-- `NEXT_PHASE_PLAN.md` 切换到 Phase 5 AI 能力主线：记忆系统架构、本地 RAG / Qdrant、n8n 工作流、Agent 行为边界，并保留 Phase 6 前端体验升级与 Phase 7 GitHub 展示包装方向。
+- `NEXT_PHASE_PLAN.md` 切换到 Phase 5 AI 能力主线；该表述在后续路线对齐中进一步修正为 Memory / Persona / Companion Experience 优先，RAG / Qdrant / n8n 降级为可选增强。
 - README 中将下一阶段叙事从部署安全加固切回 AI 能力主线，安全基线作为后续部署护栏保留。
 - 本轮只做文档、路线和验收标准收口，不修改业务逻辑、前端 UI、角色、模型、动画、TTS 或 LLM 主链路。
 
@@ -1603,7 +1603,20 @@ npm run check:assets
 - 修正 Phase 5 路线：项目定位是 AI 数字伙伴 / AI Companion，不是企业知识库问答系统。
 - 明确 Phase 4 收口的是安全部署 / 自托管安全基线，不是 SQLite、数据库或长期 Memory 收口。
 - 明确 SQLite 尚未接入，长期 Memory 尚未实现；当前已有短期 Memory、本地最小 RAG、n8n workflow 边界和 Agent pipeline，但它们只是智能能力基线。
-- `NEXT_PHASE_PLAN.md` 改为 Memory / Persona / Companion Experience 优先：Phase 5.1 记忆系统架构、Phase 5.2 SQLite 最小闭环、Phase 5.3 长期 Memory、Phase 5.4 角色人格、Phase 5.5 陪伴连续性、Phase 5.6 语音 / 动作 / 情绪状态联动、Phase 5.7 可选 RAG / Qdrant / n8n 评估。
+- `NEXT_PHASE_PLAN.md` 改为 Memory / Persona / Companion Experience 优先：Phase 5.1 记忆系统架构、Phase 5.2 SQLite 最小闭环、Phase 5.3 短期记忆持久化、Phase 5.4 长期 Memory 提取、Phase 5.5 角色人格、Phase 5.6 记忆管理 UI 与陪伴连续性、Phase 5.7 可选 RAG / Qdrant / n8n 评估。
 - 新增 `docs/architecture/PHASE5_MEMORY_ARCHITECTURE.md`，定义 short-term、session、long-term、avatar、user preference memory 边界。
 - 新增 `docs/product/PHASE5_COMPANION_EXPERIENCE.md`，明确中文陪伴体验、persona、对话连续性和语音动作反馈优先。
 - 本轮只改路线和文档，不写 SQLite 代码、不接 Qdrant、不做 embedding、不新增 n8n workflow、不改 `/api/dialogue`、前端 UI、模型、动画或 TTS。
+
+## 59. Phase 5.1 记忆系统架构设计
+
+- 将 Phase 5.1 细化为 AI Companion 记忆系统架构，不写数据库代码、不新增依赖、不改业务逻辑。
+- 明确记忆最终不应是一堆散乱文件，而应以 SQLite 为主存储，建议主库路径为 `data/sqlite/alice.db`。
+- 明确文件目录只作为辅助：`data/uploads`、`data/knowledge`、`data/exports`、`data/logs`。
+- 定义 Raw Session、Short-term Memory、Long-term Memory、Persona Memory、Memory Policy 五层记忆边界。
+- 建议 SQLite 表：`sessions`、`messages`、`memory_items`、`memory_events`、`avatar_personas`、`user_preferences`、`memory_settings`。
+- 明确 `memory_items.type` 包括 `preference / fact / goal / relationship / boundary / event / style`。
+- 明确未来 PromptBuilder 组装顺序：角色人格、对话规则 / 边界、用户长期偏好、当前 session 最近上下文、相关长期记忆、当前用户输入。
+- 明确写入策略：消息先进 `messages`，重要内容才进 `memory_items`；不保存 API Key、密码、身份证、金融信息和敏感隐私；重复记忆应合并更新。
+- `NEXT_PHASE_PLAN.md` 调整为：Phase 5.2 SQLite 基础持久化、Phase 5.3 短期记忆持久化、Phase 5.4 长期记忆提取、Phase 5.5 角色人格系统、Phase 5.6 记忆管理 UI、Phase 6 人格样本沉淀与微调可行性评估。
+- README 与中文 README 同步标注 SQLite 尚未接入，`data/sqlite/alice.db` 是下一阶段规划路径。

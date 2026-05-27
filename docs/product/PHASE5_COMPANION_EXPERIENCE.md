@@ -32,9 +32,12 @@ The goal is not only to switch 3D models. The goal is to switch companion person
 
 Phase 5 should improve:
 
+- SQLite-backed session recovery after Phase 5.2 / 5.3.
 - Context continuation.
 - Regenerate / retry behavior.
 - Clear context behavior.
+- Clear memory behavior.
+- Export memory behavior.
 - Memory hit explanation.
 - Failure messages that preserve companion tone.
 - Pacing between thinking, speaking, and idle states.
@@ -61,6 +64,16 @@ These are optional enhancements, not Phase 5 mainline:
 - Large workflow automation.
 - Multi-agent loops.
 - Model fine-tuning.
+
+## Phase 5 Delivery Order
+
+1. Memory architecture design.
+2. SQLite / local persistence minimum loop.
+3. Short-term memory persistence.
+4. Long-term memory extraction.
+5. Avatar persona system.
+6. Memory management UI and companion continuity.
+7. Optional RAG / Qdrant / n8n enhancement evaluation.
 
 ## Phase 6 Preview
 
