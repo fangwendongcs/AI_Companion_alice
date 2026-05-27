@@ -358,7 +358,7 @@ git diff --check
 
 Phase 5 的核心不是把项目做成企业知识库问答系统，而是强化 AI 数字伙伴体验：记忆、人格、陪伴连续性、语音动作反馈和中文对话稳定性。
 
-当前已有短期 Memory、本地最小 RAG、n8n workflow 边界和 Agent pipeline，但它们只是智能能力基线。SQLite schema 初始化和最小 repository 边界已经建立，长期 Memory 尚未实现；RAG / Qdrant / embedding 暂缓，不作为 Phase 5 近期主线。
+当前已有短期 Memory、本地最小 RAG、n8n workflow 边界和 Agent pipeline，但它们只是智能能力基线。SQLite schema 初始化、最小 repository 边界和短期记忆持久化已经建立，长期 Memory 尚未实现；RAG / Qdrant / embedding 暂缓，不作为 Phase 5 近期主线。
 
 ### Phase 5.1：记忆系统架构设计
 
@@ -398,11 +398,13 @@ Phase 5 的核心不是把项目做成企业知识库问答系统，而是强化
 - 当前 session 最近 N 轮上下文可在服务重启后恢复。
 - 支持记忆开关、清除、按 session / avatar 隔离。
 - 保持 short-term memory 与 long-term memory 的职责分离。
+- 启用 Memory 时，`MemoryService` 通过 SQLite 读写最近上下文。
 
 **边界**
 
 - 不把记忆正文存到前端 localStorage。
 - 不把所有对话都提升为长期记忆。
+- 不写入自动长期 `memory_items`。
 
 ### Phase 5.4：长期 Memory 提取
 

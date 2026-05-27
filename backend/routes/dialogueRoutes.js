@@ -1,11 +1,17 @@
 import { maxJsonBodyBytes } from '../config/serverConfig.js';
 import { readJsonBody } from '../utils/request.js';
 import { sendError, sendJson, sendOk } from '../utils/response.js';
+import { initializeSQLiteDatabase } from '../db/sqliteDatabase.js';
+import { MemoryRepository } from '../db/MemoryRepository.js';
 import { DialogueOrchestrationService } from '../services/DialogueOrchestrationService.js';
 import { LLMService } from '../services/LLMService.js';
+import { MemoryService } from '../services/MemoryService.js';
 
 const llmService = new LLMService();
-const dialogueOrchestrationService = new DialogueOrchestrationService({ llmService });
+const sqliteDatabase = await initializeSQLiteDatabase();
+const memoryRepository = new MemoryRepository({ database: sqliteDatabase });
+const memoryService = new MemoryService({ repository: memoryRepository });
+const dialogueOrchestrationService = new DialogueOrchestrationService({ llmService, memoryService });
 
 export async function handleChat(req, res) {
   const body = await readJsonBody(req, maxJsonBodyBytes);

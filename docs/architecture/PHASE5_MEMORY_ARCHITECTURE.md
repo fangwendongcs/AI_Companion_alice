@@ -4,13 +4,15 @@
 
 Phase 5 is about companion memory, persona, and continuity. AI Companion Alice is not an enterprise knowledge-base Q&A system, so the next engineering line should not be Qdrant-first or RAG-first.
 
-Current state after Phase 5.2 foundation:
+Current state after Phase 5.3 short-term persistence:
 
 - Phase 4 closed the self-hosting and deployment security baseline. It did not close database work.
 - SQLite schema initialization and a minimal repository boundary now exist.
 - The planned local database path is `data/sqlite/alice.db`.
+- Enabled short-term dialogue memory now uses SQLite-backed storage through `MemoryService`.
+- Recent session context can be restored after reopening the SQLite database.
 - Long-term Memory has not been implemented.
-- `MemoryService` still primarily uses the existing short-term in-memory path; it has not fully migrated to SQLite yet.
+- `memory_items` exists in the schema, but automatic long-term memory extraction has not started yet.
 - Short-term Memory, local keyword RAG, n8n workflow boundary, and Agent pipeline already exist, but they are intelligence baselines, not the final companion memory system.
 - RAG / Qdrant / embedding are deferred optional enhancements.
 
@@ -262,6 +264,8 @@ Short-term memory persistence:
 - restore recent session context after restart
 - cap recent turns
 - keep clear controls
+
+Phase 5.3 wires enabled short-term Memory to SQLite through `MemoryRepository`. It still does not promote anything into long-term `memory_items`.
 
 ### Phase 5.4
 

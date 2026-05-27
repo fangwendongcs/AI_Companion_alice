@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { initializeSQLiteDatabase } from '../backend/db/sqliteDatabase.js';
 import { MemoryRepository } from '../backend/db/MemoryRepository.js';
+import { MemoryService } from '../backend/services/MemoryService.js';
 import { publicAssetDir, sqliteDbPath } from '../backend/config/serverConfig.js';
 
 const failures = [];
@@ -19,6 +20,7 @@ const requiredTables = [
 await checkDefaultPathBoundary();
 await checkSchemaInitializes();
 await checkRepositoryMinimalReadWrite();
+await checkMemoryServicePersistsAcrossInstances();
 
 if (failures.length) {
   console.error('[check-sqlite-flow] SQLite 最小闭环检查失败:');
@@ -93,6 +95,57 @@ async function checkRepositoryMinimalReadWrite() {
     assert(events.length === 1 && events[0].event_type === 'created', 'repository should record memory events.');
   } finally {
     database.close();
+  }
+}
+
+async function checkMemoryServicePersistsAcrossInstances() {
+  const tempDir = await mkdtemp(join(tmpdir(), 'alice-sqlite-memory-'));
+  const dbPath = join(tempDir, 'alice.db');
+  const sessionId = 'persisted-memory-session';
+  let database;
+
+  try {
+    database = await initializeSQLiteDatabase({ dbPath });
+    const firstMemory = new MemoryService({
+      maxTurns: 2,
+      repository: new MemoryRepository({ database })
+    });
+    await firstMemory.appendExchange({
+      sessionId,
+      userMessage: '第一轮会被持久化',
+      assistantMessage: '我会在重启后记得这轮。'
+    }, { enabled: true });
+    database.close();
+
+    database = await initializeSQLiteDatabase({ dbPath });
+    const secondMemory = new MemoryService({
+      maxTurns: 2,
+      repository: new MemoryRepository({ database })
+    });
+    const context = await secondMemory.getContext({ enabled: true, sessionId });
+    assert(context.turnCount === 1, 'SQLite-backed MemoryService should restore turnCount after reopening database.');
+    assert(context.context.some((item) => item.content.includes('第一轮')), 'SQLite-backed MemoryService should restore previous user message.');
+
+    await secondMemory.appendExchange({
+      sessionId,
+      userMessage: '第二轮',
+      assistantMessage: '第二轮已写入。'
+    }, { enabled: true });
+    await secondMemory.appendExchange({
+      sessionId,
+      userMessage: '第三轮',
+      assistantMessage: '第三轮会触发裁剪。'
+    }, { enabled: true });
+    const trimmed = await secondMemory.getContext({ enabled: true, sessionId });
+    assert(trimmed.turnCount === 2, 'SQLite-backed MemoryService should cap recent turns.');
+    assert(!trimmed.context.some((item) => item.content.includes('第一轮')), 'SQLite-backed MemoryService should prune older turns.');
+
+    secondMemory.clearSession(sessionId);
+    const cleared = await secondMemory.getContext({ enabled: true, sessionId });
+    assert(cleared.context.length === 0, 'SQLite-backed MemoryService should clear session messages.');
+  } finally {
+    database?.close();
+    await rm(tempDir, { recursive: true, force: true });
   }
 }
 

@@ -54,6 +54,25 @@ export class MemoryRepository {
     `).all(normalizeText(sessionId, 'default'), normalizeLimit(limit)).reverse();
   }
 
+  pruneMessages({ sessionId, keep = 12 } = {}) {
+    this.database.prepare(`
+      DELETE FROM messages
+      WHERE session_id = ?
+        AND id NOT IN (
+          SELECT id FROM messages
+          WHERE session_id = ?
+          ORDER BY id DESC
+          LIMIT ?
+        )
+    `).run(normalizeText(sessionId, 'default'), normalizeText(sessionId, 'default'), normalizeLimit(keep));
+  }
+
+  clearSession(sessionId) {
+    this.database
+      .prepare('DELETE FROM sessions WHERE session_id = ?')
+      .run(normalizeText(sessionId, 'default'));
+  }
+
   recordMemoryEvent({ sessionId = null, avatarId = DEFAULT_AVATAR_ID, eventType, reason = null, metadata = null, memoryItemId = null }) {
     this.database.prepare(`
       INSERT INTO memory_events (memory_item_id, session_id, avatar_id, event_type, reason, metadata_json)

@@ -4,8 +4,9 @@ const MAX_SESSION_ID_LENGTH = 80;
 const MAX_CONTENT_CHARS = 800;
 
 export class MemoryService {
-  constructor({ maxTurns = DEFAULT_MAX_TURNS } = {}) {
+  constructor({ maxTurns = DEFAULT_MAX_TURNS, repository = null } = {}) {
     this.maxTurns = normalizeMaxTurns(maxTurns);
+    this.repository = repository;
     this.sessions = new Map();
   }
 
@@ -45,11 +46,38 @@ export class MemoryService {
     }
 
     const normalizedSessionId = normalizeSessionId(sessionId);
-    const messages = this.sessions.get(normalizedSessionId) || [];
     const now = new Date().toISOString();
     const userContent = normalizeContent(userMessage);
     const assistantContent = normalizeContent(assistantMessage);
 
+    if (this.repository) {
+      this.repository.ensureSession({ sessionId: normalizedSessionId });
+      if (userContent) {
+        this.repository.appendMessage({
+          sessionId: normalizedSessionId,
+          role: 'user',
+          content: userContent
+        });
+      }
+      if (assistantContent) {
+        this.repository.appendMessage({
+          sessionId: normalizedSessionId,
+          role: 'assistant',
+          content: assistantContent
+        });
+      }
+      this.repository.pruneMessages({ sessionId: normalizedSessionId, keep: this.maxTurns * 2 });
+      const context = this.getSessionMessages(normalizedSessionId);
+      return {
+        stored: true,
+        status: 'ready',
+        sessionId: normalizedSessionId,
+        turnCount: countTurns(context),
+        maxTurns: this.maxTurns
+      };
+    }
+
+    const messages = this.sessions.get(normalizedSessionId) || [];
     if (userContent) {
       messages.push({
         role: 'user',
@@ -85,10 +113,23 @@ export class MemoryService {
   }
 
   getSessionMessages(sessionId) {
+    if (this.repository) {
+      return this.repository
+        .listMessages({ sessionId: normalizeSessionId(sessionId), limit: this.maxTurns * 2 })
+        .map((message) => ({
+          role: message.role,
+          content: message.content,
+          at: message.created_at
+        }));
+    }
     return (this.sessions.get(normalizeSessionId(sessionId)) || []).map((message) => ({ ...message }));
   }
 
   clearSession(sessionId = DEFAULT_SESSION_ID) {
+    if (this.repository) {
+      this.repository.clearSession(normalizeSessionId(sessionId));
+      return;
+    }
     this.sessions.delete(normalizeSessionId(sessionId));
   }
 }

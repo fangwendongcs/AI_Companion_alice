@@ -199,7 +199,8 @@ In this project, I focused on:
 
 - Design the memory system first, then add SQLite-based local persistence for sessions, memory turns, agent events, and user settings.
 - Use `data/sqlite/alice.db` as the planned local memory database.
-- The SQLite schema foundation now exists for sessions, messages, memory items, personas, preferences, and memory settings; the active dialogue memory path is still being migrated in stages.
+- The SQLite schema foundation now exists for sessions, messages, memory items, personas, preferences, and memory settings.
+- When Memory is enabled, recent dialogue context is now backed by SQLite, so basic short-term memory can survive a server restart.
 - Upgrade short-term memory into controlled long-term memory summaries with deletion, privacy, session isolation, and avatar isolation.
 - Build persona configuration for Alice / Shiro / Wambo so each avatar has a distinct companion experience.
 - Improve Chinese companion dialogue continuity before expanding knowledge-base features.

@@ -1631,3 +1631,13 @@ npm run check:assets
 - 新增 `scripts/check-sqlite-flow.mjs` 与 `npm run check:sqlite-flow`，验证 schema 可初始化、默认数据库不在 `public` 下、repository 可进行 session/message/event 最小读写。
 - `npm run check` 纳入 `check:sqlite-flow`。
 - `MemoryService` 暂未全面切换到 SQLite；当前只建立数据库基础和 repository 边界，不做长期记忆提取、不做记忆管理 UI。
+
+## 61. Phase 5.3 短期记忆持久化
+
+- `MemoryService` 增加可选 `repository` 注入；未传 repository 时继续使用原有内存 Map，保持测试和兼容路径。
+- 后端 `/api/dialogue` 装配 SQLite-backed `MemoryRepository`，启用 Memory 时会把 user / assistant 最近上下文写入 SQLite。
+- `MemoryService.getContext()` 会从 SQLite 读取最近 `maxTurns * 2` 条消息，返回格式继续兼容现有 `memory.context`。
+- `appendExchange()` 写入 SQLite 后会裁剪旧消息，保证短期记忆只保留最近 N 轮。
+- `clearSession()` 支持通过 repository 删除 session，并依赖外键清理 messages/settings。
+- `check:sqlite-flow` 增加跨数据库重开验证，确认短期记忆可在 SQLite 重新打开后恢复，并验证裁剪和清除行为。
+- 本轮不做长期记忆提取，不写自动 `memory_items`，不做记忆管理 UI，不接 Qdrant / embedding / n8n。
