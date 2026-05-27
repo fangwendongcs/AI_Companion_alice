@@ -1597,3 +1597,13 @@ npm run check:assets
 - `NEXT_PHASE_PLAN.md` 切换到 Phase 5 AI 能力主线：记忆系统架构、本地 RAG / Qdrant、n8n 工作流、Agent 行为边界，并保留 Phase 6 前端体验升级与 Phase 7 GitHub 展示包装方向。
 - README 中将下一阶段叙事从部署安全加固切回 AI 能力主线，安全基线作为后续部署护栏保留。
 - 本轮只做文档、路线和验收标准收口，不修改业务逻辑、前端 UI、角色、模型、动画、TTS 或 LLM 主链路。
+
+## 58. Phase 5 路线对齐：Memory / Persona / Companion Experience
+
+- 修正 Phase 5 路线：项目定位是 AI 数字伙伴 / AI Companion，不是企业知识库问答系统。
+- 明确 Phase 4 收口的是安全部署 / 自托管安全基线，不是 SQLite、数据库或长期 Memory 收口。
+- 明确 SQLite 尚未接入，长期 Memory 尚未实现；当前已有短期 Memory、本地最小 RAG、n8n workflow 边界和 Agent pipeline，但它们只是智能能力基线。
+- `NEXT_PHASE_PLAN.md` 改为 Memory / Persona / Companion Experience 优先：Phase 5.1 记忆系统架构、Phase 5.2 SQLite 最小闭环、Phase 5.3 长期 Memory、Phase 5.4 角色人格、Phase 5.5 陪伴连续性、Phase 5.6 语音 / 动作 / 情绪状态联动、Phase 5.7 可选 RAG / Qdrant / n8n 评估。
+- 新增 `docs/architecture/PHASE5_MEMORY_ARCHITECTURE.md`，定义 short-term、session、long-term、avatar、user preference memory 边界。
+- 新增 `docs/product/PHASE5_COMPANION_EXPERIENCE.md`，明确中文陪伴体验、persona、对话连续性和语音动作反馈优先。
+- 本轮只改路线和文档，不写 SQLite 代码、不接 Qdrant、不做 embedding、不新增 n8n workflow、不改 `/api/dialogue`、前端 UI、模型、动画或 TTS。

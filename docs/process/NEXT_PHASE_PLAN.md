@@ -283,12 +283,12 @@ npm run check
 - `docs/architecture/PHASE3_INTELLIGENCE_ARCHITECTURE.md`
 - `docs/process/BROWSER_ACCEPTANCE_CHECKLIST.md`
 
-**Phase 4 建议方向**
+**Phase 4 实际方向**
 
-- 真实部署与安全鉴权：鉴权、CORS 白名单、限流、日志脱敏、上传隔离。
-- 真实知识库：Qdrant / embedding / 文档入库 / 检索评估。
-- 长期记忆：SQLite 或后端数据库、删除策略、隐私说明和记忆管理。
-- 产品体验增强：浏览器级自动化、引用展示、对话体验和 Agent 状态可观测。
+- Phase 4 实际收口为安全部署 / 自托管安全基线。
+- Qdrant / embedding / 真实知识库没有进入 Phase 4，也不作为 Phase 5 近期主线。
+- SQLite 和长期 Memory 尚未完成，改为 Phase 5.2 / 5.3 的目标。
+- 产品体验增强继续保留，但核心先回到记忆、人格和陪伴连续性。
 
 **不做事项**
 
@@ -354,57 +354,106 @@ npm run check:deployment-readiness
 git diff --check
 ```
 
-## Phase 5：AI 能力主线
+## Phase 5：Companion Memory / Persona / Experience 主线
 
-Phase 5 重新回到 AI Companion 的智能能力，不继续把安全工作无限扩展成完整生产平台。
+Phase 5 的核心不是把项目做成企业知识库问答系统，而是强化 AI 数字伙伴体验：记忆、人格、陪伴连续性、语音动作反馈和中文对话稳定性。
+
+当前已有短期 Memory、本地最小 RAG、n8n workflow 边界和 Agent pipeline，但它们只是智能能力基线。SQLite 尚未接入，长期 Memory 尚未实现；RAG / Qdrant / embedding 暂缓，不作为 Phase 5 近期主线。
 
 ### Phase 5.1：记忆系统架构设计
 
 **目标**
 
-- 设计从当前短期进程内 Memory 过渡到可控长期记忆的架构。
-- 明确会话记忆、用户偏好、角色记忆、摘要和删除策略之间的边界。
+- 明确 short-term memory、session memory、long-term memory、avatar memory、user preference memory 的边界。
+- 明确哪些数据进入 SQLite，哪些只保留在内存，哪些不应保存。
+- 明确记忆开关、清除、隐私、按 session / avatar 隔离策略。
 
 **边界**
 
-- 不直接上数据库。
+- 只做文档和架构。
+- 不写 SQLite 代码。
+- 不接 Qdrant、不做 embedding、不新增 n8n workflow。
+
+### Phase 5.2：SQLite / 本地持久化最小闭环
+
+**目标**
+
+- 用 SQLite 保存 `sessions`、`memory_turns`、`agent_events`、`user_settings`。
+- 服务重启后基础记忆可恢复。
+- 保持本地优先、可备份、易清除。
+
+**边界**
+
+- 不接 Postgres。
+- 不接 Qdrant。
+- 不做 embedding。
+- 不永久保存所有原始对话。
+
+### Phase 5.3：长期 Memory 最小闭环
+
+**目标**
+
+- 基于 SQLite 做长期记忆摘要。
+- 支持记忆开关、清除、按 session / avatar 隔离。
+- 把“陪伴连续性”作为目标，而不是自动用户画像。
+
+**边界**
+
+- 不自动永久保存所有原始对话。
+- 不做不可删除的用户画像。
 - 不把记忆正文存到前端 localStorage。
 
-### Phase 5.2：本地 RAG / Qdrant 接入
+### Phase 5.4：角色人格系统
 
 **目标**
 
-- 从当前本地关键词 RAG 过渡到 embedding + vector retrieval 的技术方案或最小实现。
-- Qdrant 只应由后端访问。
+- 为 Alice / Shiro / Wambo 建立 persona 配置。
+- 配置内容包括人设、语气、说话边界、默认声音、默认动作、记忆策略。
+- 让角色差异不只是模型不同，而是人格体验不同。
 
 **边界**
 
-- 前端不直连 Qdrant。
-- 不把向量库凭证写入前端或文档真实值。
+- persona 配置仍由后端 / 配置层管理。
+- 不把 provider secret 或 prompt 私密配置暴露到前端。
 
-### Phase 5.3：n8n 工作流接入
-
-**目标**
-
-- 将 n8n 保持为后端工具调用层，用于具体任务，而不是主对话编排器。
-- 明确 webhook 超时、错误、审计和高风险动作确认策略。
-
-### Phase 5.4：Agent 行为边界
+### Phase 5.5：对话体验与陪伴连续性优化
 
 **目标**
 
-- 收口 AI companion 的行为状态、工具调用边界和失败降级策略。
-- 避免无限循环 Agent、多 Agent 过早复杂化。
+- 优化错误提示、上下文连续性、重新生成、清空上下文、对话节奏。
+- 重点提升“伙伴感”，不是知识问答能力。
+- 优先服务中文 AI 伙伴体验。
 
-## Phase 6：前端与数字人体验升级
+### Phase 5.6：语音 / 动作 / 情绪状态联动
+
+**目标**
+
+- 思考、说话、失败、记忆命中、RAG 命中、workflow 执行时有不同状态反馈。
+- 让语音、动作和状态反馈更像一个连续的伙伴，而不是一组分离功能。
+
+**边界**
+
+- 不重写动画系统。
+- 只做状态联动收口。
+
+### Phase 5.7：可选 RAG / Qdrant / n8n 增强评估
+
+**目标**
+
+- RAG 保留为可选增强能力。
+- Qdrant / embedding 放到后续评估，不作为当前主线。
+- n8n 继续作为工具调用层，不作为主对话编排器。
+
+## Phase 6：人格样本沉淀与微调可行性评估
+
+- 收集高质量中文对话样本。
+- 定义 Alice 人格规范、好回答 / 坏回答、拒答边界、陪伴语气样本。
+- 优先通过 prompt + persona + memory 优化体验。
+- 只有当样本足够、收益明确时，再评估 SFT / LoRA 微调。
+
+## Phase 7：前端与数字人体验升级
 
 - 更清晰的对话状态和来源展示。
 - 更自然的动作 / 语音联动。
 - 角色切换、上传和动作兼容性的用户体验优化。
-- 更适合展示的 UI polish 和浏览器验收证据。
-
-## Phase 7：GitHub 展示与作品集包装
-
-- 截图、短 GIF、项目 logo 和演示说明。
-- README / PROJECT_SHOWCASE 持续维护。
-- 选择性补充在线演示或视频说明。
+- 更适合展示的 UI polish、截图、短 GIF 和浏览器验收证据。

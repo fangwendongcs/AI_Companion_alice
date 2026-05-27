@@ -7,6 +7,7 @@
 - [AVATAR_ARCHITECTURE.md](./architecture/AVATAR_ARCHITECTURE.md): 可替换角色架构
 - [DIALOGUE_BACKEND_BOUNDARY.md](./architecture/DIALOGUE_BACKEND_BOUNDARY.md): RAG / Memory / n8n / Agent 后端边界
 - [PHASE3_INTELLIGENCE_ARCHITECTURE.md](./architecture/PHASE3_INTELLIGENCE_ARCHITECTURE.md): Phase 3 真实智能能力接入架构
+- [PHASE5_MEMORY_ARCHITECTURE.md](./architecture/PHASE5_MEMORY_ARCHITECTURE.md): Phase 5 记忆系统边界与 SQLite 演进方向
 - [MODULE_BOUNDARIES.md](./architecture/MODULE_BOUNDARIES.md): 模块边界约定
 - [EVENT_FLOW.md](./architecture/EVENT_FLOW.md): 事件流
 - [STATE_MODEL.md](./architecture/STATE_MODEL.md): 状态模型
@@ -32,6 +33,7 @@
 - [MVP_BASELINE.md](./product/MVP_BASELINE.md): 阶段 2 封版基线与下一阶段边界
 - [PHASE3_ACCEPTANCE.md](./product/PHASE3_ACCEPTANCE.md): Phase 3 智能能力验收标准
 - [PHASE3_BASELINE.md](./product/PHASE3_BASELINE.md): Phase 3 智能能力基线封版结论
+- [PHASE5_COMPANION_EXPERIENCE.md](./product/PHASE5_COMPANION_EXPERIENCE.md): Phase 5 记忆、人格和陪伴连续性体验方向
 - `产品需求文档.docx`
 - `思路和计划文档.docx`
 - `竞品与可行性分析报告.docx`

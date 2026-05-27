@@ -190,19 +190,21 @@ npm run smoke
 
 ### 我下一步会重点做：AI 能力主线
 
-- 我会把下一阶段重新切回 AI 能力主线：记忆系统架构、更强的 RAG、workflow 工具能力和更清晰的 Agent 行为边界。
+- 我会把下一阶段重新切回 AI 数字伙伴核心：记忆系统架构、角色人格、陪伴连续性，以及语音 / 动作状态反馈。
 - Phase 4 的安全基线会作为后续部署护栏保留，不再继续把安全工作过度扩大到完整生产系统。
 - 我会补项目展示材料：截图、短 GIF、简单 Logo，以及浏览器验收记录。
 - 我会继续打磨产品体验，重点放在对话状态、知识来源展示和 Debug 可视化上。
 
 ### 更长期的方向
 
-- 从本地关键词 RAG 升级到 embedding + Qdrant 这类向量检索。
-- 把短期 Memory 升级成带删除和隐私控制的持久化记忆。
-- 将 n8n 作为受控后端工具能力接入具体任务。
+- 先设计记忆系统，再用 SQLite 做本地 sessions、memory turns、agent events 和 user settings 持久化。
+- 把短期 Memory 升级成可清除、可隔离、重视隐私的长期记忆摘要。
+- 为 Alice / Shiro / Wambo 建立 persona 配置，让角色差异不只是模型不同。
+- 优先优化中文陪伴对话连续性，再扩展知识库能力。
+- RAG / Qdrant / embedding 保留为可选增强，不作为近期主线。
+- 将 n8n 作为受控后端工具能力接入具体任务，而不是主对话大脑。
 - 继续完善角色编辑、模型替换和动画重定向能力。
 - 增加更高质量的 TTS provider 和声音人格预设。
-- 让 n8n 继续作为后端工具能力，而不是前端 secret 或主对话大脑。
 - 在核心链路稳定之后，再探索更丰富的情绪和行为状态模型。
 
 ## 关键文档
@@ -210,6 +212,8 @@ npm run smoke
 - [Project Showcase](./docs/product/PROJECT_SHOWCASE.md)
 - [Phase 3 Intelligence Baseline](./docs/product/PHASE3_BASELINE.md)
 - [Phase 4 Deployment Security Baseline](./docs/security/PHASE4_DEPLOYMENT_SECURITY_BASELINE.md)
+- [Phase 5 Memory Architecture](./docs/architecture/PHASE5_MEMORY_ARCHITECTURE.md)
+- [Phase 5 Companion Experience](./docs/product/PHASE5_COMPANION_EXPERIENCE.md)
 - [Environment Modes](./docs/deployment/ENVIRONMENT_MODES.md)
 - [Deployment Checklist](./docs/deployment/DEPLOYMENT_CHECKLIST.md)
 - [Architecture](./docs/architecture/ARCHITECTURE.md)

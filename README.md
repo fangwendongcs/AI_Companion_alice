@@ -191,18 +191,20 @@ In this project, I focused on:
 
 ### My Next Focus: AI Capability Mainline
 
-- I will shift the next development phase back to AI capability: memory architecture, stronger RAG, workflow tools, and clearer Agent behavior boundaries.
+- I will shift the next development phase back to the AI companion core: memory architecture, persona, conversation continuity, and voice / motion state feedback.
 - I will keep the current Phase 4 security baseline as the deployment guardrail instead of continuing to over-expand security work before the AI loop improves.
 - I will also add better presentation material: screenshots, a short GIF, a simple project logo, and browser acceptance evidence.
 
 ### Longer-term Direction
 
-- Move from local keyword RAG to vector RAG with embeddings and a vector database such as Qdrant.
-- Upgrade short-term memory into persistent memory with deletion and privacy controls.
-- Connect n8n as controlled backend tools for selected tasks.
+- Design the memory system first, then add SQLite-based local persistence for sessions, memory turns, agent events, and user settings.
+- Upgrade short-term memory into controlled long-term memory summaries with deletion, privacy, session isolation, and avatar isolation.
+- Build persona configuration for Alice / Shiro / Wambo so each avatar has a distinct companion experience.
+- Improve Chinese companion dialogue continuity before expanding knowledge-base features.
+- Keep RAG / Qdrant / embedding as optional enhancements instead of the immediate mainline.
+- Keep n8n as controlled backend tools for selected tasks, not the main dialogue brain.
 - Improve avatar authoring, model replacement, and animation retargeting.
 - Add higher-quality TTS provider options and voice persona presets.
-- Keep n8n as explicit backend tools, not frontend secrets or the main dialogue brain.
 - Explore richer emotional and behavioral state models after the core loop stays stable.
 
 ## Key Documents
@@ -210,6 +212,8 @@ In this project, I focused on:
 - [Project Showcase](./docs/product/PROJECT_SHOWCASE.md)
 - [Phase 3 Intelligence Baseline](./docs/product/PHASE3_BASELINE.md)
 - [Phase 4 Deployment Security Baseline](./docs/security/PHASE4_DEPLOYMENT_SECURITY_BASELINE.md)
+- [Phase 5 Memory Architecture](./docs/architecture/PHASE5_MEMORY_ARCHITECTURE.md)
+- [Phase 5 Companion Experience](./docs/product/PHASE5_COMPANION_EXPERIENCE.md)
 - [Environment Modes](./docs/deployment/ENVIRONMENT_MODES.md)
 - [Deployment Checklist](./docs/deployment/DEPLOYMENT_CHECKLIST.md)
 - [Architecture](./docs/architecture/ARCHITECTURE.md)
