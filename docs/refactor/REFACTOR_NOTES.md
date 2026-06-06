@@ -1663,3 +1663,12 @@ npm run check:assets
 - 新增 `/api/memory` GET / DELETE 与轻量 Memory 面板，只展示精简长期记忆摘要，并支持清除当前 session / avatar 记忆。
 - Debug Panel 新增 persona、emotion、tone、voice style、motion slot 和长期记忆数量。
 - 新增 `check:persona-flow`、`check:affect-flow`、`check:companion-state-flow`，并纳入 `npm run check`。
+
+## 64. Phase 5.9 对话体验打磨
+
+- 底部对话栏新增“重新生成上一条回复”和“清空当前上下文”入口，继续复用现有 DialogueManager -> `/api/dialogue` -> TTS / Motion 主链路。
+- `AppController` 抽出 `sendDialogueText()`，普通发送和重新生成使用同一套 thinking / speaking / idle 状态收敛逻辑。
+- `/api/memory` 新增 `scope=context`，只清除当前 session 的短期 messages，不删除用户显式保存的长期 `memory_items`。
+- 本地 `stub` provider 对“你还记得吗 / 保存了什么 / 忘记这个”类输入给出更自然的记忆追问和清除指引。
+- `check:memory-flow` 覆盖短期上下文清除不影响长期记忆、自然记忆追问和忘记类输入不自动写入长期记忆。
+- `check:companion-state-flow` 覆盖底部对话体验按钮存在、DOM refs 暴露、ChatPanel 绑定和 AppController 只清短期上下文。

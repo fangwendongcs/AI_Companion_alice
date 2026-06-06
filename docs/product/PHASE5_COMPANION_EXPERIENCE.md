@@ -36,6 +36,9 @@ Phase 5 now has the first loop for:
 - Context continuation.
 - Lightweight long-term memory review / clear behavior.
 - Clear memory behavior.
+- Regenerate the previous user turn without creating a separate dialogue path.
+- Clear short-term context while keeping explicit long-term memory intact.
+- More natural local responses for "do you remember?" and "forget this" style prompts.
 - Memory hit explanation.
 - Failure messages that preserve companion tone.
 - Pacing between thinking, speaking, and idle states.
@@ -72,7 +75,8 @@ These are optional enhancements, not Phase 5 mainline:
 5. Avatar persona system.
 6. Affect / tone / voice / motion metadata.
 7. Lightweight Memory management UI and companion continuity.
-8. Optional RAG / Qdrant / n8n enhancement evaluation.
+8. Dialogue experience polish: regenerate, clear context, and natural memory prompts.
+9. Optional RAG / Qdrant / n8n enhancement evaluation.
 
 ## Phase 6 Preview
 

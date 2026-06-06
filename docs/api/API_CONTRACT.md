@@ -238,7 +238,7 @@ validate input -> memory context -> rag context -> optional workflow -> PromptBu
 
 `GET /api/memory` 返回当前 session / avatar 的精简长期记忆摘要，不返回完整原始 messages。
 
-`DELETE /api/memory` 支持 `scope=session` 或 `scope=avatar`，用于清除当前会话或当前角色的长期记忆摘要。该接口属于敏感 API；`REQUIRE_API_AUTH=true` 或 production 模式下必须提供 API token。
+`DELETE /api/memory` 支持 `scope=context`、`scope=session` 或 `scope=avatar`。`scope=context` 只清除当前 session 的短期 messages，用于“清空上下文”，不会删除显式保存的长期 `memory_items`；`scope=session` / `scope=avatar` 用于清除当前会话或当前角色的长期记忆摘要。该接口属于敏感 API；`REQUIRE_API_AUTH=true` 或 production 模式下必须提供 API token。
 
 无密钥本地演示和 smoke 可使用 `provider: "stub"`，当前前端默认也使用该 provider。此时返回：
 

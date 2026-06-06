@@ -292,6 +292,18 @@ function buildLocalStubReply(message, memory, rag, persona = null) {
   if (rag?.used && rag.passages?.length) {
     return `我查到了 ${rag.passages.length} 条本地知识片段。当前仍是本地演示模式，RAG 检索链路已经跑通了。`;
   }
+  if (asksForgetMemory(text)) {
+    return '可以，我不会把这句话写入长期记忆。需要清除已经保存的内容时，可以在记忆面板里清除当前会话或当前角色记忆。';
+  }
+  if (asksMemoryRecall(text)) {
+    if (memory?.longTerm?.count > 0) {
+      return `我记得：${formatMemoryPreview(memory.longTerm.items)}。这些是你明确让我保存的长期记忆。`;
+    }
+    if (memory?.used && memory.turnCount > 0) {
+      return `我记得我们刚聊过 ${memory.turnCount} 轮，但还没有保存长期记忆。`;
+    }
+    return '我现在还没有可用的长期记忆。你可以明确说“请记住：……”，我会按当前会话保存。';
+  }
   if (memory?.used && memory.turnCount > 0) {
     if (memory.longTerm?.count > 0) {
       return `我记得 ${memory.longTerm.count} 条你明确让我保存的长期记忆。当前仍是本地演示模式，长期记忆链路已经跑通了。`;
@@ -302,6 +314,23 @@ function buildLocalStubReply(message, memory, rag, persona = null) {
     return `${persona?.name || 'Alice'} 现在处于本地演示模式，还没有连接真实模型，但对话链路已经跑通了。`;
   }
   return `${persona?.name || 'Alice'} 在本地演示模式，可以陪你完成交互流程；接入真实模型后，我会回答得更聪明。`;
+}
+
+function asksMemoryRecall(text) {
+  return /(你还记得|还记得吗|记得什么|你记得|我让你记住|保存了什么|长期记忆)/i.test(text);
+}
+
+function asksForgetMemory(text) {
+  return /(忘记这个|忘掉这个|别记这个|不要记这个|不用记这个|删除记忆|清除记忆)/i.test(text);
+}
+
+function formatMemoryPreview(items = []) {
+  const preview = items
+    .slice(0, 3)
+    .map((item) => String(item?.content || '').trim())
+    .filter(Boolean)
+    .join('；');
+  return preview || '目前只有记忆状态，没有可展示内容';
 }
 
 function buildStepMeta({ memory, rag, workflow }) {

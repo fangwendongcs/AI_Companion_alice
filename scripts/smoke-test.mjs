@@ -225,6 +225,28 @@ async function assertMemoryFlow() {
   const memoryList = await getJson(`/api/memory?sessionId=${longTermSessionId}&avatarId=alice`);
   if (memoryList.data?.longTerm?.count !== 1) throw new Error('/api/memory should list explicit long-term memory');
 
+  const contextCleared = await deleteJson(`/api/memory?sessionId=${longTermSessionId}&avatarId=alice&scope=context`);
+  if ((contextCleared.data?.cleared || 0) < 2) throw new Error('/api/memory scope=context should clear short-term messages');
+  const memoryAfterContextClear = await getJson(`/api/memory?sessionId=${longTermSessionId}&avatarId=alice`);
+  if (memoryAfterContextClear.data?.longTerm?.count !== 1) {
+    throw new Error('/api/memory scope=context should keep explicit long-term memory');
+  }
+  const recall = await postJson('/api/dialogue', {
+    message: '你还记得我让你记住什么吗',
+    provider: 'stub',
+    model: 'stub',
+    sessionId: longTermSessionId,
+    options: {
+      useMemory: true,
+      useRag: false,
+      useWorkflow: false
+    }
+  });
+  const recallData = recall.data || recall;
+  if (!String(recallData.reply || '').includes('简短自然')) {
+    throw new Error('/api/dialogue should answer memory recall from long-term memory after context clear');
+  }
+
   const ordinarySessionId = `smoke_ordinary_${Date.now()}`;
   const ordinary = await postJson('/api/dialogue', {
     message: '今天只是普通闲聊一下',

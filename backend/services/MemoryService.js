@@ -183,6 +183,19 @@ export class MemoryService {
     this.sessions.delete(normalizeSessionId(sessionId));
   }
 
+  clearShortTermContext(sessionId = DEFAULT_SESSION_ID) {
+    const normalizedSessionId = normalizeSessionId(sessionId);
+    if (this.repository) {
+      return {
+        cleared: this.repository.clearMessages({ sessionId: normalizedSessionId }),
+        status: 'ready'
+      };
+    }
+    const cleared = (this.sessions.get(normalizedSessionId) || []).length;
+    this.sessions.delete(normalizedSessionId);
+    return { cleared, status: 'ready' };
+  }
+
   listLongTermMemory({ enabled = true, sessionId = DEFAULT_SESSION_ID, avatarId = DEFAULT_AVATAR_ID, limit = MAX_LONG_TERM_ITEMS } = {}) {
     if (!enabled) return buildLongTermState({ used: false, status: 'disabled' });
     return this.getLongTermContext({

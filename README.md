@@ -187,6 +187,7 @@ In this project, I focused on:
 - `/api/dialogue` as the main dialogue entry.
 - Local `stub` provider for no-key development.
 - SQLite-backed short-term Memory and conservative long-term memory items.
+- Dialogue polish for regenerate, short-term context clearing, and natural memory recall prompts.
 - Local keyword RAG from `data/knowledge/`.
 - Optional n8n workflow boundary.
 - Minimal Agent orchestration pipeline.
@@ -207,6 +208,7 @@ In this project, I focused on:
 - Persona configuration for Alice / Shiro / Wambo is now connected to PromptBuilder and `/api/dialogue` metadata, so each avatar can start to feel different beyond the model asset.
 - Rule-based affect metadata now connects reply context to emotion, tone, voice hints, and motion hints for the frontend.
 - A lightweight Memory panel can read and clear current long-term memory summaries without exposing raw message history.
+- The bottom dialogue dock supports regenerating the previous turn and clearing only short-term context while keeping explicit long-term memory intact.
 - Improve Chinese companion dialogue continuity before expanding knowledge-base features.
 - Keep RAG / Qdrant / embedding as optional enhancements instead of the immediate mainline.
 - Keep n8n as controlled backend tools for selected tasks, not the main dialogue brain.

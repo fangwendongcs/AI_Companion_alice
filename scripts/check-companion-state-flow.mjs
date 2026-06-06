@@ -5,6 +5,7 @@ const failures = [];
 await checkFrontendDialogueContract();
 await checkAudioAndMotionAffectContract();
 await checkMemoryPanelContract();
+await checkDialoguePolishControls();
 await checkDebugPanelAffectFields();
 
 if (failures.length) {
@@ -40,6 +41,17 @@ async function checkMemoryPanelContract() {
   assert(panel.includes("method: 'DELETE'"), 'MemoryPanelController 必须支持清除长期记忆。');
   assert(!panel.includes('.innerHTML'), 'MemoryPanelController 不应使用 innerHTML 渲染记忆内容。');
   assert(html.includes('memoryItemsList'), 'index.html 必须包含长期记忆摘要容器。');
+}
+
+async function checkDialoguePolishControls() {
+  const app = await readFile('js/app/AppController.js', 'utf8');
+  const chat = await readFile('js/ui/ChatPanelController.js', 'utf8');
+  const refs = await readFile('js/ui/domRefs.js', 'utf8');
+  const html = await readFile('index.html', 'utf8');
+  assert(html.includes('regenerateBtn') && html.includes('clearContextBtn'), '底部对话栏必须包含重新生成和清空上下文按钮。');
+  assert(refs.includes('regenerateBtn') && refs.includes('clearContextBtn'), 'domRefs 必须暴露对话体验按钮。');
+  assert(chat.includes('regenerateReply') && chat.includes('clearDialogueContext'), 'ChatPanelController 必须绑定对话体验动作。');
+  assert(app.includes('sendDialogueText') && app.includes('scope=context'), 'AppController 必须复用对话发送链路并只清短期上下文。');
 }
 
 async function checkDebugPanelAffectFields() {

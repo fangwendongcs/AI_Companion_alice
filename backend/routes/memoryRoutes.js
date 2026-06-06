@@ -21,7 +21,19 @@ export async function handleMemoryList(req, res, url) {
 export async function handleMemoryClear(req, res, url) {
   const sessionId = url.searchParams.get('sessionId') || 'default';
   const avatarId = url.searchParams.get('avatarId') || 'alice';
-  const scope = url.searchParams.get('scope') === 'avatar' ? 'avatar' : 'session';
+  const requestedScope = url.searchParams.get('scope');
+  const scope = requestedScope === 'avatar' || requestedScope === 'context' ? requestedScope : 'session';
+  if (scope === 'context') {
+    const result = memoryService.clearShortTermContext(sessionId);
+    sendOk(res, 200, {
+      sessionId,
+      avatarId,
+      scope,
+      ...result
+    });
+    return;
+  }
+
   const result = memoryService.clearLongTermMemory({
     sessionId,
     avatarId,

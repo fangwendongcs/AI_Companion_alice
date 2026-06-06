@@ -264,6 +264,7 @@ body {
 
 .prompt-input {
   flex: 1;
+  min-width: 0;
   background: transparent;
   border: none;
   color: #fff;
@@ -295,6 +296,21 @@ body {
 
 .dock-btn:hover {
   background: rgba(255, 255, 255, 0.1);
+}
+
+.dock-btn.subtle {
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.dock-btn.subtle:hover {
+  color: #fff;
+  background: rgba(0, 229, 255, 0.1);
+}
+
+.dock-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+  transform: none;
 }
 
 .dock-btn.primary {

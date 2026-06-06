@@ -12,6 +12,8 @@ export function createDomRefs(root = document) {
     closePanelBtn: byId('closePanelBtn'),
     muteBtn: byId('muteBtn'),
     voiceBtn: byId('voiceBtn'),
+    regenerateBtn: byId('regenerateBtn'),
+    clearContextBtn: byId('clearContextBtn'),
     scaleSlider: byId('scaleSlider'),
     lightSlider: byId('lightSlider'),
     autoRotateToggle: byId('autoRotateToggle'),

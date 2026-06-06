@@ -193,12 +193,17 @@ GET /api/memory?sessionId=web-demo&avatarId=alice&limit=12
 
 ### DELETE /api/memory
 
-清除当前 session 或当前 avatar 的长期记忆摘要。当前接口是单 token API 鉴权边界的一部分；生产 / demo 模式应开启鉴权。
+清除当前 session 或当前 avatar 的长期记忆摘要，或只清除当前 session 的短期上下文。当前接口是单 token API 鉴权边界的一部分；生产 / demo 模式应开启鉴权。
 
 ```text
+DELETE /api/memory?sessionId=web-demo&avatarId=alice&scope=context
 DELETE /api/memory?sessionId=web-demo&avatarId=alice&scope=session
 DELETE /api/memory?avatarId=alice&scope=avatar
 ```
+
+- `scope=context`：只清除当前 session 的短期 messages，用于“清空上下文”；不会删除显式保存的长期 `memory_items`。
+- `scope=session`：清除当前 session 的长期记忆摘要，并清理当前会话。
+- `scope=avatar`：清除当前角色下的长期记忆摘要。
 - 如果 provider 未配置或缺少 API Key，会返回 `{ "ok": false, "error": { "code": "LLM_NOT_CONFIGURED", "message": "..." } }`。
 - `provider` 为 `stub`、`local` 或 `boundary` 时，会返回本地 `llm_stub`，用于无 Key 本地开发演示、smoke 和边界检查，不代表生产 LLM。
 - 前端默认 provider 为 `stub`，因此新环境无需 API Key 也能跑通 thinking -> speaking -> idle 的演示链路。

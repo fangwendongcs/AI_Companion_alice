@@ -14,6 +14,8 @@ await checkOrdinaryChatDoesNotPromoteLongTermMemory();
 await checkSensitiveLongTermMemoryRejected();
 await checkDuplicateLongTermMemoryMerges();
 await checkLongTermMemoryFeedsPrompt();
+await checkContextClearKeepsLongTermMemory();
+await checkNaturalMemoryRecallAndForgetReply();
 
 if (failures.length) {
   console.error('[check-memory-flow] Memory 最小闭环检查失败:');
@@ -266,6 +268,71 @@ async function checkLongTermMemoryFeedsPrompt() {
     const secondCall = calls[1];
     assert(secondCall.systemPrompt.includes('长期记忆'), '真实 provider prompt 必须包含长期记忆标题。');
     assert(secondCall.systemPrompt.includes('中文数字伙伴'), '真实 provider prompt 必须包含已保存的长期记忆内容。');
+  } finally {
+    database.close();
+  }
+}
+
+async function checkContextClearKeepsLongTermMemory() {
+  const database = await initializeSQLiteDatabase({ dbPath: ':memory:' });
+  try {
+    const repository = new MemoryRepository({ database });
+    const memory = new MemoryService({ repository });
+    const service = new DialogueOrchestrationService({ memoryService: memory });
+    const sessionId = 'clear-context-session';
+
+    await service.run({
+      message: '请记住：我喜欢自然一点的中文陪伴语气',
+      provider: 'stub',
+      model: 'stub',
+      sessionId,
+      options: { useMemory: true, avatarId: 'alice' }
+    });
+    const cleared = memory.clearShortTermContext(sessionId);
+    const context = await memory.getContext({ enabled: true, sessionId, avatarId: 'alice' });
+
+    assert(cleared.cleared >= 2, '清空上下文应删除当前 session 的短期 messages。');
+    assert(context.turnCount === 0, '清空上下文后短期 turnCount 应为 0。');
+    assert(context.longTerm?.count === 1, '清空上下文不应删除用户明确保存的长期记忆。');
+  } finally {
+    database.close();
+  }
+}
+
+async function checkNaturalMemoryRecallAndForgetReply() {
+  const database = await initializeSQLiteDatabase({ dbPath: ':memory:' });
+  try {
+    const memory = new MemoryService({
+      repository: new MemoryRepository({ database })
+    });
+    const service = new DialogueOrchestrationService({ memoryService: memory });
+    const sessionId = 'natural-memory-session';
+
+    await service.run({
+      message: '请记住：我喜欢回答短一点',
+      provider: 'stub',
+      model: 'stub',
+      sessionId,
+      options: { useMemory: true, avatarId: 'alice' }
+    });
+    const recall = await service.run({
+      message: '你还记得我让你记住什么吗',
+      provider: 'stub',
+      model: 'stub',
+      sessionId,
+      options: { useMemory: true, avatarId: 'alice' }
+    });
+    const forget = await service.run({
+      message: '忘记这个',
+      provider: 'stub',
+      model: 'stub',
+      sessionId,
+      options: { useMemory: true, avatarId: 'alice' }
+    });
+
+    assert(recall.reply.includes('我喜欢回答短一点'), 'stub 记忆追问应自然返回已保存的长期记忆内容。');
+    assert(forget.reply.includes('记忆面板'), 'stub 忘记类输入应给出自然清除指引。');
+    assert(forget.memory.longTermWrite?.stored !== true, '忘记类输入不应自动写入新的长期记忆。');
   } finally {
     database.close();
   }

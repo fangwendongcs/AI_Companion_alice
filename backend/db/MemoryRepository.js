@@ -74,6 +74,13 @@ export class MemoryRepository {
       .run(normalizeText(sessionId, 'default'));
   }
 
+  clearMessages({ sessionId } = {}) {
+    const result = this.database
+      .prepare('DELETE FROM messages WHERE session_id = ?')
+      .run(normalizeText(sessionId, 'default'));
+    return Number(result?.changes || 0);
+  }
+
   upsertMemoryItem({
     sessionId = null,
     avatarId = DEFAULT_AVATAR_ID,

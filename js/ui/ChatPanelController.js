@@ -7,6 +7,12 @@ export class ChatPanelController {
 
   init() {
     this.registry.addEventListener(this.refs.sendBtn, 'click', () => this.actions.handleChat());
+    if (this.refs.regenerateBtn) {
+      this.registry.addEventListener(this.refs.regenerateBtn, 'click', () => this.actions.regenerateReply());
+    }
+    if (this.refs.clearContextBtn) {
+      this.registry.addEventListener(this.refs.clearContextBtn, 'click', () => this.actions.clearDialogueContext());
+    }
     this.registry.addEventListener(this.refs.promptInput, 'keypress', (event) => {
       if (event.key === 'Enter') this.actions.handleChat();
     });

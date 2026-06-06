@@ -44,6 +44,7 @@ export class AppController {
     this.ttsConfig = this.store.loadTTSConfig();
     this.avatarSwitchChain = Promise.resolve();
     this.avatarSwitchVersion = 0;
+    this.lastDialogueInput = '';
     this.destroyed = false;
 
     this.stateStore = new CompanionStateStore(this.createInitialState(), this.eventBus);
@@ -165,6 +166,8 @@ export class AppController {
       speakText: (text) => this.speakText(text),
       actions: {
         handleChat: () => this.handleChat(),
+        regenerateReply: () => this.regenerateReply(),
+        clearDialogueContext: () => this.clearDialogueContext(),
         toggleMute: () => this.toggleMute(),
         showDialogue: (text) => this.showDialogue(text),
         triggerReaction: (part, motionSlot) => this.triggerReaction(part, motionSlot),
@@ -496,11 +499,72 @@ export class AppController {
     if (!text) return;
 
     this.refs.promptInput.value = '';
-    this.refs.sendBtn.disabled = true;
+    this.lastDialogueInput = text;
+    await this.sendDialogueText(text);
+  }
+
+  async regenerateReply() {
+    const text = this.lastDialogueInput || this.state.lastUserMessage || this.state.dialogue?.input || '';
+    if (!text.trim()) {
+      this.showDialogue('还没有可以重新生成的上一条消息。');
+      return;
+    }
+    await this.sendDialogueText(text, { regenerate: true });
+  }
+
+  async clearDialogueContext() {
+    this.llmConfig = this.readLLMFormConfig();
+    const sessionId = this.llmConfig.sessionId || 'default';
+    const avatarId = this.state.currentAvatarId || 'alice';
+    this.setDialogueBusy(true);
+
+    try {
+      const result = await this.apiClient.json(
+        `/api/memory?sessionId=${encodeURIComponent(sessionId)}&avatarId=${encodeURIComponent(avatarId)}&scope=context`,
+        {
+          method: 'DELETE',
+          source: 'memory'
+        }
+      );
+      this.lastDialogueInput = '';
+      this.refs.promptInput.value = '';
+      this.patchState({
+        lastUserMessage: '',
+        lastAssistantMessage: '',
+        dialogueError: null,
+        memory: {
+          ...(this.state.memory || {}),
+          used: Boolean(this.llmConfig.useMemory),
+          sessionId,
+          turnCount: 0,
+          context: [],
+          lastClearedScope: result?.scope || 'context'
+        }
+      }, 'dialogue:clear-context');
+      this.showDialogue('当前上下文已经清空，我会从这里重新陪你聊。');
+    } catch (error) {
+      this.log.error('清空上下文失败:', error);
+      this.patchState({
+        dialogueError: error?.message || '清空上下文失败。'
+      }, 'dialogue:clear-context:error');
+      this.showDialogue('清空上下文失败了，请确认后端服务正常。');
+    } finally {
+      this.setDialogueBusy(false);
+    }
+  }
+
+  async sendDialogueText(text, { regenerate = false } = {}) {
+    this.setDialogueBusy(true);
 
     try {
       this.llmConfig = this.readLLMFormConfig();
-      const reply = await this.dialogueManager.send(text, this.llmConfig);
+      const reply = await this.dialogueManager.send(text, {
+        ...this.llmConfig,
+        options: {
+          ...(this.llmConfig.options || {}),
+          regenerate
+        }
+      });
       const response = this.llmClient.getLastResponse?.() || {};
       this.speakText(reply, { affect: response.affect || this.lastDialogueAffect });
     } catch (error) {
@@ -518,8 +582,14 @@ export class AppController {
       this.requestAffectMotion(affect, MotionSlot.BODY_TAP);
       this.speakText(fallbackReply, { affect });
     } finally {
-      this.refs.sendBtn.disabled = false;
+      this.setDialogueBusy(false);
     }
+  }
+
+  setDialogueBusy(isBusy) {
+    [this.refs.sendBtn, this.refs.regenerateBtn, this.refs.clearContextBtn].forEach((button) => {
+      if (button) button.disabled = Boolean(isBusy);
+    });
   }
 
   readLLMFormConfig() {

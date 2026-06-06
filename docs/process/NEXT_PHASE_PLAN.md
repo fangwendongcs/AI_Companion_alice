@@ -438,12 +438,10 @@ Phase 5 的核心不是把项目做成企业知识库问答系统，而是强化
 - persona 配置仍由后端 / 配置层管理。
 - 不把 provider secret 或 prompt 私密配置暴露到前端。
 
-### Phase 5.6：记忆管理 UI 与陪伴连续性优化
+### Phase 5.6：情绪与语气决策层
 
 **目标**
 
-- 已新增轻量 Memory 面板，可查看精简长期记忆摘要，并清除当前 session 或当前 avatar 的长期记忆。
-- 已新增 `/api/memory` 读 / 清接口；接口不返回完整原始 messages。
 - 已新增规则化 affect 决策层，把回复上下文映射为 emotion / tone / voice / motion metadata。
 - Debug Panel 已显示 persona、emotion、tone、voice style、motion slot 和长期记忆数量。
 
@@ -467,14 +465,25 @@ Phase 5 的核心不是把项目做成企业知识库问答系统，而是强化
 - 不把情绪写入长期记忆。
 - 不改 TTS provider secret 边界。
 
-### Phase 5.8：对话体验打磨
+### Phase 5.8：记忆管理与陪伴连续性
+
+**目标**
+
+- 已新增轻量 Memory 面板，可查看精简长期记忆摘要，并清除当前 session 或当前 avatar 的长期记忆。
+- 已新增 `/api/memory` 读 / 清接口；接口不返回完整原始 messages。
+- 记忆能力继续保持可解释、可清除、按 session / avatar 隔离。
+
+### Phase 5.9：对话体验打磨
 
 **目标**
 
 - 中文陪伴链路已具备 persona + memory + affect 基线。
-- 下一步可继续补重新生成、清空上下文、回复长度控制和“你还记得吗 / 忘记这个”自然交互。
+- 底部对话栏补充重新生成和清空当前上下文入口。
+- 清空当前上下文只清短期消息，不删除用户明确保存的长期记忆。
+- 本地 stub 对“你还记得吗 / 忘记这个”提供更自然的记忆追问与清除指引。
+- 后续仍可继续打磨回复长度控制、重新生成策略和中文陪伴节奏。
 
-### Phase 5.9：可选 RAG / Qdrant / n8n 增强评估
+### Phase 5 可选增强：RAG / Qdrant / n8n 评估
 
 **目标**
 

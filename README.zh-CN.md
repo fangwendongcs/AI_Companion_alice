@@ -186,6 +186,7 @@ npm run smoke
 - `/api/dialogue` 作为主对话入口。
 - 本地 `stub` provider 支持无 Key 开发。
 - SQLite-backed 短期 Memory 和保守长期记忆条目。
+- 对话体验打磨：重新生成、短期上下文清空和更自然的记忆追问。
 - 来自 `data/knowledge/` 的本地关键词 RAG。
 - 可选 n8n workflow 边界。
 - 最小 Agent orchestration pipeline。
@@ -207,6 +208,7 @@ npm run smoke
 - Alice / Shiro / Wambo 的 persona 配置已经接入 PromptBuilder 和 `/api/dialogue` metadata，让角色差异开始从“模型不同”扩展到“人格体验不同”。
 - 规则化 affect metadata 已经可以把回复上下文映射到情绪、语气、语音提示和动作提示。
 - 轻量 Memory 面板可以读取和清除当前长期记忆摘要，不暴露完整原始对话历史。
+- 底部对话栏支持重新生成上一轮，并可以只清空短期上下文，保留用户明确保存的长期记忆。
 - 优先优化中文陪伴对话连续性，再扩展知识库能力。
 - RAG / Qdrant / embedding 保留为可选增强，不作为近期主线。
 - 将 n8n 作为受控后端工具能力接入具体任务，而不是主对话大脑。
