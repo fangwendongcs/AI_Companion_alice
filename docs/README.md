@@ -17,6 +17,18 @@
 - [API.md](./api/API.md): API 概览
 - [API_CONTRACT.md](./api/API_CONTRACT.md): API 合约与兼容策略
 
+## Mobile Handoff
+
+- [PROJECT_CURRENT_STATUS.md](./mobile-handoff/PROJECT_CURRENT_STATUS.md): 当前 Web / Backend 项目进度、模块和下一阶段方向
+- [IOS_MIGRATION_SCOPE.md](./mobile-handoff/IOS_MIGRATION_SCOPE.md): 独立 iOS 原生项目迁移范围，明确不是 WebView 或桌面 Web 完整移植
+- [PERSONA_SPEC.md](./mobile-handoff/PERSONA_SPEC.md): Alice / Shiro / Wambo 人格、语气、边界和移动端展示建议
+- [DIALOGUE_FLOW_SPEC.md](./mobile-handoff/DIALOGUE_FLOW_SPEC.md): 移动端可复用对话流程、输入输出和状态流转
+- [EMOTION_STATE_SPEC.md](./mobile-handoff/EMOTION_STATE_SPEC.md): emotion / tone / avatar_state 继承与映射规则
+- [MEMORY_SPEC.md](./mobile-handoff/MEMORY_SPEC.md): 移动端记忆接入方式、后端记忆边界和本地缓存建议
+- [API_CONTRACT_FOR_IOS.md](./mobile-handoff/API_CONTRACT_FOR_IOS.md): iOS 需要调用的 chat、persona、TTS、memory、avatar-state API 契约
+- [AVATAR_STATE_SPEC.md](./mobile-handoff/AVATAR_STATE_SPEC.md): Web 动作状态到 iOS 轻量 Avatar 状态的映射
+- [ASSET_INVENTORY.md](./mobile-handoff/ASSET_INVENTORY.md): 当前角色、模型、动画、音频和 UI 资源的 iOS 复用建议
+
 ## Guides
 
 - [DEVELOPMENT_GUIDE.md](./guides/DEVELOPMENT_GUIDE.md): 本地开发与排查
