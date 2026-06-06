@@ -61,6 +61,13 @@ async function postJson(path, body) {
   return payload;
 }
 
+async function deleteJson(path) {
+  const response = await fetch(`${baseUrl}${toPublicPath(path)}`, { method: 'DELETE' });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(`${path} HTTP ${response.status}`);
+  return payload;
+}
+
 async function assertReachable(path, label) {
   if (!path) throw new Error(`${label} missing path`);
   const response = await fetch(`${baseUrl}${toPublicPath(path)}`, { method: 'HEAD' });
@@ -111,6 +118,10 @@ async function assertDialogueBoundary() {
   if (payload.ok !== true) throw new Error('/api/dialogue did not return ok=true');
   if (!data.reply) throw new Error('/api/dialogue missing reply');
   if (data.meta?.mode !== 'llm_stub') throw new Error('/api/dialogue did not return llm_stub mode');
+  if (!data.meta?.persona?.personaId) throw new Error('/api/dialogue missing persona metadata');
+  if (!data.affect?.emotion || !data.affect?.voice?.style || !data.affect?.motion?.slot) {
+    throw new Error('/api/dialogue missing affect metadata');
+  }
   if (data.memory?.used !== false || data.rag?.used !== false || data.workflow?.used !== false) {
     throw new Error('/api/dialogue should keep memory/rag/workflow disabled in smoke');
   }
@@ -140,6 +151,7 @@ async function assertDialogueBoundary() {
   if (optionalData.meta?.steps?.memory !== 'ready') throw new Error('/api/dialogue meta.steps should include memory status');
   if (optionalData.meta?.steps?.rag !== 'local') throw new Error('/api/dialogue meta.steps should include rag status');
   if (optionalData.meta?.steps?.workflow !== 'not_configured') throw new Error('/api/dialogue meta.steps should include workflow status');
+  if (!optionalData.affect?.tone) throw new Error('/api/dialogue optional context should include affect tone');
 
   await assertDialogueError('/api/dialogue', {
     message: '',
@@ -210,6 +222,8 @@ async function assertMemoryFlow() {
   if (explicitData.memory?.longTerm?.count !== 1) {
     throw new Error('/api/dialogue explicit memory should expose longTerm metadata');
   }
+  const memoryList = await getJson(`/api/memory?sessionId=${longTermSessionId}&avatarId=alice`);
+  if (memoryList.data?.longTerm?.count !== 1) throw new Error('/api/memory should list explicit long-term memory');
 
   const ordinarySessionId = `smoke_ordinary_${Date.now()}`;
   const ordinary = await postJson('/api/dialogue', {
@@ -227,6 +241,9 @@ async function assertMemoryFlow() {
   if (ordinaryData.memory?.longTermWrite?.stored === true || ordinaryData.memory?.longTerm?.count !== 0) {
     throw new Error('/api/dialogue ordinary chat should not create long-term memory');
   }
+
+  const cleared = await deleteJson(`/api/memory?sessionId=${longTermSessionId}&avatarId=alice&scope=session`);
+  if ((cleared.data?.cleared || 0) < 1) throw new Error('/api/memory should clear current session memory');
 }
 
 async function assertProviderStatus() {

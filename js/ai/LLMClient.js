@@ -24,9 +24,11 @@ export class LLMClient {
           model: resolvedConfig.model,
           systemPrompt: resolvedConfig.systemPrompt,
           sessionId: resolvedConfig.sessionId,
+          avatarId: resolvedConfig.avatarId,
           options: {
             ...(resolvedConfig.options || {}),
-            useMemory: resolvedConfig.options?.useMemory ?? resolvedConfig.useMemory ?? false
+            useMemory: resolvedConfig.options?.useMemory ?? resolvedConfig.useMemory ?? false,
+            avatarId: resolvedConfig.options?.avatarId ?? resolvedConfig.avatarId
           }
         }
       });

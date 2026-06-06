@@ -1652,3 +1652,14 @@ npm run check:assets
 - `check:memory-flow` 覆盖显式长期记忆写入、普通闲聊不写入、敏感记忆拒绝、重复记忆合并和 prompt 注入。
 - `check:sqlite-flow` 覆盖 `memory_items` insert/read/delete 和重复合并。
 - 本轮不做复杂用户画像、不做情绪分析、不做记忆管理 UI、不接 Qdrant / embedding / n8n、不改模型 / 动画 / TTS。
+
+## 63. Phase 5.5-5.9 Persona / Affect / Voice-Motion / Memory Control Baseline
+
+- 新增后端 persona 配置和 `PersonaService`，为 Alice / Shiro / Wambo 提供不同的人格、语气、边界、默认声音和动作风格。
+- `PromptBuilder` 现在先注入角色人格与对话边界，再注入长期记忆、短期上下文、RAG 和 workflow 结果。
+- `/api/dialogue` 返回 `meta.persona` 与 `affect`，其中 affect 包含 emotion、tone、voice 和 motion metadata。
+- 新增 `CompanionAffectService`、`EmotionPolicy`、`TonePolicy`，第一版使用规则化判断，不接真实情绪模型，不把情绪写入长期记忆。
+- 前端 `DialogueManager`、`AppController`、`AudioManager` 已消费 affect：语音使用 rate / pitch hint，动作使用现有 motion slot fallback，不重写动画系统。
+- 新增 `/api/memory` GET / DELETE 与轻量 Memory 面板，只展示精简长期记忆摘要，并支持清除当前 session / avatar 记忆。
+- Debug Panel 新增 persona、emotion、tone、voice style、motion slot 和长期记忆数量。
+- 新增 `check:persona-flow`、`check:affect-flow`、`check:companion-state-flow`，并纳入 `npm run check`。

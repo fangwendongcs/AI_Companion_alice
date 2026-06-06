@@ -104,6 +104,25 @@
             </select>
           </div>
           <div class="setting-group">
+            <span class="setting-label">短期记忆</span>
+            <label class="toggle-row" for="llmMemoryToggle">
+              <input type="checkbox" id="llmMemoryToggle">
+              <span>启用当前会话短期记忆</span>
+            </label>
+            <div class="setting-help" id="llmMemorySession">Session: -</div>
+          </div>
+          <div class="setting-group">
+            <span class="setting-label">长期记忆摘要</span>
+            <div class="memory-list" id="memoryItemsList"></div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button class="custom-btn" id="memoryRefreshBtn">刷新记忆</button>
+              <button class="custom-btn secondary" id="memoryClearSessionBtn">清除当前会话</button>
+              <button class="custom-btn secondary" id="memoryClearAvatarBtn">清除当前角色</button>
+            </div>
+            <div class="setting-help">只展示用户明确要求保存的长期记忆，不展示完整原始对话。</div>
+            <div class="llm-status" id="memoryPanelStatus"></div>
+          </div>
+          <div class="setting-group">
             <span class="setting-label">API Key（后端环境变量）</span>
             <div class="api-key-wrapper">
               <input type="password" class="custom-input" id="apiKeyInput" placeholder="请在后端配置 OPENAI_API_KEY / LLM_API_KEY" disabled>
@@ -131,14 +150,6 @@
               <option value="qwen-max">qwen-max</option>
               <option value="deepseek-chat">deepseek-chat</option>
             </select>
-          </div>
-          <div class="setting-group">
-            <span class="setting-label">短期记忆</span>
-            <label class="toggle-row" for="llmMemoryToggle">
-              <input type="checkbox" id="llmMemoryToggle">
-              <span>启用当前会话短期记忆</span>
-            </label>
-            <div class="setting-help" id="llmMemorySession">Session: -</div>
           </div>
           <div class="setting-group">
             <span class="setting-label">角色设定 Prompt</span>

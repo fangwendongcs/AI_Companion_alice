@@ -70,6 +70,8 @@ flowchart LR
 | Backend API Boundary | MVP | 原生 Node 后端，包含 routes、services、provider readiness、上传校验与安全检查。 |
 | LLM Provider | MVP / configurable | 默认 `stub` 无 Key 可运行，真实 provider 需要后端环境变量。 |
 | Memory | MVP / evolving | SQLite-backed 最近上下文 + 保守长期 `memory_items`；不是自动用户画像系统。 |
+| Persona System | MVP | Alice / Shiro / Wambo 已有后端 persona 配置，并接入 PromptBuilder 和 `/api/dialogue` metadata。 |
+| Emotion / Tone | MVP | 规则化 affect metadata 会把回复上下文映射为情绪、语气、语音提示和动作提示。 |
 | Local RAG | MVP | 从 `data/knowledge/` 读取 markdown / JSON 并做关键词检索，没有 embedding。 |
 | n8n Workflow | Boundary | 可选后端 workflow 调用边界，不是主编排器。 |
 | Agent Orchestration | MVP boundary | 最小 Memory -> RAG -> optional Workflow -> PromptBuilder -> LLM pipeline。 |
@@ -191,7 +193,7 @@ npm run smoke
 
 ### 我下一步会重点做：AI 能力主线
 
-- 我会把下一阶段重新切回 AI 数字伙伴核心：记忆系统架构、角色人格、陪伴连续性，以及语音 / 动作状态反馈。
+- 我正在把下一阶段重新切回 AI 数字伙伴核心：记忆系统架构、角色人格、陪伴连续性，以及语音 / 动作状态反馈。
 - Phase 4 的安全基线会作为后续部署护栏保留，不再继续把安全工作过度扩大到完整生产系统。
 - 我会补项目展示材料：截图、短 GIF、简单 Logo，以及浏览器验收记录。
 - 我会继续打磨产品体验，重点放在对话状态、知识来源展示和 Debug 可视化上。
@@ -202,7 +204,9 @@ npm run smoke
 - 开启 Memory 时，最近对话上下文由 SQLite 承载，基础短期记忆可以在服务重启后恢复。
 - 显式长期记忆已经以保守 `memory_items` 形式接入：只保存用户明确要求记住的稳定偏好、目标或事实，拒绝敏感内容，并合并重复记忆。
 - 长期记忆继续保持可清除、可解释、按 session/avatar 隔离和隐私优先。
-- 为 Alice / Shiro / Wambo 建立 persona 配置，让角色差异不只是模型不同。
+- Alice / Shiro / Wambo 的 persona 配置已经接入 PromptBuilder 和 `/api/dialogue` metadata，让角色差异开始从“模型不同”扩展到“人格体验不同”。
+- 规则化 affect metadata 已经可以把回复上下文映射到情绪、语气、语音提示和动作提示。
+- 轻量 Memory 面板可以读取和清除当前长期记忆摘要，不暴露完整原始对话历史。
 - 优先优化中文陪伴对话连续性，再扩展知识库能力。
 - RAG / Qdrant / embedding 保留为可选增强，不作为近期主线。
 - 将 n8n 作为受控后端工具能力接入具体任务，而不是主对话大脑。

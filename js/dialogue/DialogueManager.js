@@ -21,6 +21,9 @@ export class DialogueManager {
       const detail = {
         text: reply,
         memory: response.memory || null,
+        affect: response.affect || null,
+        rag: response.rag || null,
+        workflow: response.workflow || null,
         meta: response.meta || null
       };
       this.eventBus?.emit(EVENT_NAMES.DIALOGUE_ASSISTANT, detail);

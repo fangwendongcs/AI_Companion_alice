@@ -428,9 +428,10 @@ Phase 5 的核心不是把项目做成企业知识库问答系统，而是强化
 
 **目标**
 
-- 为 Alice / Shiro / Wambo 建立 persona 配置。
+- 已为 Alice / Shiro / Wambo 建立后端 persona 配置。
 - 配置内容包括人设、语气、说话边界、默认声音、默认动作、记忆策略。
-- 让角色差异不只是模型不同，而是人格体验不同。
+- `PromptBuilder` 已按角色人格、对话边界、长期记忆、短期上下文、RAG / workflow 的顺序组装 prompt。
+- `/api/dialogue` 已返回 `meta.persona`，供 Debug 和后续联动消费。
 
 **边界**
 
@@ -441,17 +442,39 @@ Phase 5 的核心不是把项目做成企业知识库问答系统，而是强化
 
 **目标**
 
-- 增加记忆开关、清除记忆、按 session / avatar 隔离、导出记忆和隐私提示。
-- 优化错误提示、上下文连续性、重新生成、清空上下文、对话节奏。
-- 思考、说话、失败、记忆命中、RAG 命中、workflow 执行时有不同状态反馈。
-- 重点提升“伙伴感”，不是知识问答能力。
+- 已新增轻量 Memory 面板，可查看精简长期记忆摘要，并清除当前 session 或当前 avatar 的长期记忆。
+- 已新增 `/api/memory` 读 / 清接口；接口不返回完整原始 messages。
+- 已新增规则化 affect 决策层，把回复上下文映射为 emotion / tone / voice / motion metadata。
+- Debug Panel 已显示 persona、emotion、tone、voice style、motion slot 和长期记忆数量。
 
 **边界**
 
 - 不重写动画系统。
 - 只做状态联动收口。
 
-### Phase 5.7：可选 RAG / Qdrant / n8n 增强评估
+### Phase 5.7：语音 / 动作 / 情绪联动
+
+**目标**
+
+- 前端已消费 `/api/dialogue` 返回的 `affect`。
+- `AudioManager` 会使用 `affect.voice.rate / pitch` 调整浏览器 fallback 语音参数。
+- `AppController` 会把 `affect.motion.slot` 映射到现有 motion slot，不重写动画系统。
+- 错误 fallback 使用 apologetic affect，避免状态卡死。
+
+**边界**
+
+- 不接真实情绪模型。
+- 不把情绪写入长期记忆。
+- 不改 TTS provider secret 边界。
+
+### Phase 5.8：对话体验打磨
+
+**目标**
+
+- 中文陪伴链路已具备 persona + memory + affect 基线。
+- 下一步可继续补重新生成、清空上下文、回复长度控制和“你还记得吗 / 忘记这个”自然交互。
+
+### Phase 5.9：可选 RAG / Qdrant / n8n 增强评估
 
 **目标**
 

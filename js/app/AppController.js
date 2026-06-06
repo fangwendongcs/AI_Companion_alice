@@ -106,7 +106,21 @@ export class AppController {
         used: false,
         sessionId: this.llmConfig?.sessionId || null,
         turnCount: 0,
+        longTermCount: 0,
         maxTurns: null
+      },
+      persona: {
+        avatarId: null,
+        personaId: null,
+        name: null,
+        tone: null
+      },
+      affect: {
+        emotion: 'neutral',
+        intensity: 0,
+        tone: 'calm',
+        voiceStyle: null,
+        motionSlot: null
       },
       currentState: AvatarState.IDLE,
       isMuted: false,
@@ -178,6 +192,7 @@ export class AppController {
         currentAnimation: null
       }, 'animation:action:complete');
       this.eventBus.emit(EVENT_NAMES.ANIMATION_ACTION_COMPLETE, request);
+      this.scheduleInteractionStateSettle();
     };
 
     this.registry.add(this.eventBus.on(EVENT_NAMES.INTERACTION_HIT, ({ part, motionSlot }) => {
@@ -199,16 +214,22 @@ export class AppController {
         this.motionManager.requestSlot(MotionSlot.IDLE);
       }
     }));
-    this.registry.add(this.eventBus.on(EVENT_NAMES.DIALOGUE_ASSISTANT, ({ text, memory }) => {
+    this.registry.add(this.eventBus.on(EVENT_NAMES.DIALOGUE_ASSISTANT, ({ text, memory, affect, meta }) => {
+      this.lastDialogueAffect = affect || null;
       this.patchState({
         lastAssistantMessage: text,
         memory,
+        affect,
+        persona: meta?.persona || null,
         dialogueError: null
       }, EVENT_NAMES.DIALOGUE_ASSISTANT);
     }));
     this.registry.add(this.eventBus.on(EVENT_NAMES.DIALOGUE_ERROR, ({ error, message }) => {
+      const affect = createFallbackAffect();
+      this.lastDialogueAffect = affect;
       this.patchState({
-        dialogueError: message
+        dialogueError: message,
+        affect
       }, EVENT_NAMES.DIALOGUE_ERROR);
       handleAppError(error || new Error(message), {
         eventBus: this.eventBus,
@@ -219,11 +240,9 @@ export class AppController {
       });
     }));
 
-    this.registry.add(this.eventBus.on(EVENT_NAMES.AUDIO_START, () => {
+    this.registry.add(this.eventBus.on(EVENT_NAMES.AUDIO_START, ({ affect } = {}) => {
       this.patchState({ isSpeaking: true }, EVENT_NAMES.AUDIO_START);
-      this.motionManager.requestSlot(MotionSlot.SPEAKING, {
-        replacePending: false
-      });
+      this.requestAffectMotion(affect || this.lastDialogueAffect, MotionSlot.SPEAKING);
     }));
     this.registry.add(this.eventBus.on(EVENT_NAMES.AUDIO_END, () => {
       this.resetSpeakingState(EVENT_NAMES.AUDIO_END);
@@ -331,8 +350,18 @@ export class AppController {
       layered.memory = {
         ...this.state.memory,
         ...memory,
+        longTermCount: memory.longTerm?.count ?? memory.longTermCount ?? this.state.memory?.longTermCount ?? 0,
         enabled: patch.memoryEnabled ?? memory.enabled ?? this.state.memory?.enabled ?? false
       };
+    }
+    if ('persona' in patch) {
+      layered.persona = {
+        ...this.state.persona,
+        ...(patch.persona || {})
+      };
+    }
+    if ('affect' in patch) {
+      layered.affect = normalizeAffectState(patch.affect, this.state.affect);
     }
     if ('lastInteractionAt' in patch) {
       layered.interaction = {
@@ -472,15 +501,22 @@ export class AppController {
     try {
       this.llmConfig = this.readLLMFormConfig();
       const reply = await this.dialogueManager.send(text, this.llmConfig);
-      this.speakText(reply);
+      const response = this.llmClient.getLastResponse?.() || {};
+      this.speakText(reply, { affect: response.affect || this.lastDialogueAffect });
     } catch (error) {
       this.log.error('LLM 调用失败:', error);
       const fallbackReply = '抱歉，连接出现问题。请确认后端服务已启动，并配置了对应模型的 API Key。';
+      const affect = createFallbackAffect();
       this.eventBus.emit(EVENT_NAMES.DIALOGUE_ASSISTANT, {
         text: fallbackReply,
-        fallback: true
+        fallback: true,
+        affect,
+        meta: {
+          persona: this.state.persona || null
+        }
       });
-      this.speakText(fallbackReply);
+      this.requestAffectMotion(affect, MotionSlot.BODY_TAP);
+      this.speakText(fallbackReply, { affect });
     } finally {
       this.refs.sendBtn.disabled = false;
     }
@@ -496,8 +532,10 @@ export class AppController {
       systemPrompt: this.refs.systemPromptInput.value.trim(),
       useMemory,
       sessionId,
+      avatarId: this.state.currentAvatarId,
       options: {
         useMemory,
+        avatarId: this.state.currentAvatarId,
         useRag: false,
         useWorkflow: false
       }
@@ -533,14 +571,33 @@ export class AppController {
     this.speakText(text);
   }
 
-  speakText(text) {
+  speakText(text, { affect = null } = {}) {
     if (this.state.speechTimer) clearTimeout(this.state.speechTimer);
 
     const estimatedDuration = Math.max(UI_TIMING.speechMinMs, text.length * UI_TIMING.speechMsPerChar);
     this.state.speechTimer = this.registry.addTimeout(() => this.resetSpeakingState('audio:timer'), estimatedDuration);
     void this.audioManager.speak(text, {
-      muted: this.state.isMuted
+      muted: this.state.isMuted,
+      affect
     });
+  }
+
+  requestAffectMotion(affect, fallbackSlot = MotionSlot.SPEAKING) {
+    const slot = this.getMotionSlotForAffect(affect) || fallbackSlot;
+    this.motionManager.requestSlot(MotionSlot.SPEAKING, { replacePending: false });
+    if (slot && slot !== MotionSlot.SPEAKING && slot !== MotionSlot.IDLE) {
+      this.motionManager.requestSlot(slot, { replacePending: false });
+    }
+  }
+
+  getMotionSlotForAffect(affect) {
+    const slot = affect?.motion?.slot;
+    if (slot === 'happy') return MotionSlot.CHAT;
+    if (slot === 'apologize') return MotionSlot.BODY_TAP;
+    if (slot === 'thinking') return MotionSlot.LISTENING;
+    if (slot === 'speaking') return MotionSlot.SPEAKING;
+    if (slot === 'idle') return MotionSlot.IDLE;
+    return null;
   }
 
   resetSpeakingState(source = 'audio:reset') {
@@ -556,6 +613,18 @@ export class AppController {
     }
   }
 
+  scheduleInteractionStateSettle() {
+    this.registry.addTimeout(() => {
+      if (this.destroyed) return;
+      if (this.state.isThinking || this.state.isSpeaking || this.state.currentAnimation) return;
+      if (!isInteractionAvatarState(this.state.currentState)) return;
+
+      this.motionManager.requestSlot(MotionSlot.IDLE, {
+        replacePending: false
+      });
+    }, 80);
+  }
+
   destroy() {
     if (this.destroyed) return;
     this.destroyed = true;
@@ -569,4 +638,46 @@ export class AppController {
     this.stateStore.destroy();
     this.registry.destroy();
   }
+}
+
+function isInteractionAvatarState(state) {
+  return [
+    AvatarState.REACTING,
+    AvatarState.INTERACTING,
+    AvatarState.ARM_ACTION,
+    AvatarState.HEAD_ACTION,
+    AvatarState.LEG_ACTION,
+    AvatarState.INTERRUPTED,
+    AvatarState.ERROR
+  ].includes(state);
+}
+
+function normalizeAffectState(affect, previous = {}) {
+  if (!affect) return previous || {};
+  return {
+    emotion: affect.emotion || previous?.emotion || 'neutral',
+    intensity: affect.intensity ?? previous?.intensity ?? 0,
+    tone: affect.tone || previous?.tone || 'calm',
+    voiceStyle: affect.voice?.style || previous?.voiceStyle || null,
+    motionSlot: affect.motion?.slot || previous?.motionSlot || null,
+    reason: affect.reason || previous?.reason || null
+  };
+}
+
+function createFallbackAffect() {
+  return {
+    emotion: 'apologetic',
+    intensity: 0.62,
+    tone: 'gentle',
+    reason: 'frontend_error_fallback',
+    voice: {
+      style: 'soft_gentle',
+      rate: 0.96,
+      pitch: 1.02
+    },
+    motion: {
+      slot: 'apologize',
+      intensity: 0.5
+    }
+  };
 }

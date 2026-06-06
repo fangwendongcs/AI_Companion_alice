@@ -61,6 +61,11 @@ export function createDomRefs(root = document) {
     fovSlider: byId('fovSlider'),
     nameInput: byId('nameInput'),
     birthdayInput: byId('birthdayInput'),
-    likesInput: byId('likesInput')
+    likesInput: byId('likesInput'),
+    memoryRefreshBtn: byId('memoryRefreshBtn'),
+    memoryClearSessionBtn: byId('memoryClearSessionBtn'),
+    memoryClearAvatarBtn: byId('memoryClearAvatarBtn'),
+    memoryItemsList: byId('memoryItemsList'),
+    memoryPanelStatus: byId('memoryPanelStatus')
   };
 }

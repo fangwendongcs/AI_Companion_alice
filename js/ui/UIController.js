@@ -7,6 +7,7 @@ import { DomEffectsController } from './DomEffectsController.js';
 import { ErrorView } from './ErrorView.js';
 import { InteractionPanelController } from './InteractionPanelController.js';
 import { LLMSettingsController } from './LLMSettingsController.js';
+import { MemoryPanelController } from './MemoryPanelController.js';
 import { SceneControlsController } from './SceneControlsController.js';
 import { SettingsController } from './SettingsController.js';
 import { StatusView } from './StatusView.js';
@@ -50,6 +51,11 @@ export class UIController {
         setConfig: deps.setTTSConfig
       }),
       new InteractionPanelController({ ...deps, registry: this.registry }),
+      new MemoryPanelController({
+        ...deps,
+        registry: this.registry,
+        statusView: this.statusView
+      }),
       new DebugPanelController({ ...deps, registry: this.registry }),
       new DomEffectsController({ refs: this.refs, registry: this.registry })
     ];

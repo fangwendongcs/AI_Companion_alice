@@ -5,6 +5,8 @@
 本地开发默认 `REQUIRE_API_AUTH=false`。公网或半公网私有演示前，以下接口必须启用鉴权或接入正式用户认证：
 
 - `POST /api/dialogue`
+- `GET /api/memory`
+- `DELETE /api/memory`
 - `POST /api/chat`
 - `POST /api/tts`
 - `POST /api/avatars`
@@ -62,7 +64,7 @@ Phase 4.2 增加了公网部署前的最小请求边界：
 
 ### POST /api/dialogue
 
-统一对话编排入口，用于承载 Memory、RAG、n8n workflow 与 Agent orchestration。当前前端主链路已调用该接口，并支持本地 `stub`、LLM-only 编排、SQLite-backed Memory、保守长期 `memory_items`、本地知识检索 RAG 和可选 n8n workflow 工具调用。
+统一对话编排入口，用于承载 Memory、Persona、Affect、RAG、n8n workflow 与 Agent orchestration。当前前端主链路已调用该接口，并支持本地 `stub`、LLM-only 编排、SQLite-backed Memory、保守长期 `memory_items`、角色 persona、规则化 affect、本地知识检索 RAG 和可选 n8n workflow 工具调用。
 
 请求：
 
@@ -106,6 +108,21 @@ Phase 4.2 增加了公网部署前的最小请求边界：
       "status": "disabled",
       "result": null
     },
+    "affect": {
+      "emotion": "warm",
+      "intensity": 0.48,
+      "tone": "gentle",
+      "reason": "default_warm",
+      "voice": {
+        "style": "gentle",
+        "rate": 1.02,
+        "pitch": 1.1
+      },
+      "motion": {
+        "slot": "speaking",
+        "intensity": 0.45
+      }
+    },
     "meta": {
       "mode": "llm_only",
       "orchestration": "agent_pipeline",
@@ -113,6 +130,11 @@ Phase 4.2 增加了公网部署前的最小请求边界：
         "memory": "disabled",
         "rag": "disabled",
         "workflow": "disabled"
+      },
+      "persona": {
+        "avatarId": "alice",
+        "personaId": "alice_default",
+        "tone": "warm_playful"
       },
       "provider": "openai",
       "model": "gpt-4o-mini"
@@ -124,7 +146,9 @@ Phase 4.2 增加了公网部署前的最小请求边界：
 说明：
 
 - `/api/dialogue` 使用 `LLMService` 复用现有 OpenAI-compatible provider 能力。
-- `/api/dialogue` 的后端最小 Agent 编排顺序为：输入校验 -> Memory -> RAG -> optional Workflow -> PromptBuilder -> LLM/stub -> append Memory -> response。
+- `/api/dialogue` 的后端最小 Agent 编排顺序为：输入校验 -> Persona -> Memory -> RAG -> optional Workflow -> PromptBuilder -> LLM/stub -> append Memory -> Affect -> response。
+- `meta.persona` 只返回非敏感 persona 摘要；完整 prompt 和 provider secret 不返回前端。
+- `affect` 是当前轮情绪 / 语气 / 语音 / 动作提示，不默认写入长期记忆。
 - `sessionId` 用于后端 Memory；不传时使用 `default`。
 - `options.useMemory=true` 时，后端会用 SQLite 记录最近 N 轮 user/assistant 消息，并在用户显式要求记住稳定信息时保守写入 `memory_items`。
 - `options.useMemory=false` 时，不读取、不写入 Memory。
@@ -133,6 +157,48 @@ Phase 4.2 增加了公网部署前的最小请求边界：
 - `options.useWorkflow=true` 时，后端会尝试调用 `N8N_WEBHOOK_URL`；未配置时返回 `workflow.status=not_configured`，不会让 `/api/dialogue` 失败。
 - n8n 只作为工具调用层，不作为主对话编排器；workflow 结果只进入 `workflow.result` 元数据，不会直接覆盖最终 `reply`。
 - 成功响应中的 `meta.orchestration` 为 `agent_pipeline`，`meta.steps` 记录 Memory / RAG / Workflow 的状态。
+
+### GET /api/memory
+
+读取当前 session / avatar 的精简长期记忆摘要，不返回完整原始 messages。
+
+```text
+GET /api/memory?sessionId=web-demo&avatarId=alice&limit=12
+```
+
+响应：
+
+```json
+{
+  "ok": true,
+  "data": {
+    "sessionId": "web-demo",
+    "avatarId": "alice",
+    "longTerm": {
+      "used": true,
+      "status": "ready",
+      "count": 1,
+      "items": [
+        {
+          "id": 1,
+          "type": "preference",
+          "scope": "session",
+          "content": "我喜欢简短自然的中文陪伴回复"
+        }
+      ]
+    }
+  }
+}
+```
+
+### DELETE /api/memory
+
+清除当前 session 或当前 avatar 的长期记忆摘要。当前接口是单 token API 鉴权边界的一部分；生产 / demo 模式应开启鉴权。
+
+```text
+DELETE /api/memory?sessionId=web-demo&avatarId=alice&scope=session
+DELETE /api/memory?avatarId=alice&scope=avatar
+```
 - 如果 provider 未配置或缺少 API Key，会返回 `{ "ok": false, "error": { "code": "LLM_NOT_CONFIGURED", "message": "..." } }`。
 - `provider` 为 `stub`、`local` 或 `boundary` 时，会返回本地 `llm_stub`，用于无 Key 本地开发演示、smoke 和边界检查，不代表生产 LLM。
 - 前端默认 provider 为 `stub`，因此新环境无需 API Key 也能跑通 thinking -> speaking -> idle 的演示链路。

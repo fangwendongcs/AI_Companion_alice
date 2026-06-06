@@ -171,6 +171,20 @@ export class MemoryRepository {
   }
 
   listMemoryItems({ sessionId = null, avatarId = DEFAULT_AVATAR_ID, scope = 'session', status = 'active', limit = 6 } = {}) {
+    if (scope === 'avatar') {
+      return this.database.prepare(`
+        SELECT * FROM memory_items
+        WHERE status = ?
+          AND avatar_id = ?
+        ORDER BY importance DESC, updated_at DESC
+        LIMIT ?
+      `).all(
+        normalizeText(status, 'active'),
+        normalizeText(avatarId, DEFAULT_AVATAR_ID),
+        normalizeLimit(limit)
+      );
+    }
+
     return this.database.prepare(`
       SELECT * FROM memory_items
       WHERE status = ?

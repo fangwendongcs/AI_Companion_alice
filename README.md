@@ -70,6 +70,8 @@ Notes:
 | Backend API Boundary | MVP | Native Node HTTP backend with routes, services, provider readiness, upload validation, and security checks. |
 | LLM Provider | MVP / configurable | Default `stub` provider works without keys; real providers require backend environment variables. |
 | Memory | MVP / evolving | SQLite-backed recent context plus conservative long-term `memory_items` for explicit user-approved memories; not an automatic user-profile system. |
+| Persona System | MVP | Alice / Shiro / Wambo have backend persona configs that feed PromptBuilder and `/api/dialogue` metadata. |
+| Emotion / Tone | MVP | Rule-based affect metadata maps reply context to emotion, tone, voice hints, and motion hints. |
 | Local RAG | MVP | Local markdown / JSON keyword retrieval from `data/knowledge/`; no embeddings yet. |
 | n8n Workflow | Boundary | Optional backend workflow invocation boundary; not a main orchestrator. |
 | Agent Orchestration | MVP boundary | Minimal Memory -> RAG -> optional Workflow -> PromptBuilder -> LLM pipeline. |
@@ -192,7 +194,7 @@ In this project, I focused on:
 
 ### My Next Focus: AI Capability Mainline
 
-- I will shift the next development phase back to the AI companion core: memory architecture, persona, conversation continuity, and voice / motion state feedback.
+- I am shifting the next development phase back to the AI companion core: memory architecture, persona, conversation continuity, and voice / motion state feedback.
 - I will keep the current Phase 4 security baseline as the deployment guardrail instead of continuing to over-expand security work before the AI loop improves.
 - I will also add better presentation material: screenshots, a short GIF, a simple project logo, and browser acceptance evidence.
 
@@ -202,7 +204,9 @@ In this project, I focused on:
 - When Memory is enabled, recent dialogue context is backed by SQLite, so basic short-term memory can survive a server restart.
 - Explicit long-term memory is now available through conservative `memory_items`: the system only promotes stable user-approved details such as preferences or goals, rejects sensitive content, and merges duplicates instead of saving everything.
 - Keep long-term memory clearable, explainable, session/avatar scoped, and privacy-first.
-- Build persona configuration for Alice / Shiro / Wambo so each avatar has a distinct companion experience.
+- Persona configuration for Alice / Shiro / Wambo is now connected to PromptBuilder and `/api/dialogue` metadata, so each avatar can start to feel different beyond the model asset.
+- Rule-based affect metadata now connects reply context to emotion, tone, voice hints, and motion hints for the frontend.
+- A lightweight Memory panel can read and clear current long-term memory summaries without exposing raw message history.
 - Improve Chinese companion dialogue continuity before expanding knowledge-base features.
 - Keep RAG / Qdrant / embedding as optional enhancements instead of the immediate mainline.
 - Keep n8n as controlled backend tools for selected tasks, not the main dialogue brain.

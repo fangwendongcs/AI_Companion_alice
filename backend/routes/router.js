@@ -1,6 +1,7 @@
 import { handleAvatarRegistry, handleAvatarUpload } from './avatarRoutes.js';
 import { handleChat, handleDialogue } from './dialogueRoutes.js';
 import { handleHealth } from './healthRoutes.js';
+import { handleMemoryClear, handleMemoryList } from './memoryRoutes.js';
 import { handleProviders } from './providerRoutes.js';
 import { handleTTS } from './ttsRoutes.js';
 import { enforceApiAuth } from '../middleware/authMiddleware.js';
@@ -36,6 +37,16 @@ export async function routeRequest(req, res) {
 
   if (url.pathname === '/api/dialogue' && req.method === 'POST') {
     await handleDialogue(req, res);
+    return;
+  }
+
+  if (url.pathname === '/api/memory' && req.method === 'GET') {
+    await handleMemoryList(req, res, url);
+    return;
+  }
+
+  if (url.pathname === '/api/memory' && req.method === 'DELETE') {
+    await handleMemoryClear(req, res, url);
     return;
   }
 

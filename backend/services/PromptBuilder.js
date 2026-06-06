@@ -4,10 +4,15 @@ const MAX_RAG_PASSAGE_CHARS = 700;
 const MAX_WORKFLOW_CHARS = 700;
 
 export class PromptBuilder {
-  build({ systemPrompt, memory, rag, workflow } = {}) {
-    const sections = [
-      normalizeSystemPrompt(systemPrompt) || '你是 Alice，一个简短回复的 3D 数字伙伴。'
-    ];
+  build({ systemPrompt, persona, memory, rag, workflow } = {}) {
+    const sections = [];
+
+    const personaSection = buildPersonaSection(persona);
+    if (personaSection) sections.push(personaSection);
+
+    const customPrompt = normalizeSystemPrompt(systemPrompt);
+    if (customPrompt) sections.push(`本轮补充规则：\n${customPrompt}`);
+    if (!sections.length) sections.push('你是 Alice，一个简短回复的 3D 数字伙伴。');
 
     const memorySection = buildMemorySection(memory);
     if (memorySection) sections.push(memorySection);
@@ -20,6 +25,19 @@ export class PromptBuilder {
 
     return sections.join('\n\n').slice(0, MAX_SYSTEM_PROMPT_CHARS);
   }
+}
+
+function buildPersonaSection(persona) {
+  if (!persona) return '';
+  const lines = [
+    `角色：${persona.name || 'Alice'} (${persona.personaId || 'alice_default'})`,
+    persona.summary ? `定位：${persona.summary}` : '',
+    persona.prompt ? `人格：${persona.prompt}` : '',
+    persona.tone ? `语气：${persona.tone}` : '',
+    persona.boundaries ? `边界：${persona.boundaries}` : '',
+    persona.memoryStrategy ? `记忆策略：${persona.memoryStrategy}` : ''
+  ].filter(Boolean);
+  return lines.length ? `角色人格与对话边界：\n${lines.join('\n')}` : '';
 }
 
 function buildMemorySection(memory) {

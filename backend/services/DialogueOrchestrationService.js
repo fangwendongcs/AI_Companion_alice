@@ -4,6 +4,8 @@ import { N8nWorkflowService } from './N8nWorkflowService.js';
 import { RagService } from './RagService.js';
 import { LLMService } from './LLMService.js';
 import { PromptBuilder } from './PromptBuilder.js';
+import { PersonaService } from './PersonaService.js';
+import { CompanionAffectService } from './CompanionAffectService.js';
 
 const MAX_MESSAGE_CHARS = 4000;
 const MAX_SYSTEM_PROMPT_CHARS = 4000;
@@ -16,13 +18,17 @@ export class DialogueOrchestrationService {
     ragService = new RagService(),
     workflowService = new N8nWorkflowService(),
     llmService = new LLMService(),
-    promptBuilder = new PromptBuilder()
+    promptBuilder = new PromptBuilder(),
+    personaService = new PersonaService(),
+    affectService = new CompanionAffectService()
   } = {}) {
     this.memoryService = memoryService;
     this.ragService = ragService;
     this.workflowService = workflowService;
     this.llmService = llmService;
     this.promptBuilder = promptBuilder;
+    this.personaService = personaService;
+    this.affectService = affectService;
   }
 
   async run(payload = {}) {
@@ -37,6 +43,7 @@ export class DialogueOrchestrationService {
     const options = normalizeOptions(payload.options);
     const sessionId = normalizeSessionId(payload.sessionId || options.sessionId);
     const avatarId = normalizeAvatarId(payload.avatarId || options.avatarId);
+    const persona = this.personaService.getPersona(avatarId);
     const memory = await this.getMemoryContext({
       message,
       enabled: options.useMemory,
@@ -55,7 +62,7 @@ export class DialogueOrchestrationService {
     });
 
     if (isLocalStubProvider(provider)) {
-      const reply = buildLocalStubReply(message, memory, rag);
+      const reply = buildLocalStubReply(message, memory, rag, persona);
       const updatedMemory = await this.appendMemoryExchange({
         enabled: options.useMemory,
         sessionId,
@@ -64,16 +71,26 @@ export class DialogueOrchestrationService {
         reply
       });
       const responseMemory = updatedMemory || memory;
+      const affect = this.affectService.decide({
+        message,
+        reply,
+        persona,
+        memory: responseMemory,
+        rag,
+        workflow
+      });
       return {
         reply,
         sources: rag.sources || [],
         memory: responseMemory,
         rag,
         workflow,
+        affect,
         meta: {
           mode: 'llm_stub',
           orchestration: 'agent_pipeline',
           steps: buildStepMeta({ memory: responseMemory, rag, workflow }),
+          persona: toPersonaMeta(persona),
           provider,
           model: model || 'stub',
           systemPromptReceived: Boolean(systemPrompt),
@@ -88,6 +105,7 @@ export class DialogueOrchestrationService {
       model,
       systemPrompt: this.promptBuilder.build({
         systemPrompt,
+        persona,
         memory,
         rag,
         workflow
@@ -101,6 +119,14 @@ export class DialogueOrchestrationService {
       reply
     });
     const responseMemory = updatedMemory || memory;
+    const affect = this.affectService.decide({
+      message,
+      reply,
+      persona,
+      memory: responseMemory,
+      rag,
+      workflow
+    });
 
     return {
       reply,
@@ -108,10 +134,12 @@ export class DialogueOrchestrationService {
       memory: responseMemory,
       rag,
       workflow,
+      affect,
       meta: {
         mode: 'llm_only',
         orchestration: 'agent_pipeline',
         steps: buildStepMeta({ memory: responseMemory, rag, workflow }),
+        persona: toPersonaMeta(persona),
         provider,
         model: model || 'gpt-4o-mini',
         systemPromptReceived: Boolean(systemPrompt)
@@ -259,7 +287,7 @@ function isLocalStubProvider(provider) {
   return ['stub', 'local', 'boundary'].includes(provider);
 }
 
-function buildLocalStubReply(message, memory, rag) {
+function buildLocalStubReply(message, memory, rag, persona = null) {
   const text = String(message || '').trim();
   if (rag?.used && rag.passages?.length) {
     return `我查到了 ${rag.passages.length} 条本地知识片段。当前仍是本地演示模式，RAG 检索链路已经跑通了。`;
@@ -271,9 +299,9 @@ function buildLocalStubReply(message, memory, rag) {
     return `我记得我们刚聊过 ${memory.turnCount} 轮。当前仍是本地演示模式，短期记忆链路已经跑通了。`;
   }
   if (/状态|测试|链路|hello|你好/i.test(text)) {
-    return '我现在处于本地演示模式，还没有连接真实模型，但对话链路已经跑通了。';
+    return `${persona?.name || 'Alice'} 现在处于本地演示模式，还没有连接真实模型，但对话链路已经跑通了。`;
   }
-  return '我在本地演示模式，可以陪你完成交互流程；接入真实模型后，我会回答得更聪明。';
+  return `${persona?.name || 'Alice'} 在本地演示模式，可以陪你完成交互流程；接入真实模型后，我会回答得更聪明。`;
 }
 
 function buildStepMeta({ memory, rag, workflow }) {
@@ -286,6 +314,18 @@ function buildStepMeta({ memory, rag, workflow }) {
 
 function safeErrorMessage(error) {
   return String(error?.message || 'optional context failed').slice(0, 200);
+}
+
+function toPersonaMeta(persona = {}) {
+  return {
+    avatarId: persona.avatarId || DEFAULT_AVATAR_ID,
+    personaId: persona.personaId || 'alice_default',
+    name: persona.name || 'Alice',
+    tone: persona.tone || 'warm_playful',
+    voiceStyle: persona.defaultVoice?.style || 'gentle',
+    motionStyle: persona.defaultMotion?.style || 'light',
+    memoryStrategy: persona.memoryStrategy || 'session_scoped_conservative'
+  };
 }
 
 function createCodedHttpError(message, statusCode, code) {

@@ -17,6 +17,7 @@ const publicRoutes = [
 const sensitiveRoutes = [
   { methods: ['POST'], pathname: '/api/chat' },
   { methods: ['POST'], pathname: '/api/dialogue' },
+  { methods: ['GET', 'DELETE'], pathname: '/api/memory' },
   { methods: ['POST'], pathname: '/api/tts' },
   { methods: ['POST'], pathname: '/api/avatars' }
 ];

@@ -197,7 +197,7 @@ export class MemoryService {
       return { cleared: 0, status: 'unavailable' };
     }
     const cleared = this.repository.clearMemoryItems({
-      sessionId: normalizeSessionId(sessionId),
+      sessionId: scope === 'avatar' ? null : normalizeSessionId(sessionId),
       avatarId: normalizeAvatarId(avatarId),
       scope,
       reason: 'manual_clear'

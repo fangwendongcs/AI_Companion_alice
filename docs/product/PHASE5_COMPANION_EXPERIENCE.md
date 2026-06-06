@@ -4,7 +4,7 @@
 
 AI Companion Alice is a digital companion project, not an enterprise knowledge-base Q&A system.
 
-The next product direction is to make the companion feel more continuous, personal, and responsive in Chinese conversation. RAG, Qdrant, and n8n remain useful extension points, but they are not the main Phase 5 experience driver.
+The current product direction is to make the companion feel more continuous, personal, and responsive in Chinese conversation. RAG, Qdrant, and n8n remain useful extension points, but they are not the main Phase 5 experience driver.
 
 ## Experience Priorities
 
@@ -16,7 +16,7 @@ The next product direction is to make the companion feel more continuous, person
 
 ## Persona Direction
 
-Each avatar should eventually define:
+Each default avatar now has a backend persona baseline:
 
 - Character positioning.
 - Speaking tone.
@@ -30,26 +30,24 @@ The goal is not only to switch 3D models. The goal is to switch companion person
 
 ## Conversation Continuity
 
-Phase 5 should improve:
+Phase 5 now has the first loop for:
 
-- SQLite-backed session recovery after Phase 5.2 / 5.3.
+- SQLite-backed session recovery.
 - Context continuation.
-- Regenerate / retry behavior.
-- Clear context behavior.
+- Lightweight long-term memory review / clear behavior.
 - Clear memory behavior.
-- Export memory behavior.
 - Memory hit explanation.
 - Failure messages that preserve companion tone.
 - Pacing between thinking, speaking, and idle states.
 
 ## Voice / Motion / Emotion Link
 
-The project should gradually connect:
+The project now connects first-pass affect metadata to:
 
-- thinking -> thinking/listening motion
+- thinking -> thinking/listening motion hint
 - speaking -> speaking motion + TTS/audio
-- failure -> clear error feedback + recovery state
-- memory hit -> subtle recognition feedback
+- failure -> apologetic feedback + recovery state
+- memory hit -> warm recognition feedback
 - RAG hit -> source-aware response state
 - workflow running -> tool/action state
 
@@ -72,8 +70,9 @@ These are optional enhancements, not Phase 5 mainline:
 3. Short-term memory persistence.
 4. Conservative long-term memory minimum loop.
 5. Avatar persona system.
-6. Memory management UI and companion continuity.
-7. Optional RAG / Qdrant / n8n enhancement evaluation.
+6. Affect / tone / voice / motion metadata.
+7. Lightweight Memory management UI and companion continuity.
+8. Optional RAG / Qdrant / n8n enhancement evaluation.
 
 ## Phase 6 Preview
 

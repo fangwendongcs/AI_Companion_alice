@@ -11,6 +11,8 @@
 公网或私有演示前必须启用 `REQUIRE_API_AUTH=true`，并通过后端环境变量设置 `API_AUTH_TOKEN`。启用后，以下写接口需要 `Authorization: Bearer <token>` 或 `X-API-Token: <token>`：
 
 - `POST /api/dialogue`
+- `GET /api/memory`
+- `DELETE /api/memory`
 - `POST /api/chat`
 - `POST /api/tts`
 - `POST /api/avatars`
@@ -132,7 +134,7 @@ Phase 4.4 上传边界：
 
 ### POST /api/dialogue
 
-当前前端主对话入口。已支持本地 `stub`、LLM-only 编排、SQLite-backed Memory、保守长期 `memory_items`、本地知识检索 RAG 和可选 n8n workflow 工具调用。n8n 不作为主对话编排器。
+当前前端主对话入口。已支持本地 `stub`、LLM-only 编排、SQLite-backed Memory、保守长期 `memory_items`、角色 persona、规则化 affect、本地知识检索 RAG 和可选 n8n workflow 工具调用。n8n 不作为主对话编排器。
 
 最小 Agent 编排顺序固定为：
 
@@ -189,6 +191,21 @@ validate input -> memory context -> rag context -> optional workflow -> PromptBu
       "status": "disabled",
       "result": null
     },
+    "affect": {
+      "emotion": "warm",
+      "intensity": 0.48,
+      "tone": "gentle",
+      "reason": "default_warm",
+      "voice": {
+        "style": "gentle",
+        "rate": 1.02,
+        "pitch": 1.1
+      },
+      "motion": {
+        "slot": "speaking",
+        "intensity": 0.45
+      }
+    },
     "meta": {
       "mode": "llm_only",
       "orchestration": "agent_pipeline",
@@ -196,6 +213,11 @@ validate input -> memory context -> rag context -> optional workflow -> PromptBu
         "memory": "disabled",
         "rag": "disabled",
         "workflow": "disabled"
+      },
+      "persona": {
+        "avatarId": "alice",
+        "personaId": "alice_default",
+        "tone": "warm_playful"
       },
       "provider": "openai",
       "model": "gpt-4o-mini"
@@ -209,6 +231,14 @@ validate input -> memory context -> rag context -> optional workflow -> PromptBu
 如果 `options.useRag=true`，当前会调用后端本地 `RagService`，读取 `data/knowledge/` 并返回 `rag.passages` 与顶层 `sources`。当前不调用 Qdrant、不做 embedding、不访问外部网络。
 
 如果 `options.useWorkflow=true`，当前会通过后端 `N8nWorkflowService` 检查 `N8N_WEBHOOK_URL`。未配置时返回 `workflow.status=not_configured`，不会让 `/api/dialogue` 失败；配置后由后端调用 n8n webhook，并将安全包装后的结果放入 `workflow.result`。
+
+`meta.persona` 只返回角色 ID、persona ID、tone、voice style、motion style 和 memory strategy 等非敏感摘要。`affect` 只代表当前轮情绪 / 语气 / 语音 / 动作提示，不默认写入长期记忆。
+
+### GET /api/memory / DELETE /api/memory
+
+`GET /api/memory` 返回当前 session / avatar 的精简长期记忆摘要，不返回完整原始 messages。
+
+`DELETE /api/memory` 支持 `scope=session` 或 `scope=avatar`，用于清除当前会话或当前角色的长期记忆摘要。该接口属于敏感 API；`REQUIRE_API_AUTH=true` 或 production 模式下必须提供 API token。
 
 无密钥本地演示和 smoke 可使用 `provider: "stub"`，当前前端默认也使用该 provider。此时返回：
 
