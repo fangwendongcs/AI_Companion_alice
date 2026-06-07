@@ -221,6 +221,7 @@ export class AppController {
     this.registry.add(this.eventBus.on(EVENT_NAMES.DIALOGUE_ASSISTANT, ({ text, memory, affect, avatarDirective, meta }) => {
       this.lastDialogueAffect = affect || null;
       this.lastAvatarDirective = avatarDirective || null;
+      this.applyAvatarDirective(avatarDirective, EVENT_NAMES.DIALOGUE_ASSISTANT);
       this.patchState({
         lastAssistantMessage: text,
         memory,
@@ -248,6 +249,7 @@ export class AppController {
 
     this.registry.add(this.eventBus.on(EVENT_NAMES.AUDIO_START, ({ affect } = {}) => {
       this.patchState({ isSpeaking: true }, EVENT_NAMES.AUDIO_START);
+      this.applyAvatarDirective(this.lastAvatarDirective || createSpeakingDirective(affect || this.lastDialogueAffect), EVENT_NAMES.AUDIO_START);
       this.requestAffectMotion(affect || this.lastDialogueAffect, MotionSlot.SPEAKING, this.lastAvatarDirective);
     }));
     this.registry.add(this.eventBus.on(EVENT_NAMES.AUDIO_END, () => {
@@ -664,6 +666,15 @@ export class AppController {
     }
   }
 
+  applyAvatarDirective(avatarDirective, source = 'avatar:directive') {
+    if (!avatarDirective) return null;
+    const result = this.characterManager.applyAvatarDirective(avatarDirective);
+    if (result?.ok === false) {
+      this.log.debug('Avatar directive 未应用:', source, result.reason);
+    }
+    return result;
+  }
+
   getMotionSlotForDirective(avatarDirective) {
     const gesture = avatarDirective?.gesture;
     if (gesture === 'thinking') return MotionSlot.LISTENING;
@@ -690,6 +701,14 @@ export class AppController {
       this.state.speechTimer = null;
     }
     this.patchState({ isSpeaking: false }, source);
+    this.applyAvatarDirective({
+      state: 'idle',
+      emotion: this.state.affect?.emotion || 'neutral',
+      gesture: 'none',
+      gaze: 'user',
+      lip_sync: 'none',
+      intensity: 0
+    }, source);
     if (this.state.currentState === AvatarState.SPEAKING) {
       this.motionManager.requestSlot(MotionSlot.IDLE, {
         replacePending: false
@@ -763,5 +782,16 @@ function createFallbackAffect() {
       slot: 'apologize',
       intensity: 0.5
     }
+  };
+}
+
+function createSpeakingDirective(affect = {}) {
+  return {
+    state: 'speaking',
+    emotion: affect?.emotion || 'neutral',
+    gesture: affect?.motion?.slot === 'happy' ? 'soft_nod' : 'none',
+    gaze: 'user',
+    lip_sync: 'auto',
+    intensity: affect?.intensity ?? affect?.motion?.intensity ?? 0.45
   };
 }

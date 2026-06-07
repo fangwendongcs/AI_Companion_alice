@@ -8,6 +8,7 @@ import {
   AvatarManifestLoader,
   LEGACY_AVATAR_META_DEPRECATION
 } from './AvatarManifestLoader.js';
+import { createAvatarRenderer } from './renderers/AvatarRendererFactory.js';
 
 const log = createLogger('CharacterManager');
 
@@ -23,6 +24,7 @@ export class CharacterManager {
     this.avatarLoader = new AvatarLoader(runtime);
     this.registry = null;
     this.current = null;
+    this.renderer = null;
   }
 
   async loadRegistry({ force = false } = {}) {
@@ -71,21 +73,45 @@ export class CharacterManager {
     const meta = await this.loadManifest(avatarId);
     this.runtime.applyCameraConfig(meta.camera);
     const loaded = await this.avatarLoader.load(meta, onProgress);
+    this.renderer?.destroy?.();
+    this.renderer = createAvatarRenderer({
+      avatar: loaded.avatar,
+      manifest: meta,
+      capability: loaded.capability
+    });
+    const rendererInfo = this.renderer.init?.();
     this.current = {
       id: meta.id,
       meta,
+      renderer: this.renderer,
+      rendererInfo,
       ...loaded
     };
     return this.current;
   }
 
   unloadCurrent() {
+    this.renderer?.destroy?.();
+    this.renderer = null;
     this.runtime.clearAvatarObject();
     this.current = null;
   }
 
   createFallback() {
+    this.renderer?.destroy?.();
+    this.renderer = null;
     return this.avatarLoader.createFallback();
+  }
+
+  applyAvatarDirective(directive) {
+    if (!this.renderer?.applyDirective) {
+      return { ok: false, reason: 'renderer_not_ready' };
+    }
+    return this.renderer.applyDirective(directive);
+  }
+
+  getAvatarCapabilities() {
+    return this.renderer?.getCapabilities?.() || this.current?.meta?.capabilities || {};
   }
 
   normalizeMeta(meta, registryEntry = null) {
@@ -125,6 +151,11 @@ export class CharacterManager {
       voice: meta.voice || meta.integrations?.tts || {},
       hitRegions: meta.hitRegions || {},
       interactions: meta.interactions || {},
+      renderer: meta.renderer || {
+        type: model.format === 'vrm' ? 'vrm' : 'default',
+        fallback: 'default'
+      },
+      capabilities: meta.capabilities || createDefaultCapabilities(model.format),
       camera: meta.camera || {}
     };
   }
@@ -139,4 +170,17 @@ export class CharacterManager {
     const separator = String(url).includes('?') ? '&' : '?';
     return `${url}${separator}t=${Date.now()}`;
   }
+}
+
+function createDefaultCapabilities(format) {
+  const isVrm = String(format || '').toLowerCase() === 'vrm';
+  return {
+    states: ['idle', 'listening', 'thinking', 'speaking'],
+    emotions: ['neutral', 'warm', 'happy', 'sad', 'concerned'],
+    gestures: ['none', 'soft_nod', 'thinking', 'wave'],
+    gaze: ['user', 'away', 'down'],
+    lipSync: ['none', 'auto', 'basic'],
+    expressions: isVrm ? ['neutral', 'happy', 'sad', 'blink'] : ['neutral'],
+    renderer: isVrm ? 'vrm' : 'default'
+  };
 }

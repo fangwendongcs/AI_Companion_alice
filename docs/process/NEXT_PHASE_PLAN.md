@@ -507,6 +507,24 @@ Phase 5 的核心不是把项目做成企业知识库问答系统，而是强化
 - 不接真实 VRM，不移除当前 FBXRenderer。
 - Renderer 只负责把 `avatar_directive` 映射到本地表现层，不参与 Dialogue / Memory / Persona / Emotion 决策。
 
+### Phase 5.11：Web VRMRenderer MVP
+
+目标：在不替换现有 FBX / GLB 路径的前提下，让 Web 端新增 VRM renderer adapter，并验证 VRM 可以消费统一 `AvatarDirective`。
+
+范围：
+
+- 复用现有 `CharacterManager`、avatar manifest 和 `MotionManager`，不新增第二套业务渲染系统。
+- 新增 `DefaultAvatarRenderer` / `VRMRenderer` / `AvatarRendererFactory`。
+- VRMRenderer 只处理表现层 expression / basic lip-sync hint，不参与 Dialogue、Memory、Persona、Emotion 决策。
+- Shiro / Wambo manifest 声明 `renderer.type = "vrm"` 与 `capabilities`。
+- 本地测试 VRM 文件放在 `assets/avatars/test-vrm/`，授权确认前不提交。
+
+不做：
+
+- 不接商业角色模型。
+- 不做高级面捕、精细口型或 WebGPU。
+- 不把 VRM expression preset、骨骼名、动画文件或模型路径写进后端业务契约。
+
 ## Phase 6：人格样本沉淀与微调可行性评估
 
 - 收集高质量中文对话样本。

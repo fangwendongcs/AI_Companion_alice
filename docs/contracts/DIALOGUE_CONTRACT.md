@@ -4,6 +4,8 @@ This document defines the renderer-agnostic `/api/dialogue` response contract sh
 
 The goal is to keep Dialogue / Memory / Persona / Emotion independent from FBX, VRM, Rive, skeleton names, animation files, or renderer-specific input fields. Renderers should map the semantic directive to their own local implementation.
 
+Web now has a renderer adapter boundary: `DefaultAvatarRenderer` keeps the existing GLB / fallback path as a no-op directive consumer, while `VRMRenderer` consumes the same `avatar_directive` for conservative expression and basic lip-sync hints. This does not change backend contract fields.
+
 ## Current Version
 
 ```text

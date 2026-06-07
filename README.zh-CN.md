@@ -16,6 +16,7 @@ Alice 不是一个普通聊天框 Demo。这个项目探索的是：AI 伙伴如
 
 - **具身化 AI 交互**：基于 Three.js 的 3D 数字人体验，而不是纯文本聊天框。
 - **可替换角色系统**：Alice / Shiro / Wambo 通过 avatar registry 与 manifest 加载。
+- **Renderer-agnostic AvatarDirective**：后端只输出语义状态，Web 端通过 Default / VRM renderer adapter 映射到表现层。
 - **点击式互动行为**：head / body / arm / leg 交互会映射到标准动作槽位或 fallback。
 - **状态驱动架构**：拆分 app、avatar、animation、dialogue、audio、interaction 等状态。
 - **面向动画扩展的运行时**：支持 boot / idle / gesture / speaking / listening 等动作槽位，并有队列与状态机检查。
@@ -62,8 +63,9 @@ flowchart LR
 
 | 模块 | 状态 | 说明 |
 | --- | --- | --- |
-| 3D Avatar Runtime | MVP | Three.js runtime，支持 GLTF/VRM 风格角色加载路径和场景生命周期清理。 |
+| 3D Avatar Runtime | MVP | Three.js runtime，支持 GLTF/VRM 风格角色加载路径、renderer adapter 和场景生命周期清理。 |
 | Avatar Switching | MVP | Alice / Shiro / Wambo 通过 `public/avatars/registry.json` 和 per-avatar manifest 注册。 |
+| VRMRenderer | MVP | Shiro / Wambo 使用 `renderer.type = "vrm"` manifest；VRMRenderer 消费语义 `AvatarDirective`，提供保守表情和基础口型提示。 |
 | Interaction Events | MVP | head / body / arm / leg 交互可触发动作槽位或 fallback。 |
 | Animation System | MVP / evolving | motion slots、queue、state-machine checks、boot/idle/gesture/speaking/listening 流程。 |
 | Dialogue Flow | MVP | 前端主对话路径使用 `/api/dialogue`，`/api/chat` 保留兼容。 |
@@ -142,6 +144,7 @@ npm run smoke
 然后按浏览器清单手动验收：
 
 - [Browser Acceptance Checklist](./docs/process/BROWSER_ACCEPTANCE_CHECKLIST.md)
+- [VRMRenderer MVP](./docs/architecture/VRM_RENDERER_MVP.md)
 
 ## 仓库结构
 

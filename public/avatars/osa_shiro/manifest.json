@@ -6,6 +6,19 @@
     "url": "public/avatars/osa_shiro/model.vrm",
     "format": "vrm"
   },
+  "renderer": {
+    "type": "vrm",
+    "fallback": "default"
+  },
+  "capabilities": {
+    "states": ["idle", "listening", "thinking", "speaking"],
+    "emotions": ["neutral", "warm", "happy", "sad", "concerned"],
+    "gestures": ["none", "soft_nod", "thinking", "wave"],
+    "gaze": ["user", "away", "down"],
+    "lipSync": ["none", "auto", "basic"],
+    "expressions": ["neutral", "happy", "sad", "blink"],
+    "renderer": "vrm"
+  },
   "thumbnail": "",
   "motionManifest": "public/avatars/osa_shiro/motions.json",
   "skeletonMap": "public/avatars/osa_shiro/skeleton.mixamo.json",

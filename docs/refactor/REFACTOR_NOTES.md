@@ -1681,3 +1681,12 @@ npm run check:assets
 - Web 端 `LLMClient` 兼容 `reply_text`，`DialogueManager` 转发 `avatar_directive`，`AppController` 优先把语义 directive 映射到现有 motion slot，并继续保留 `affect.motion.slot` fallback。
 - 新增 `docs/contracts/DIALOGUE_CONTRACT.md`，说明 Web / iOS 如何消费同一 response schema，以及 iOS Simulator / 真机的本地 backend base URL 注意事项。
 - 新增 `check:dialogue-contract` 并纳入 `npm run check`，验证 response schema、legacy 兼容、renderer-agnostic 字段和文档覆盖。
+
+## 66. Web VRMRenderer MVP
+
+- 新增 `js/avatar/renderers/DefaultAvatarRenderer.js`、`VRMRenderer.js` 和 `AvatarRendererFactory.js`，在不替换现有 Three.js / GLTF 加载链路的前提下补出 renderer adapter 边界。
+- `CharacterManager` 现在拥有当前 active renderer，并暴露 `applyAvatarDirective()`；`AppController` 把 `/api/dialogue` 的语义 `avatar_directive` 交给 renderer，同时继续使用现有 `MotionManager` 动作槽位。
+- Shiro / Wambo manifest 增加 `renderer.type = "vrm"` 和 `capabilities`；Alice manifest 增加 `default` renderer 能力声明。
+- `VRMRenderer` 第一版只做保守 morph-target expression 和 basic lip-sync hint，不接商业模型、不接高级面捕、不改后端 Dialogue / Memory / Persona / Emotion。
+- 新增 `assets/avatars/test-vrm/README.md`，并让 `.gitignore` 忽略本地测试 `.vrm/.glb/.gltf`，避免授权不明或大模型误提交。
+- 新增 `docs/architecture/VRM_RENDERER_MVP.md` 和 `check:vrm-renderer-flow`，验证 manifest capabilities、AvatarDirective 消费、renderer-agnostic 后端边界和本地测试模型忽略规则。

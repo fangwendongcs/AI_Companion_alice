@@ -16,6 +16,7 @@ This repository is organized as a **local MVP system** with a staged path toward
 
 - **Embodied AI interaction**: a Three.js avatar experience instead of a single text-only chatbot.
 - **Replaceable avatar system**: Alice / Shiro / Wambo are loaded through avatar registry and manifest files.
+- **Renderer-agnostic avatar directives**: the backend returns semantic `AvatarDirective` fields, while Web maps them through Default / VRM renderer adapters.
 - **Click-driven companion behavior**: head / body / arm / leg interactions map to reusable motion slots and fallback behavior.
 - **State-driven architecture**: separates app state, avatar state, animation state, dialogue state, audio state, and interaction events.
 - **Animation-ready runtime**: supports boot / idle / gesture / speaking / listening motion slots with queue and state-machine checks.
@@ -62,8 +63,9 @@ Notes:
 
 | Module | Status | Notes |
 | --- | --- | --- |
-| 3D Avatar Runtime | MVP | Three.js runtime with GLTF/VRM-style avatar loading path and scene lifecycle cleanup. |
+| 3D Avatar Runtime | MVP | Three.js runtime with GLTF/VRM-style avatar loading path, renderer adapters, and scene lifecycle cleanup. |
 | Avatar Switching | MVP | Alice / Shiro / Wambo are registered through `public/avatars/registry.json` and per-avatar manifests. |
+| VRMRenderer | MVP | Shiro / Wambo use `renderer.type = "vrm"` manifests; VRMRenderer consumes semantic `AvatarDirective` for conservative expression and basic lip-sync hints. |
 | Interaction Events | MVP | Head / body / arm / leg interactions trigger configured motion slots or fallbacks. |
 | Animation System | MVP / evolving | Motion slots, queue/state-machine checks, boot/idle/gesture/speaking/listening flows. |
 | Dialogue Flow | MVP | Frontend main dialogue path uses `/api/dialogue`; `/api/chat` remains compatible. |
@@ -142,6 +144,7 @@ npm run smoke
 Then complete the browser checklist:
 
 - [Browser Acceptance Checklist](./docs/process/BROWSER_ACCEPTANCE_CHECKLIST.md)
+- [VRMRenderer MVP](./docs/architecture/VRM_RENDERER_MVP.md)
 
 ## Repository Structure
 

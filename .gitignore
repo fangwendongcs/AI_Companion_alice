@@ -24,6 +24,11 @@ data/sqlite/
 data/exports/
 data/logs/
 
+# 本地 VRM 视觉测试素材；授权确认后再移入 public/avatars/
+assets/avatars/test-vrm/*.vrm
+assets/avatars/test-vrm/*.glb
+assets/avatars/test-vrm/*.gltf
+
 # Mac
 .DS_Store
 
