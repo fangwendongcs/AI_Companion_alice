@@ -16,6 +16,7 @@
 
 - [API.md](./api/API.md): API 概览
 - [API_CONTRACT.md](./api/API_CONTRACT.md): API 合约与兼容策略
+- [DIALOGUE_CONTRACT.md](./contracts/DIALOGUE_CONTRACT.md): `/api/dialogue` Web / iOS 共用语义响应契约
 
 ## Mobile Handoff
 

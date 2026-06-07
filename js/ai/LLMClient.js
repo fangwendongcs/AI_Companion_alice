@@ -79,5 +79,6 @@ function extractDialogueResponse(data) {
 function extractReply(data) {
   if (typeof data === 'string') return data.trim() || '（Alice 陷入了沉默...）';
   if (typeof data?.reply === 'string') return data.reply.trim() || '（Alice 陷入了沉默...）';
+  if (typeof data?.reply_text === 'string') return data.reply_text.trim() || '（Alice 陷入了沉默...）';
   return '（Alice 陷入了沉默...）';
 }

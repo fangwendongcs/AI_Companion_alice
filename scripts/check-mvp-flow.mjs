@@ -106,6 +106,22 @@ async function checkLLMClientDialogueResponseFlow() {
     systemPrompt: ''
   });
   assert(reply === '统一入口回复', 'LLMClient 必须能解析 /api/dialogue 的 { ok, data.reply }。');
+
+  const contractClient = new LLMClient('/api/dialogue', {
+    apiClient: createFakeApiClient({
+      ok: true,
+      data: {
+        reply_text: '跨端契约回复',
+        contract: { version: 'dialogue.v1' }
+      }
+    })
+  });
+  const contractReply = await contractClient.chat('你好', {
+    provider: 'stub',
+    model: 'stub',
+    systemPrompt: ''
+  });
+  assert(contractReply === '跨端契约回复', 'LLMClient 必须兼容 /api/dialogue 的 reply_text。');
 }
 
 async function checkLLMClientMemoryRequestFlow() {

@@ -136,6 +136,8 @@ Phase 4.4 上传边界：
 
 当前前端主对话入口。已支持本地 `stub`、LLM-only 编排、SQLite-backed Memory、保守长期 `memory_items`、角色 persona、规则化 affect、本地知识检索 RAG 和可选 n8n workflow 工具调用。n8n 不作为主对话编排器。
 
+Phase 5.10 起，该接口返回 `dialogue.v1` 跨端语义契约字段。Web 与后续 iOS 应优先消费这些 renderer-agnostic 字段；现有 `reply / affect / memory / meta` 继续保留为 Web 兼容字段。
+
 最小 Agent 编排顺序固定为：
 
 ```text
@@ -166,6 +168,38 @@ validate input -> memory context -> rag context -> optional workflow -> PromptBu
   "ok": true,
   "data": {
     "reply": "...",
+    "reply_text": "...",
+    "companion_state": "speaking",
+    "emotion": {
+      "name": "warm",
+      "intensity": 0.48
+    },
+    "tone": "gentle",
+    "avatar_directive": {
+      "state": "speaking",
+      "emotion": "warm",
+      "gesture": "soft_nod",
+      "gaze": "user",
+      "lip_sync": "auto",
+      "intensity": 0.48
+    },
+    "memory_event": {
+      "short_context_updated": false,
+      "long_term_memory_changed": false,
+      "badge": "off",
+      "status": "disabled",
+      "session_id": null,
+      "avatar_id": null
+    },
+    "tts": {
+      "status": "pending",
+      "audio_url": null
+    },
+    "contract": {
+      "version": "dialogue.v1",
+      "renderer_agnostic": true,
+      "consumer": "web_ios_shared_backend"
+    },
     "sources": [],
     "memory": {
       "used": false,
@@ -233,6 +267,8 @@ validate input -> memory context -> rag context -> optional workflow -> PromptBu
 如果 `options.useWorkflow=true`，当前会通过后端 `N8nWorkflowService` 检查 `N8N_WEBHOOK_URL`。未配置时返回 `workflow.status=not_configured`，不会让 `/api/dialogue` 失败；配置后由后端调用 n8n webhook，并将安全包装后的结果放入 `workflow.result`。
 
 `meta.persona` 只返回角色 ID、persona ID、tone、voice style、motion style 和 memory strategy 等非敏感摘要。`affect` 只代表当前轮情绪 / 语气 / 语音 / 动作提示，不默认写入长期记忆。
+
+`reply_text / companion_state / emotion / tone / avatar_directive / memory_event / tts / contract` 是跨端消费字段，不允许包含 `animationFile`、`fbxPath`、`riveInput`、`vrmExpressionPreset`、`boneName` 或硬编码动画路径。Renderer 只能把 `avatar_directive` 映射到本地表现层。
 
 ### GET /api/memory / DELETE /api/memory
 

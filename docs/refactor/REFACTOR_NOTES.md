@@ -1672,3 +1672,12 @@ npm run check:assets
 - 本地 `stub` provider 对“你还记得吗 / 保存了什么 / 忘记这个”类输入给出更自然的记忆追问和清除指引。
 - `check:memory-flow` 覆盖短期上下文清除不影响长期记忆、自然记忆追问和忘记类输入不自动写入长期记忆。
 - `check:companion-state-flow` 覆盖底部对话体验按钮存在、DOM refs 暴露、ChatPanel 绑定和 AppController 只清短期上下文。
+
+## 65. Phase 5.10 统一后端契约收口
+
+- 新增 `backend/contracts/dialogueContract.js`，把现有 reply / memory / affect / persona 输出整理为 `dialogue.v1` 跨端语义契约。
+- `/api/dialogue` 成功响应保留旧 `reply / sources / memory / rag / workflow / affect / meta` 字段，同时新增 `reply_text / companion_state / emotion / tone / avatar_directive / memory_event / tts / contract`。
+- `avatar_directive` 只包含 `state / emotion / gesture / gaze / lip_sync / intensity`，不包含 FBX / VRM / Rive、骨骼名、动画文件或 renderer 专属字段。
+- Web 端 `LLMClient` 兼容 `reply_text`，`DialogueManager` 转发 `avatar_directive`，`AppController` 优先把语义 directive 映射到现有 motion slot，并继续保留 `affect.motion.slot` fallback。
+- 新增 `docs/contracts/DIALOGUE_CONTRACT.md`，说明 Web / iOS 如何消费同一 response schema，以及 iOS Simulator / 真机的本地 backend base URL 注意事项。
+- 新增 `check:dialogue-contract` 并纳入 `npm run check`，验证 response schema、legacy 兼容、renderer-agnostic 字段和文档覆盖。

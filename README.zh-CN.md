@@ -20,6 +20,7 @@ Alice 不是一个普通聊天框 Demo。这个项目探索的是：AI 伙伴如
 - **状态驱动架构**：拆分 app、avatar、animation、dialogue、audio、interaction 等状态。
 - **面向动画扩展的运行时**：支持 boot / idle / gesture / speaking / listening 等动作槽位，并有队列与状态机检查。
 - **统一 AI 后端边界**：前端对话流走 `/api/dialogue`，`/api/chat` 保留为兼容入口。
+- **跨端对话契约**：`/api/dialogue` 已输出 renderer-agnostic 的 `dialogue.v1` 字段，供 Web 和后续 iOS 共用。
 - **智能能力接入基线**：支持 stub provider、provider readiness、SQLite-backed Memory、保守长期记忆条目、本地关键词 RAG、可选 n8n workflow 边界和最小 Agent 编排。
 - **安全边界清晰**：API Key、TTS Key、n8n webhook URL / secret、未来向量库凭据都留在后端。
 - **验证优先的交付方式**：包含 regression、asset、config、API、安全、Memory、RAG、workflow、Agent 和 smoke 检查。
@@ -184,6 +185,7 @@ npm run smoke
 - 三个可切换角色：Alice、Shiro、Wambo。
 - 点击交互和 motion-slot 动作反馈。
 - `/api/dialogue` 作为主对话入口。
+- `dialogue.v1` 语义响应契约，供 Web / iOS 共享消费。
 - 本地 `stub` provider 支持无 Key 开发。
 - SQLite-backed 短期 Memory 和保守长期记忆条目。
 - 对话体验打磨：重新生成、短期上下文清空和更自然的记忆追问。
@@ -223,6 +225,7 @@ npm run smoke
 - [Phase 4 Deployment Security Baseline](./docs/security/PHASE4_DEPLOYMENT_SECURITY_BASELINE.md)
 - [Phase 5 Memory Architecture](./docs/architecture/PHASE5_MEMORY_ARCHITECTURE.md)
 - [Phase 5 Companion Experience](./docs/product/PHASE5_COMPANION_EXPERIENCE.md)
+- [Dialogue Contract](./docs/contracts/DIALOGUE_CONTRACT.md)
 - [Environment Modes](./docs/deployment/ENVIRONMENT_MODES.md)
 - [Deployment Checklist](./docs/deployment/DEPLOYMENT_CHECKLIST.md)
 - [Architecture](./docs/architecture/ARCHITECTURE.md)

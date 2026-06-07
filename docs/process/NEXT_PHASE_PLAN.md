@@ -491,6 +491,22 @@ Phase 5 的核心不是把项目做成企业知识库问答系统，而是强化
 - Qdrant / embedding 放到后续评估，不作为当前主线。
 - n8n 继续作为工具调用层，不作为主对话编排器。
 
+### Phase 5.10：统一后端契约收口
+
+**目标**
+
+- `/api/dialogue` 增加 `dialogue.v1` renderer-agnostic 响应字段，供 Web 与后续 iOS 共用。
+- 新契约包含 `reply_text / companion_state / emotion / tone / avatar_directive / memory_event / tts / contract`。
+- 后端继续只输出语义状态，不输出 FBX / VRM / Rive、骨骼名、动画文件或 renderer 专属字段。
+- Web 继续兼容旧 `reply / affect / memory` 字段，现有 TTS / motion 链路不回退。
+
+**边界**
+
+- 不拆分独立后端仓库。
+- 不做 iOS 项目修改。
+- 不接真实 VRM，不移除当前 FBXRenderer。
+- Renderer 只负责把 `avatar_directive` 映射到本地表现层，不参与 Dialogue / Memory / Persona / Emotion 决策。
+
 ## Phase 6：人格样本沉淀与微调可行性评估
 
 - 收集高质量中文对话样本。

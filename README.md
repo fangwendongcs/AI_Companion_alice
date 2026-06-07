@@ -20,6 +20,7 @@ This repository is organized as a **local MVP system** with a staged path toward
 - **State-driven architecture**: separates app state, avatar state, animation state, dialogue state, audio state, and interaction events.
 - **Animation-ready runtime**: supports boot / idle / gesture / speaking / listening motion slots with queue and state-machine checks.
 - **Unified AI backend boundary**: frontend dialogue flows through `/api/dialogue`, while `/api/chat` remains as a compatibility endpoint.
+- **Cross-client dialogue contract**: `/api/dialogue` now exposes renderer-agnostic `dialogue.v1` fields for Web and future iOS clients.
 - **Intelligence integration baseline**: supports stub provider, provider readiness, SQLite-backed Memory, conservative long-term memory items, local keyword RAG, optional n8n workflow boundary, and minimal Agent orchestration.
 - **Security-aware evolution**: API keys, TTS keys, n8n webhook URL / secret, upload quarantine files, and future vector credentials stay behind the backend boundary, with pre-public request boundaries for auth, CORS, body limits, rate limits, and log redaction.
 - **Validation-first delivery**: includes regression, asset, config, API, security, Memory, RAG, workflow, Agent, and smoke checks.
@@ -185,6 +186,7 @@ In this project, I focused on:
 - Three selectable avatars: Alice, Shiro, Wambo.
 - Click interactions and motion-slot-driven feedback.
 - `/api/dialogue` as the main dialogue entry.
+- `dialogue.v1` semantic response contract for Web / iOS shared consumption.
 - Local `stub` provider for no-key development.
 - SQLite-backed short-term Memory and conservative long-term memory items.
 - Dialogue polish for regenerate, short-term context clearing, and natural memory recall prompts.
@@ -223,6 +225,7 @@ In this project, I focused on:
 - [Phase 4 Deployment Security Baseline](./docs/security/PHASE4_DEPLOYMENT_SECURITY_BASELINE.md)
 - [Phase 5 Memory Architecture](./docs/architecture/PHASE5_MEMORY_ARCHITECTURE.md)
 - [Phase 5 Companion Experience](./docs/product/PHASE5_COMPANION_EXPERIENCE.md)
+- [Dialogue Contract](./docs/contracts/DIALOGUE_CONTRACT.md)
 - [Environment Modes](./docs/deployment/ENVIRONMENT_MODES.md)
 - [Deployment Checklist](./docs/deployment/DEPLOYMENT_CHECKLIST.md)
 - [Architecture](./docs/architecture/ARCHITECTURE.md)

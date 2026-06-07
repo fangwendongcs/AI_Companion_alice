@@ -6,6 +6,7 @@ import { LLMService } from './LLMService.js';
 import { PromptBuilder } from './PromptBuilder.js';
 import { PersonaService } from './PersonaService.js';
 import { CompanionAffectService } from './CompanionAffectService.js';
+import { buildDialogueContract } from '../contracts/dialogueContract.js';
 
 const MAX_MESSAGE_CHARS = 4000;
 const MAX_SYSTEM_PROMPT_CHARS = 4000;
@@ -79,24 +80,25 @@ export class DialogueOrchestrationService {
         rag,
         workflow
       });
-      return {
+      const meta = {
+        mode: 'llm_stub',
+        orchestration: 'agent_pipeline',
+        steps: buildStepMeta({ memory: responseMemory, rag, workflow }),
+        persona: toPersonaMeta(persona),
+        provider,
+        model: model || 'stub',
+        systemPromptReceived: Boolean(systemPrompt),
+        note: 'Local stub provider is for smoke tests and local boundary checks only.'
+      };
+      return buildDialogueResponse({
         reply,
         sources: rag.sources || [],
         memory: responseMemory,
         rag,
         workflow,
         affect,
-        meta: {
-          mode: 'llm_stub',
-          orchestration: 'agent_pipeline',
-          steps: buildStepMeta({ memory: responseMemory, rag, workflow }),
-          persona: toPersonaMeta(persona),
-          provider,
-          model: model || 'stub',
-          systemPromptReceived: Boolean(systemPrompt),
-          note: 'Local stub provider is for smoke tests and local boundary checks only.'
-        }
-      };
+        meta
+      });
     }
 
     const reply = await this.llmService.chat({
@@ -128,23 +130,24 @@ export class DialogueOrchestrationService {
       workflow
     });
 
-    return {
+    const meta = {
+      mode: 'llm_only',
+      orchestration: 'agent_pipeline',
+      steps: buildStepMeta({ memory: responseMemory, rag, workflow }),
+      persona: toPersonaMeta(persona),
+      provider,
+      model: model || 'gpt-4o-mini',
+      systemPromptReceived: Boolean(systemPrompt)
+    };
+    return buildDialogueResponse({
       reply,
       sources: rag.sources || [],
       memory: responseMemory,
       rag,
       workflow,
       affect,
-      meta: {
-        mode: 'llm_only',
-        orchestration: 'agent_pipeline',
-        steps: buildStepMeta({ memory: responseMemory, rag, workflow }),
-        persona: toPersonaMeta(persona),
-        provider,
-        model: model || 'gpt-4o-mini',
-        systemPromptReceived: Boolean(systemPrompt)
-      }
-    };
+      meta
+    });
   }
 
   async appendMemoryExchange({ enabled, sessionId, avatarId, message, reply }) {
@@ -241,6 +244,29 @@ export class DialogueOrchestrationService {
       };
     }
   }
+}
+
+function buildDialogueResponse({ reply, sources, memory, rag, workflow, affect, meta }) {
+  const contractFields = buildDialogueContract({
+    reply,
+    sources,
+    memory,
+    affect,
+    meta
+  });
+  return {
+    ...contractFields,
+    reply,
+    sources,
+    memory,
+    rag,
+    workflow,
+    affect,
+    meta: {
+      ...meta,
+      contract: contractFields.contract
+    }
+  };
 }
 
 function normalizeMessage(value) {

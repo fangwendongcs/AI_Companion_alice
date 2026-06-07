@@ -123,6 +123,7 @@ export class AppController {
         voiceStyle: null,
         motionSlot: null
       },
+      avatarDirective: null,
       currentState: AvatarState.IDLE,
       isMuted: false,
       isSpeaking: false,
@@ -217,12 +218,14 @@ export class AppController {
         this.motionManager.requestSlot(MotionSlot.IDLE);
       }
     }));
-    this.registry.add(this.eventBus.on(EVENT_NAMES.DIALOGUE_ASSISTANT, ({ text, memory, affect, meta }) => {
+    this.registry.add(this.eventBus.on(EVENT_NAMES.DIALOGUE_ASSISTANT, ({ text, memory, affect, avatarDirective, meta }) => {
       this.lastDialogueAffect = affect || null;
+      this.lastAvatarDirective = avatarDirective || null;
       this.patchState({
         lastAssistantMessage: text,
         memory,
         affect,
+        avatarDirective,
         persona: meta?.persona || null,
         dialogueError: null
       }, EVENT_NAMES.DIALOGUE_ASSISTANT);
@@ -245,7 +248,7 @@ export class AppController {
 
     this.registry.add(this.eventBus.on(EVENT_NAMES.AUDIO_START, ({ affect } = {}) => {
       this.patchState({ isSpeaking: true }, EVENT_NAMES.AUDIO_START);
-      this.requestAffectMotion(affect || this.lastDialogueAffect, MotionSlot.SPEAKING);
+      this.requestAffectMotion(affect || this.lastDialogueAffect, MotionSlot.SPEAKING, this.lastAvatarDirective);
     }));
     this.registry.add(this.eventBus.on(EVENT_NAMES.AUDIO_END, () => {
       this.resetSpeakingState(EVENT_NAMES.AUDIO_END);
@@ -566,6 +569,7 @@ export class AppController {
         }
       });
       const response = this.llmClient.getLastResponse?.() || {};
+      this.lastAvatarDirective = response.avatar_directive || this.lastAvatarDirective || null;
       this.speakText(reply, { affect: response.affect || this.lastDialogueAffect });
     } catch (error) {
       this.log.error('LLM 调用失败:', error);
@@ -652,12 +656,22 @@ export class AppController {
     });
   }
 
-  requestAffectMotion(affect, fallbackSlot = MotionSlot.SPEAKING) {
-    const slot = this.getMotionSlotForAffect(affect) || fallbackSlot;
+  requestAffectMotion(affect, fallbackSlot = MotionSlot.SPEAKING, avatarDirective = null) {
+    const slot = this.getMotionSlotForDirective(avatarDirective) || this.getMotionSlotForAffect(affect) || fallbackSlot;
     this.motionManager.requestSlot(MotionSlot.SPEAKING, { replacePending: false });
     if (slot && slot !== MotionSlot.SPEAKING && slot !== MotionSlot.IDLE) {
       this.motionManager.requestSlot(slot, { replacePending: false });
     }
+  }
+
+  getMotionSlotForDirective(avatarDirective) {
+    const gesture = avatarDirective?.gesture;
+    if (gesture === 'thinking') return MotionSlot.LISTENING;
+    if (gesture === 'soft_nod') return MotionSlot.CHAT;
+    if (gesture === 'wave') return MotionSlot.ARM_TAP;
+    if (avatarDirective?.state === 'idle') return MotionSlot.IDLE;
+    if (avatarDirective?.state === 'speaking') return MotionSlot.SPEAKING;
+    return null;
   }
 
   getMotionSlotForAffect(affect) {

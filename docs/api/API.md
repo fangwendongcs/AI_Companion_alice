@@ -66,6 +66,8 @@ Phase 4.2 增加了公网部署前的最小请求边界：
 
 统一对话编排入口，用于承载 Memory、Persona、Affect、RAG、n8n workflow 与 Agent orchestration。当前前端主链路已调用该接口，并支持本地 `stub`、LLM-only 编排、SQLite-backed Memory、保守长期 `memory_items`、角色 persona、规则化 affect、本地知识检索 RAG 和可选 n8n workflow 工具调用。
 
+Phase 5.10 起，`/api/dialogue` 同时返回 `dialogue.v1` 跨端语义契约字段，供 Web 和后续 iOS 共用。后端只输出语义状态，不输出 FBX / VRM / Rive、骨骼名、动画文件或 renderer 专属字段。完整说明见 [Dialogue Contract](../contracts/DIALOGUE_CONTRACT.md)。
+
 请求：
 
 ```json
@@ -89,6 +91,38 @@ Phase 4.2 增加了公网部署前的最小请求边界：
   "ok": true,
   "data": {
     "reply": "你好呀！",
+    "reply_text": "你好呀！",
+    "companion_state": "speaking",
+    "emotion": {
+      "name": "warm",
+      "intensity": 0.48
+    },
+    "tone": "gentle",
+    "avatar_directive": {
+      "state": "speaking",
+      "emotion": "warm",
+      "gesture": "soft_nod",
+      "gaze": "user",
+      "lip_sync": "auto",
+      "intensity": 0.48
+    },
+    "memory_event": {
+      "short_context_updated": false,
+      "long_term_memory_changed": false,
+      "badge": "off",
+      "status": "disabled",
+      "session_id": null,
+      "avatar_id": null
+    },
+    "tts": {
+      "status": "pending",
+      "audio_url": null
+    },
+    "contract": {
+      "version": "dialogue.v1",
+      "renderer_agnostic": true,
+      "consumer": "web_ios_shared_backend"
+    },
     "sources": [],
     "memory": {
       "used": false,
@@ -149,6 +183,8 @@ Phase 4.2 增加了公网部署前的最小请求边界：
 - `/api/dialogue` 的后端最小 Agent 编排顺序为：输入校验 -> Persona -> Memory -> RAG -> optional Workflow -> PromptBuilder -> LLM/stub -> append Memory -> Affect -> response。
 - `meta.persona` 只返回非敏感 persona 摘要；完整 prompt 和 provider secret 不返回前端。
 - `affect` 是当前轮情绪 / 语气 / 语音 / 动作提示，不默认写入长期记忆。
+- `reply_text / companion_state / emotion / tone / avatar_directive / memory_event / tts / contract` 是跨端语义契约字段；Web 继续兼容旧 `reply / affect / memory`。
+- `avatar_directive` 只包含 `state / emotion / gesture / gaze / lip_sync / intensity`，renderer 需要自行把语义映射到 FBX / VRM / Rive 表现层。
 - `sessionId` 用于后端 Memory；不传时使用 `default`。
 - `options.useMemory=true` 时，后端会用 SQLite 记录最近 N 轮 user/assistant 消息，并在用户显式要求记住稳定信息时保守写入 `memory_items`。
 - `options.useMemory=false` 时，不读取、不写入 Memory。

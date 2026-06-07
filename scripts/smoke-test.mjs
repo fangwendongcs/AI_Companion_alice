@@ -117,6 +117,15 @@ async function assertDialogueBoundary() {
   const data = payload.data || payload;
   if (payload.ok !== true) throw new Error('/api/dialogue did not return ok=true');
   if (!data.reply) throw new Error('/api/dialogue missing reply');
+  if (data.reply_text !== data.reply) throw new Error('/api/dialogue reply_text should mirror reply');
+  if (data.companion_state !== 'speaking') throw new Error('/api/dialogue missing companion_state=speaking');
+  if (!data.emotion?.name || typeof data.emotion?.intensity !== 'number') throw new Error('/api/dialogue missing top-level emotion object');
+  if (!data.avatar_directive?.state || !data.avatar_directive?.gesture || !data.avatar_directive?.lip_sync) {
+    throw new Error('/api/dialogue missing renderer-agnostic avatar_directive');
+  }
+  if (!data.memory_event?.badge) throw new Error('/api/dialogue missing memory_event badge');
+  if (data.tts?.status !== 'pending') throw new Error('/api/dialogue should expose tts pending state');
+  if (data.contract?.version !== 'dialogue.v1') throw new Error('/api/dialogue missing dialogue.v1 contract version');
   if (data.meta?.mode !== 'llm_stub') throw new Error('/api/dialogue did not return llm_stub mode');
   if (!data.meta?.persona?.personaId) throw new Error('/api/dialogue missing persona metadata');
   if (!data.affect?.emotion || !data.affect?.voice?.style || !data.affect?.motion?.slot) {
