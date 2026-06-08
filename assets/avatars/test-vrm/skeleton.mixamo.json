@@ -1,0 +1,19 @@
+{
+  "hips": ["hips", "j_bip_c_hips"],
+  "spine": ["spine", "j_bip_c_spine"],
+  "chest": ["chest", "j_bip_c_chest"],
+  "neck": ["neck", "j_bip_c_neck"],
+  "head": ["head", "j_bip_c_head"],
+  "leftArm": ["leftarm", "left_arm", "j_bip_l_upperarm"],
+  "rightArm": ["rightarm", "right_arm", "j_bip_r_upperarm"],
+  "leftForeArm": ["leftforearm", "left_forearm", "j_bip_l_lowerarm"],
+  "rightForeArm": ["rightforearm", "right_forearm", "j_bip_r_lowerarm"],
+  "leftHand": ["lefthand", "left_hand", "j_bip_l_hand"],
+  "rightHand": ["righthand", "right_hand", "j_bip_r_hand"],
+  "leftUpLeg": ["leftupleg", "left_up_leg", "j_bip_l_upperleg"],
+  "rightUpLeg": ["rightupleg", "right_up_leg", "j_bip_r_upperleg"],
+  "leftLeg": ["leftleg", "left_leg", "j_bip_l_lowerleg"],
+  "rightLeg": ["rightleg", "right_leg", "j_bip_r_lowerleg"],
+  "leftFoot": ["leftfoot", "left_foot", "j_bip_l_foot"],
+  "rightFoot": ["rightfoot", "right_foot", "j_bip_r_foot"]
+}

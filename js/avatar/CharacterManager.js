@@ -11,6 +11,7 @@ import {
 import { createAvatarRenderer } from './renderers/AvatarRendererFactory.js';
 
 const log = createLogger('CharacterManager');
+const LOCAL_TEST_AVATAR_MANIFEST = 'assets/avatars/test-vrm/manifest.json';
 
 export class CharacterManager {
   constructor(runtime, { registryUrl = AVATAR_REGISTRY_URL } = {}) {
@@ -30,12 +31,60 @@ export class CharacterManager {
   async loadRegistry({ force = false } = {}) {
     if (this.registry && !force) return this.registry;
     const url = this.withCacheBuster(this.registryUrl);
-    this.registry = await loadJson(url);
+    this.registry = await this.withLocalTestAvatar(await loadJson(url));
     const validation = validateAvatarRegistry(this.registry);
     if (!validation.ok) {
       throw new Error(`Avatar registry 配置错误：${validation.errors.join('；')}`);
     }
     return this.registry;
+  }
+
+  async withLocalTestAvatar(registry) {
+    if (!this.shouldIncludeLocalTestAvatar()) return registry;
+
+    try {
+      const manifest = await loadJson(this.withCacheBuster(LOCAL_TEST_AVATAR_MANIFEST));
+      if (!manifest?.id || !manifest?.model?.url) return registry;
+      if (this.listContainsAvatar(registry, manifest.id)) return registry;
+
+      const available = await this.isLocalTestModelAvailable(manifest.model.url);
+      if (!available) return registry;
+
+      return {
+        ...registry,
+        avatars: [
+          ...(registry.avatars || []),
+          {
+            id: manifest.id,
+            name: manifest.name || manifest.id,
+            manifest: LOCAL_TEST_AVATAR_MANIFEST,
+            localOnly: true
+          }
+        ]
+      };
+    } catch (error) {
+      log.debug('本地 VRM 测试角色未启用:', error?.message || error);
+      return registry;
+    }
+  }
+
+  shouldIncludeLocalTestAvatar() {
+    if (typeof window === 'undefined') return false;
+    const params = new URLSearchParams(window.location.search);
+    return params.get('debug') === '1' || params.get('localVrm') === '1';
+  }
+
+  async isLocalTestModelAvailable(modelUrl) {
+    try {
+      const response = await fetch(this.withCacheBuster(modelUrl), { method: 'HEAD' });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  listContainsAvatar(registry, avatarId) {
+    return (registry.avatars || []).some((avatar) => avatar.id === avatarId);
   }
 
   listAvatars() {

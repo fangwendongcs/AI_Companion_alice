@@ -28,6 +28,7 @@ data/logs/
 assets/avatars/test-vrm/*.vrm
 assets/avatars/test-vrm/*.glb
 assets/avatars/test-vrm/*.gltf
+assets/avatars/test-vrm/alice_test
 
 # Mac
 .DS_Store

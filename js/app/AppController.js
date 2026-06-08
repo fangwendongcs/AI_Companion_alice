@@ -278,9 +278,14 @@ export class AppController {
 
       const avatarRegistry = await this.characterManager.loadRegistry();
       this.patchState({ avatarRegistry }, 'app:init');
+      const requestedAvatarId = this.getRequestedAvatarId();
       const savedAvatarId = this.store.loadAvatarId(this.characterManager.getDefaultAvatarId());
+      const hasRequestedAvatar = requestedAvatarId
+        && this.characterManager.listAvatars().some((avatar) => avatar.id === requestedAvatarId);
       const hasSavedAvatar = this.characterManager.listAvatars().some((avatar) => avatar.id === savedAvatarId);
-      const currentAvatarId = hasSavedAvatar ? savedAvatarId : this.characterManager.getDefaultAvatarId();
+      const currentAvatarId = hasRequestedAvatar
+        ? requestedAvatarId
+        : hasSavedAvatar ? savedAvatarId : this.characterManager.getDefaultAvatarId();
       const characterMeta = await this.characterManager.loadManifest(currentAvatarId);
       this.patchState({ currentAvatarId, characterMeta }, 'app:init');
 
@@ -301,6 +306,15 @@ export class AppController {
         userMessage: error.message
       });
       this.ui.errorView.showLoadingError(appError.message);
+    }
+  }
+
+  getRequestedAvatarId() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('avatar') || params.get('avatarId') || '';
+    } catch {
+      return '';
     }
   }
 

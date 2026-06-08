@@ -82,7 +82,21 @@ Local test models can be placed in:
 assets/avatars/test-vrm/
 ```
 
-`.vrm`, `.glb`, and `.gltf` files in that folder are ignored by Git. Promote a model into `public/avatars/{avatarId}/` only after checking:
+The local-only manifest is:
+
+```text
+assets/avatars/test-vrm/manifest.json
+```
+
+It is injected into the Web avatar list only when `?debug=1` or `?localVrm=1` is present and the referenced model file exists. The default registry and public avatar list remain unchanged.
+
+Use this URL for local visual validation:
+
+```text
+http://localhost:3000?debug=1&avatar=local_alice_vrm_test
+```
+
+`.vrm`, `.glb`, `.gltf`, and the extensionless `alice_test` local file are ignored by Git. Promote a model into `public/avatars/{avatarId}/` only after checking:
 
 - License is explicit and compatible with a public repository.
 - VRM version and humanoid rig are known.
@@ -109,6 +123,7 @@ npm run check:vrm-renderer-flow
 This verifies:
 
 - VRM manifests declare renderer and capabilities.
+- the local VRM test manifest is renderer-gated and not in the public registry;
 - `CharacterManager` owns the active renderer adapter.
 - `AppController` forwards `AvatarDirective`.
 - `VRMRenderer` can apply expression and basic mouth movement on a fake morph-target avatar.

@@ -1690,3 +1690,6 @@ npm run check:assets
 - `VRMRenderer` 第一版只做保守 morph-target expression 和 basic lip-sync hint，不接商业模型、不接高级面捕、不改后端 Dialogue / Memory / Persona / Emotion。
 - 新增 `assets/avatars/test-vrm/README.md`，并让 `.gitignore` 忽略本地测试 `.vrm/.glb/.gltf`，避免授权不明或大模型误提交。
 - 新增 `docs/architecture/VRM_RENDERER_MVP.md` 和 `check:vrm-renderer-flow`，验证 manifest capabilities、AvatarDirective 消费、renderer-agnostic 后端边界和本地测试模型忽略规则。
+- 本地 `assets/avatars/test-vrm/alice_test` 为无后缀 GLB/VRM 容器；本轮创建被 Git 忽略的 `alice_test.vrm` symlink 供 manifest 加载，模型文件本身不提交。
+- `CharacterManager` 支持 debug/local-only test avatar 注入：`?debug=1` 或 `?localVrm=1` 且本地模型可访问时才显示 `local_alice_vrm_test`。
+- 已用浏览器打开 `http://localhost:3000?debug=1&avatar=local_alice_vrm_test` 完成真实本地 VRM 加载；发送 stub 对话后状态回到 idle。

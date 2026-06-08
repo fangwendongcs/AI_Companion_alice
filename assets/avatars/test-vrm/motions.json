@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "slots": {},
+  "proceduralFallbacks": {
+    "idle": true,
+    "intro": true,
+    "headTap": true,
+    "legTap": true,
+    "armTap": true,
+    "bodyTap": true,
+    "chat": true,
+    "speaking": true,
+    "listening": true
+  },
+  "notes": "Local VRM test avatar uses procedural motion fallbacks by default. Do not commit the model file until the license is verified."
+}

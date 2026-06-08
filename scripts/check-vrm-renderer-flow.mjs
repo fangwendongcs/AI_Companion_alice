@@ -6,6 +6,8 @@ const requiredDirectiveFields = ['state', 'emotion', 'gesture', 'gaze', 'lip_syn
 
 await checkRendererModules();
 await checkVrmManifestCapabilities();
+await checkLocalTestManifest();
+await checkLocalTestModelIfPresent();
 await checkDirectiveApplication();
 await checkBusinessLayerIsolation();
 await checkLocalModelIgnoreRules();
@@ -39,6 +41,30 @@ async function checkVrmManifestCapabilities() {
       assert(Array.isArray(manifest.capabilities?.[key]) && manifest.capabilities[key].length > 0, `${avatar.id} capabilities.${key} 缺失。`);
     });
     assert(manifest.capabilities?.renderer === 'vrm', `${avatar.id} capabilities.renderer 应为 vrm。`);
+  }
+}
+
+async function checkLocalTestManifest() {
+  const registry = await readJson('public/avatars/registry.json');
+  const registryIds = new Set((registry.avatars || []).map((avatar) => avatar.id));
+  assert(!registryIds.has('local_alice_vrm_test'), 'local_alice_vrm_test 不应进入 public avatar registry。');
+
+  const manifest = await readJson('assets/avatars/test-vrm/manifest.json');
+  assert(manifest.id === 'local_alice_vrm_test', '本地 VRM 测试 manifest id 应为 local_alice_vrm_test。');
+  assert(manifest.renderer?.type === 'vrm', '本地 VRM 测试 manifest 应声明 renderer.type=vrm。');
+  assert(manifest.model?.url === 'assets/avatars/test-vrm/alice_test.vrm', '本地 VRM 测试 manifest 应引用 alice_test.vrm。');
+  assert(manifest.localTest?.commitModelFile === false, '本地 VRM 测试 manifest 应明确模型文件不提交。');
+}
+
+async function checkLocalTestModelIfPresent() {
+  const modelPath = 'assets/avatars/test-vrm/alice_test.vrm';
+  try {
+    const buffer = await readFile(modelPath);
+    const magic = buffer.subarray(0, 4).toString('utf8');
+    assert(magic === 'glTF', `本地 VRM 测试模型应为 GLB/VRM 容器，当前 magic=${magic || '(empty)'}`);
+  } catch (error) {
+    if (error?.code === 'ENOENT') return;
+    failures.push(`本地 VRM 测试模型无法读取：${modelPath} (${error.message})`);
   }
 }
 
@@ -129,6 +155,7 @@ async function checkBusinessLayerIsolation() {
 async function checkLocalModelIgnoreRules() {
   const gitignore = await readText('.gitignore');
   assert(gitignore.includes('assets/avatars/test-vrm/*.vrm'), '.gitignore 应忽略本地测试 VRM 文件。');
+  assert(gitignore.includes('assets/avatars/test-vrm/alice_test'), '.gitignore 应忽略当前无后缀本地测试模型。');
   assert(!gitignore.includes('public/avatars/*.vrm'), '.gitignore 不应整体忽略运行时 public/avatars VRM。');
 }
 

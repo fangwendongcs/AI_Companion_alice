@@ -1,0 +1,63 @@
+{
+  "id": "local_alice_vrm_test",
+  "name": "Alice Test VRM（local）",
+  "type": "humanoid-vrm",
+  "model": {
+    "url": "assets/avatars/test-vrm/alice_test.vrm",
+    "format": "vrm"
+  },
+  "renderer": {
+    "type": "vrm",
+    "fallback": "default"
+  },
+  "capabilities": {
+    "states": ["idle", "listening", "thinking", "speaking"],
+    "emotions": ["neutral", "warm", "happy", "sad", "concerned"],
+    "gestures": ["none", "soft_nod", "thinking", "wave"],
+    "gaze": ["user", "away", "down"],
+    "lipSync": ["none", "auto", "basic"],
+    "expressions": ["neutral", "happy", "sad", "blink"],
+    "renderer": "vrm"
+  },
+  "motionManifest": "assets/avatars/test-vrm/motions.json",
+  "skeleton": {
+    "type": "humanoid",
+    "map": "assets/avatars/test-vrm/skeleton.mixamo.json"
+  },
+  "skeletonMap": "assets/avatars/test-vrm/skeleton.mixamo.json",
+  "animations": {
+    "manifest": "assets/avatars/test-vrm/motions.json",
+    "standardSlots": true
+  },
+  "transform": {
+    "targetHeight": 126,
+    "position": { "x": 0, "y": 0, "z": 0 },
+    "rotation": { "x": 0, "y": 3.141592653589793, "z": 0 },
+    "scale": 1
+  },
+  "camera": {
+    "targetY": 92,
+    "minDistance": 100,
+    "maxDistance": 620
+  },
+  "hitRegions": {
+    "head": ["head", "neck", "headtop"],
+    "arm": ["arm", "hand", "shoulder", "forearm"],
+    "leg": ["leg", "foot", "toe", "upleg"]
+  },
+  "interactions": {
+    "head": { "motionSlot": "headTap" },
+    "leg": { "motionSlot": "legTap" },
+    "arm": { "motionSlot": "armTap" },
+    "body": { "motionSlot": "bodyTap" },
+    "chat": { "motionSlot": "chat" }
+  },
+  "voice": {
+    "defaultEngine": "browser"
+  },
+  "localTest": {
+    "enabledBy": "?debug=1 or ?localVrm=1",
+    "commitModelFile": false,
+    "licenseStatus": "local-only; verify before promotion"
+  }
+}
