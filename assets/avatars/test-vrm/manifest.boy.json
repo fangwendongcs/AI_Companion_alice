@@ -1,9 +1,9 @@
 {
-  "id": "local_alice_vrm_test",
-  "name": "Alice Test VRM（local）",
+  "id": "local_boy_vrm_test",
+  "name": "Boy VRM（local）",
   "type": "humanoid-vrm",
   "model": {
-    "url": "assets/avatars/test-vrm/alice_test.vrm",
+    "url": "assets/avatars/test-vrm/boy.vrm",
     "format": "vrm"
   },
   "renderer": {
@@ -36,7 +36,7 @@
     "standardSlots": true
   },
   "transform": {
-    "targetHeight": 126,
+    "targetHeight": 128,
     "position": { "x": 0, "y": 0, "z": 0 },
     "rotation": { "x": 0, "y": 3.141592653589793, "z": 0 },
     "scale": 1

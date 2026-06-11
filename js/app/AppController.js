@@ -220,8 +220,8 @@ export class AppController {
     }));
     this.registry.add(this.eventBus.on(EVENT_NAMES.DIALOGUE_ASSISTANT, ({ text, memory, affect, avatarDirective, meta }) => {
       this.lastDialogueAffect = affect || null;
-      this.lastAvatarDirective = avatarDirective || null;
-      this.applyAvatarDirective(avatarDirective, EVENT_NAMES.DIALOGUE_ASSISTANT);
+      this.lastAvatarDirective = this.withAffectDirectiveHints(avatarDirective, affect);
+      this.applyAvatarDirective(this.lastAvatarDirective, EVENT_NAMES.DIALOGUE_ASSISTANT);
       this.patchState({
         lastAssistantMessage: text,
         memory,
@@ -292,7 +292,10 @@ export class AppController {
       this.runtime.init(this.state.characterMeta);
       this.registry.addEventListener(window, 'resize', () => this.runtime.onResize());
       this.ui.init();
-      this.runtime.render((delta) => this.motionManager.update(delta));
+      this.runtime.render((delta) => {
+        this.motionManager.update(delta);
+        this.characterManager.updateAvatarRenderer(delta);
+      });
 
       await this.switchAvatar(this.state.currentAvatarId);
       this.patchState({ app: { ...this.state.app, isReady: true } }, 'app:ready');
@@ -689,6 +692,14 @@ export class AppController {
     return result;
   }
 
+  withAffectDirectiveHints(avatarDirective, affect) {
+    if (!avatarDirective) return null;
+    return {
+      ...avatarDirective,
+      tone: avatarDirective.tone || affect?.tone || null
+    };
+  }
+
   getMotionSlotForDirective(avatarDirective) {
     const gesture = avatarDirective?.gesture;
     if (gesture === 'thinking') return MotionSlot.LISTENING;
@@ -803,6 +814,7 @@ function createSpeakingDirective(affect = {}) {
   return {
     state: 'speaking',
     emotion: affect?.emotion || 'neutral',
+    tone: affect?.tone || 'calm',
     gesture: affect?.motion?.slot === 'happy' ? 'soft_nod' : 'none',
     gaze: 'user',
     lip_sync: 'auto',

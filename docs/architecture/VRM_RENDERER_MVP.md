@@ -82,19 +82,25 @@ Local test models can be placed in:
 assets/avatars/test-vrm/
 ```
 
-The local-only manifest is:
+The local-only manifests are:
 
 ```text
 assets/avatars/test-vrm/manifest.json
+assets/avatars/test-vrm/manifest.boy.json
+assets/avatars/test-vrm/manifest.girl.json
 ```
 
-It is injected into the Web avatar list only when `?debug=1` or `?localVrm=1` is present and the referenced model file exists. The default registry and public avatar list remain unchanged.
+They are injected into the Web avatar list only when `?debug=1` or `?localVrm=1` is present and the referenced model file exists. The default registry and public avatar list remain unchanged.
 
-Use this URL for local visual validation:
+Use these URLs for local visual validation:
 
 ```text
 http://localhost:3000?debug=1&avatar=local_alice_vrm_test
+http://localhost:3000?debug=1&avatar=local_boy_vrm_test
+http://localhost:3000?debug=1&avatar=local_girl_vrm_test
 ```
+
+The local manifests can provide `renderer.expressionMap` so different morph target naming conventions are handled in configuration instead of inside `VRMRenderer`.
 
 `.vrm`, `.glb`, `.gltf`, and the extensionless `alice_test` local file are ignored by Git. Promote a model into `public/avatars/{avatarId}/` only after checking:
 
@@ -105,10 +111,39 @@ http://localhost:3000?debug=1&avatar=local_alice_vrm_test
 - Texture size and polygon count are acceptable for browser performance.
 - The model loads through an avatar manifest and does not require backend changes.
 
+## Local Model Audit
+
+`npm run check:vrm-renderer-flow` audits any local test VRM files that exist on the machine:
+
+- file existence and size;
+- GLB magic header and version;
+- mesh, primitive, and skinned mesh counts;
+- morph target names and likely mouth / blink / emotion candidates;
+- humanoid bone naming clues;
+- material, texture, image, and mime type counts.
+
+Missing local test files do not fail the check because these assets are intentionally ignored by Git. If a file is present, invalid GLB / VRM container data fails the check.
+
+## Girl VRM Expression Sample
+
+`local_girl_vrm_test` is the current MVP sample for Web VRM expression and state linkage. Its model-specific morph target names stay in `assets/avatars/test-vrm/manifest.girl.json`:
+
+- `idle / listening`: neutral expression with automatic blink.
+- `speaking`: lightweight rhythmic mouth movement across `Fcl_MTH_A / I / U / E / O`.
+- `happy / warm / curious`: mapped to joy / fun expressions.
+- `sad`: mapped to sorrow expressions.
+- `angry`: mapped to angry expressions.
+- `surprised`: mapped to surprised expressions.
+- `concerned / apologetic`: low-intensity fallback to sorrow.
+- missing states such as `thinking` remain safe no-op or use the existing motion slot system.
+
+Tone remains a presentation hint. `VRMRenderer` can use it to scale expression / mouth intensity, but tone does not make business decisions and is not written back into Dialogue, Memory, Persona, or backend orchestration.
+
 ## Fallback Strategy
 
 - If no `.vrm` test file exists, the app continues to use Alice / current avatars.
 - If a VRM has no matching morph targets, `VRMRenderer` becomes a safe no-op for expressions while the regular motion slot system still works.
+- If a VRM has no five-vowel mouth groups, `VRMRenderer` falls back to a generic `mouth` group when available.
 - If a VRM model fails to load, existing avatar switch error handling retains the previous working avatar or uses the existing fallback mesh.
 - The backend never changes behavior based on VRM availability.
 
@@ -127,8 +162,10 @@ This verifies:
 - `CharacterManager` owns the active renderer adapter.
 - `AppController` forwards `AvatarDirective`.
 - `VRMRenderer` can apply expression and basic mouth movement on a fake morph-target avatar.
+- `VRMRenderer` can drive girl-style happy / sad / angry / surprised expression groups, five-vowel speaking mouth movement, and automatic blink.
 - Backend business services do not depend on renderer-specific fields.
 - Local test VRM assets are ignored unless explicitly promoted.
+- `alice_test.vrm`, `boy.vrm`, and `girl.vrm` can be audited locally without entering the official registry.
 
 ## Current Visual Validation Status
 

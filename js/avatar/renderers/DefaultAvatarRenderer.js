@@ -25,6 +25,10 @@ export class DefaultAvatarRenderer {
     };
   }
 
+  update() {
+    return null;
+  }
+
   getCapabilities() {
     return {
       ...(this.manifest.capabilities || {}),
@@ -43,12 +47,13 @@ export function normalizeDirective(directive = {}) {
   const state = normalizeEnum(directive.state, ['idle', 'listening', 'thinking', 'speaking'], 'idle');
   const emotion = normalizeEnum(
     directive.emotion,
-    ['neutral', 'warm', 'happy', 'sad', 'concerned', 'apologetic', 'curious', 'thinking'],
+    ['neutral', 'warm', 'happy', 'sad', 'angry', 'surprised', 'concerned', 'apologetic', 'curious', 'thinking'],
     'neutral'
   );
   return {
     state,
     emotion,
+    tone: directive.tone || 'calm',
     gesture: directive.gesture || 'none',
     gaze: directive.gaze || 'user',
     lip_sync: directive.lip_sync || directive.lipSync || 'none',

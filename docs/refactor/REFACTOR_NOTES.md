@@ -1693,3 +1693,20 @@ npm run check:assets
 - 本地 `assets/avatars/test-vrm/alice_test` 为无后缀 GLB/VRM 容器；本轮创建被 Git 忽略的 `alice_test.vrm` symlink 供 manifest 加载，模型文件本身不提交。
 - `CharacterManager` 支持 debug/local-only test avatar 注入：`?debug=1` 或 `?localVrm=1` 且本地模型可访问时才显示 `local_alice_vrm_test`。
 - 已用浏览器打开 `http://localhost:3000?debug=1&avatar=local_alice_vrm_test` 完成真实本地 VRM 加载；发送 stub 对话后状态回到 idle。
+
+## 67. Local boy / girl VRM debug avatars
+
+- 新增本地 debug-only manifest：`local_boy_vrm_test` 和 `local_girl_vrm_test`，仅在 `?debug=1` 或 `?localVrm=1` 时由 `CharacterManager` 注入，不进入正式 `public/avatars/registry.json`。
+- `VRMRenderer` 支持读取 manifest 里的 `renderer.expressionMap`，用配置兼容不同 VRM morph target 命名，避免在 renderer 中写死某一个模型字段。
+- `check:vrm-renderer-flow` 扩展为本地 VRM 模型审计：检查 `alice_test.vrm`、`boy.vrm`、`girl.vrm` 的 GLB header、mesh / skinned mesh、morph target、humanoid bone clues、material / texture 信息。
+- `assets/avatars/test-vrm/README.md` 和 `VRM_RENDERER_MVP.md` 补充 boy / girl 测试 URL、模型放置路径、授权注意和 promotion checklist。
+- `boy.vrm` / `girl.vrm` 继续由 `.gitignore` 忽略；本轮只提交 manifest、检查脚本和文档。
+
+## 68. Phase VRM-Girl-1 表情与基础状态联动
+
+- `manifest.girl.json` 细化为当前 Web VRM 表现样板，声明 neutral / happy / sad / angry / surprised / blink / 五元音 mouth groups。
+- `VRMRenderer` 增加每帧 `update()`，支持 speaking 状态下的轻量五元音口型节奏和自动 blink。
+- `DefaultAvatarRenderer` 提供 no-op `update()`，`CharacterManager` 暴露 `updateAvatarRenderer()`，`AppController` 在现有 render loop 中驱动 active renderer，不改后端业务链路。
+- `AppController` 会把 affect tone 作为表现层 hint 合并到 AvatarDirective，tone 只影响 renderer 强度，不参与业务决策。
+- `check:vrm-renderer-flow` 增加 girl 风格 expressionMap、happy / sad / angry / surprised、五元音 speaking 和 blink 自动化验证。
+- 本轮不引入 `@pixiv/three-vrm`，不做 SpringBone / 标准 LookAt / Mixamo retarget，不把 `girl.vrm` 加入正式 registry。

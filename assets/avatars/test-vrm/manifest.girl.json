@@ -1,28 +1,38 @@
 {
-  "id": "local_alice_vrm_test",
-  "name": "Alice Test VRM（local）",
+  "id": "local_girl_vrm_test",
+  "name": "Girl VRM（local）",
   "type": "humanoid-vrm",
   "model": {
-    "url": "assets/avatars/test-vrm/alice_test.vrm",
+    "url": "assets/avatars/test-vrm/girl.vrm",
     "format": "vrm"
   },
   "renderer": {
     "type": "vrm",
     "fallback": "default",
     "expressionMap": {
-      "happy": ["happy", "joy", "smile", "fun", "relaxed", "fcl_all_joy", "fcl_mth_joy", "fcl_eye_joy", "fcl_all_fun", "fcl_mth_fun"],
-      "sad": ["sad", "sorrow", "trouble", "fcl_all_sorrow", "fcl_mth_sorrow"],
-      "blink": ["blink", "eyeclose", "eye_close", "fcl_eye_close"],
-      "mouth": ["mouth", "aa", "ah", "oh", "ou", "viseme", "fcl_mth", "fcl_mouth"]
+      "neutral": ["fcl_all_neutral", "fcl_mth_neutral"],
+      "happy": ["fcl_all_joy", "fcl_all_fun", "fcl_mth_joy", "fcl_eye_joy", "fcl_mth_fun", "happy", "joy", "smile", "fun", "relaxed"],
+      "sad": ["fcl_all_sorrow", "fcl_mth_sorrow", "fcl_eye_sorrow", "sad", "sorrow", "trouble"],
+      "angry": ["fcl_all_angry", "fcl_mth_angry", "fcl_eye_angry", "angry"],
+      "surprised": ["fcl_all_surprised", "fcl_mth_surprised", "fcl_eye_surprised", "surprised", "surprise"],
+      "blinkRight": ["fcl_eye_close_r"],
+      "blinkLeft": ["fcl_eye_close_l"],
+      "blink": ["fcl_eye_close", "blink", "eyeclose", "eye_close"],
+      "mouthA": ["fcl_mth_a"],
+      "mouthI": ["fcl_mth_i"],
+      "mouthU": ["fcl_mth_u"],
+      "mouthE": ["fcl_mth_e"],
+      "mouthO": ["fcl_mth_o"],
+      "mouth": ["mouth", "aa", "ah", "oh", "ou", "viseme", "fcl_mth"]
     }
   },
   "capabilities": {
     "states": ["idle", "listening", "thinking", "speaking"],
-    "emotions": ["neutral", "warm", "happy", "sad", "concerned"],
+    "emotions": ["neutral", "warm", "happy", "sad", "angry", "surprised", "concerned", "apologetic"],
     "gestures": ["none", "soft_nod", "thinking", "wave"],
     "gaze": ["user", "away", "down"],
     "lipSync": ["none", "auto", "basic"],
-    "expressions": ["neutral", "happy", "sad", "blink"],
+    "expressions": ["neutral", "happy", "sad", "angry", "surprised", "blink", "mouthA", "mouthI", "mouthU", "mouthE", "mouthO"],
     "renderer": "vrm"
   },
   "motionManifest": "assets/avatars/test-vrm/motions.json",
@@ -36,7 +46,7 @@
     "standardSlots": true
   },
   "transform": {
-    "targetHeight": 126,
+    "targetHeight": 128,
     "position": { "x": 0, "y": 0, "z": 0 },
     "rotation": { "x": 0, "y": 3.141592653589793, "z": 0 },
     "scale": 1
