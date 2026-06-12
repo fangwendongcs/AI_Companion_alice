@@ -6,6 +6,7 @@
 - [ANIMATION_ARCHITECTURE.md](./architecture/ANIMATION_ARCHITECTURE.md): 动画系统结构、队列、状态机与排查方式
 - [AVATAR_ARCHITECTURE.md](./architecture/AVATAR_ARCHITECTURE.md): 可替换角色架构
 - [VRM_RENDERER_MVP.md](./architecture/VRM_RENDERER_MVP.md): Web VRMRenderer MVP、AvatarDirective 消费和测试模型规范
+- [AVATAR_PRESENTATION_CONTRACT.md](./avatar/AVATAR_PRESENTATION_CONTRACT.md): Web Avatar 表现层边界、Expression / LipSync / Motion / TTS controller 规划
 - [DIALOGUE_BACKEND_BOUNDARY.md](./architecture/DIALOGUE_BACKEND_BOUNDARY.md): RAG / Memory / n8n / Agent 后端边界
 - [PHASE3_INTELLIGENCE_ARCHITECTURE.md](./architecture/PHASE3_INTELLIGENCE_ARCHITECTURE.md): Phase 3 真实智能能力接入架构
 - [PHASE5_MEMORY_ARCHITECTURE.md](./architecture/PHASE5_MEMORY_ARCHITECTURE.md): Phase 5 记忆系统边界与 SQLite 演进方向

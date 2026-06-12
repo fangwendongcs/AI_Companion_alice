@@ -2,6 +2,7 @@ import { LLMClient } from '../ai/LLMClient.js';
 import { AvatarState, MotionManager, MotionSlot } from '../animation/MotionManager.js';
 import { AudioManager } from '../audio/AudioManager.js';
 import { CharacterManager } from '../avatar/CharacterManager.js';
+import { PresentationOrchestrator, createFallbackAffect } from '../avatar/presentation/PresentationOrchestrator.js';
 import { APP_MODE, EVENT_NAMES, REQUEST_TIMEOUTS, UI_TIMING } from '../config/appConfig.js';
 import { DEFAULT_DIALOGUES, MOOD_DIALOGUES } from '../config/dialogues.js';
 import { validateRuntimeConfig } from '../config/validateConfig.js';
@@ -39,6 +40,11 @@ export class AppController {
     this.runtime = new SceneRuntime(documentRef.getElementById('scene'));
     this.characterManager = new CharacterManager(this.runtime);
     this.motionManager = new MotionManager();
+    this.presentation = new PresentationOrchestrator({
+      characterManager: this.characterManager,
+      motionManager: this.motionManager,
+      log: this.log
+    });
     this.recognitionService = new SpeechRecognitionService();
     this.llmConfig = this.store.loadLLMConfig();
     this.ttsConfig = this.store.loadTTSConfig();
@@ -219,9 +225,13 @@ export class AppController {
       }
     }));
     this.registry.add(this.eventBus.on(EVENT_NAMES.DIALOGUE_ASSISTANT, ({ text, memory, affect, avatarDirective, meta }) => {
-      this.lastDialogueAffect = affect || null;
-      this.lastAvatarDirective = this.withAffectDirectiveHints(avatarDirective, affect);
-      this.applyAvatarDirective(this.lastAvatarDirective, EVENT_NAMES.DIALOGUE_ASSISTANT);
+      const presentation = this.presentation.applyDialogueResponse({
+        avatarDirective,
+        affect,
+        source: EVENT_NAMES.DIALOGUE_ASSISTANT
+      });
+      this.lastDialogueAffect = presentation.affect;
+      this.lastAvatarDirective = presentation.directive;
       this.patchState({
         lastAssistantMessage: text,
         memory,
@@ -233,7 +243,7 @@ export class AppController {
     }));
     this.registry.add(this.eventBus.on(EVENT_NAMES.DIALOGUE_ERROR, ({ error, message }) => {
       const affect = createFallbackAffect();
-      this.lastDialogueAffect = affect;
+      this.lastDialogueAffect = this.presentation.setFallbackAffect(affect);
       this.patchState({
         dialogueError: message,
         affect
@@ -249,8 +259,12 @@ export class AppController {
 
     this.registry.add(this.eventBus.on(EVENT_NAMES.AUDIO_START, ({ affect } = {}) => {
       this.patchState({ isSpeaking: true }, EVENT_NAMES.AUDIO_START);
-      this.applyAvatarDirective(this.lastAvatarDirective || createSpeakingDirective(affect || this.lastDialogueAffect), EVENT_NAMES.AUDIO_START);
-      this.requestAffectMotion(affect || this.lastDialogueAffect, MotionSlot.SPEAKING, this.lastAvatarDirective);
+      const presentation = this.presentation.handleAudioStart({
+        affect,
+        source: EVENT_NAMES.AUDIO_START
+      });
+      this.lastDialogueAffect = presentation.affect;
+      this.lastAvatarDirective = presentation.directive;
     }));
     this.registry.add(this.eventBus.on(EVENT_NAMES.AUDIO_END, () => {
       this.resetSpeakingState(EVENT_NAMES.AUDIO_END);
@@ -588,7 +602,7 @@ export class AppController {
         }
       });
       const response = this.llmClient.getLastResponse?.() || {};
-      this.lastAvatarDirective = response.avatar_directive || this.lastAvatarDirective || null;
+      this.lastAvatarDirective = this.presentation.getLastDirective() || response.avatar_directive || this.lastAvatarDirective || null;
       this.speakText(reply, { affect: response.affect || this.lastDialogueAffect });
     } catch (error) {
       this.log.error('LLM 调用失败:', error);
@@ -602,7 +616,7 @@ export class AppController {
           persona: this.state.persona || null
         }
       });
-      this.requestAffectMotion(affect, MotionSlot.BODY_TAP);
+      this.presentation.requestAffectMotion(affect, MotionSlot.BODY_TAP);
       this.speakText(fallbackReply, { affect });
     } finally {
       this.setDialogueBusy(false);
@@ -675,70 +689,17 @@ export class AppController {
     });
   }
 
-  requestAffectMotion(affect, fallbackSlot = MotionSlot.SPEAKING, avatarDirective = null) {
-    const slot = this.getMotionSlotForDirective(avatarDirective) || this.getMotionSlotForAffect(affect) || fallbackSlot;
-    this.motionManager.requestSlot(MotionSlot.SPEAKING, { replacePending: false });
-    if (slot && slot !== MotionSlot.SPEAKING && slot !== MotionSlot.IDLE) {
-      this.motionManager.requestSlot(slot, { replacePending: false });
-    }
-  }
-
-  applyAvatarDirective(avatarDirective, source = 'avatar:directive') {
-    if (!avatarDirective) return null;
-    const result = this.characterManager.applyAvatarDirective(avatarDirective);
-    if (result?.ok === false) {
-      this.log.debug('Avatar directive 未应用:', source, result.reason);
-    }
-    return result;
-  }
-
-  withAffectDirectiveHints(avatarDirective, affect) {
-    if (!avatarDirective) return null;
-    return {
-      ...avatarDirective,
-      tone: avatarDirective.tone || affect?.tone || null
-    };
-  }
-
-  getMotionSlotForDirective(avatarDirective) {
-    const gesture = avatarDirective?.gesture;
-    if (gesture === 'thinking') return MotionSlot.LISTENING;
-    if (gesture === 'soft_nod') return MotionSlot.CHAT;
-    if (gesture === 'wave') return MotionSlot.ARM_TAP;
-    if (avatarDirective?.state === 'idle') return MotionSlot.IDLE;
-    if (avatarDirective?.state === 'speaking') return MotionSlot.SPEAKING;
-    return null;
-  }
-
-  getMotionSlotForAffect(affect) {
-    const slot = affect?.motion?.slot;
-    if (slot === 'happy') return MotionSlot.CHAT;
-    if (slot === 'apologize') return MotionSlot.BODY_TAP;
-    if (slot === 'thinking') return MotionSlot.LISTENING;
-    if (slot === 'speaking') return MotionSlot.SPEAKING;
-    if (slot === 'idle') return MotionSlot.IDLE;
-    return null;
-  }
-
   resetSpeakingState(source = 'audio:reset') {
     if (this.state.speechTimer) {
       clearTimeout(this.state.speechTimer);
       this.state.speechTimer = null;
     }
     this.patchState({ isSpeaking: false }, source);
-    this.applyAvatarDirective({
-      state: 'idle',
-      emotion: this.state.affect?.emotion || 'neutral',
-      gesture: 'none',
-      gaze: 'user',
-      lip_sync: 'none',
-      intensity: 0
-    }, source);
-    if (this.state.currentState === AvatarState.SPEAKING) {
-      this.motionManager.requestSlot(MotionSlot.IDLE, {
-        replacePending: false
-      });
-    }
+    this.presentation.handleAudioEnd({
+      source,
+      currentState: this.state.currentState,
+      emotion: this.state.affect?.emotion || 'neutral'
+    });
   }
 
   scheduleInteractionStateSettle() {
@@ -757,6 +718,7 @@ export class AppController {
     if (this.destroyed) return;
     this.destroyed = true;
     this.ui.destroy();
+    this.presentation.destroy?.();
     this.motionManager.destroy?.();
     this.interactionManager.unbindPointer?.();
     this.recognitionService.destroy?.();
@@ -789,35 +751,5 @@ function normalizeAffectState(affect, previous = {}) {
     voiceStyle: affect.voice?.style || previous?.voiceStyle || null,
     motionSlot: affect.motion?.slot || previous?.motionSlot || null,
     reason: affect.reason || previous?.reason || null
-  };
-}
-
-function createFallbackAffect() {
-  return {
-    emotion: 'apologetic',
-    intensity: 0.62,
-    tone: 'gentle',
-    reason: 'frontend_error_fallback',
-    voice: {
-      style: 'soft_gentle',
-      rate: 0.96,
-      pitch: 1.02
-    },
-    motion: {
-      slot: 'apologize',
-      intensity: 0.5
-    }
-  };
-}
-
-function createSpeakingDirective(affect = {}) {
-  return {
-    state: 'speaking',
-    emotion: affect?.emotion || 'neutral',
-    tone: affect?.tone || 'calm',
-    gesture: affect?.motion?.slot === 'happy' ? 'soft_nod' : 'none',
-    gaze: 'user',
-    lip_sync: 'auto',
-    intensity: affect?.intensity ?? affect?.motion?.intensity ?? 0.45
   };
 }

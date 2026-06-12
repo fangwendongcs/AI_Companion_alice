@@ -58,9 +58,11 @@ async function checkFrontendConsumesContractCompatibly() {
   const llm = await readFile('js/ai/LLMClient.js', 'utf8');
   const dialogue = await readFile('js/dialogue/DialogueManager.js', 'utf8');
   const app = await readFile('js/app/AppController.js', 'utf8');
+  const presentation = await readFile('js/avatar/presentation/PresentationOrchestrator.js', 'utf8');
   assert(llm.includes('reply_text'), 'LLMClient 必须兼容 reply_text。');
   assert(dialogue.includes('avatarDirective'), 'DialogueManager 必须转发 avatar_directive。');
-  assert(app.includes('getMotionSlotForDirective'), 'AppController 必须通过语义 directive 映射到现有 motion slot。');
+  assert(app.includes('PresentationOrchestrator'), 'AppController 必须接入 PresentationOrchestrator 消费语义 directive。');
+  assert(presentation.includes('getMotionSlotForDirective'), 'PresentationOrchestrator 必须通过语义 directive 映射到现有 motion slot。');
 }
 
 async function checkContractDocumentation() {

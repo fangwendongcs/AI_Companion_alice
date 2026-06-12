@@ -1,4 +1,7 @@
 import { readFile } from 'node:fs/promises';
+import { ExpressionController } from '../js/avatar/presentation/ExpressionController.js';
+import { LipSyncController } from '../js/avatar/presentation/LipSyncController.js';
+import { PresentationOrchestrator, createFallbackAffect } from '../js/avatar/presentation/PresentationOrchestrator.js';
 import { VRMRenderer } from '../js/avatar/renderers/VRMRenderer.js';
 
 const failures = [];
@@ -24,6 +27,8 @@ const localTestAvatars = [
 const modelAudits = [];
 
 await checkRendererModules();
+await checkPresentationOrchestrator();
+await checkPresentationControllers();
 await checkVrmManifestCapabilities();
 await checkLocalTestManifests();
 await checkLocalTestModelsIfPresent();
@@ -47,12 +52,123 @@ console.log('[check-vrm-renderer-flow] ok');
 async function checkRendererModules() {
   const characterManager = await readText('js/avatar/CharacterManager.js');
   const appController = await readText('js/app/AppController.js');
+  const orchestrator = await readText('js/avatar/presentation/PresentationOrchestrator.js');
+  const vrmRenderer = await readText('js/avatar/renderers/VRMRenderer.js');
 
   assert(characterManager.includes('createAvatarRenderer'), 'CharacterManager 应通过 AvatarRendererFactory 创建 renderer。');
   assert(characterManager.includes('applyAvatarDirective'), 'CharacterManager 应暴露 applyAvatarDirective。');
   assert(characterManager.includes('manifest.boy.json'), 'CharacterManager 应支持 boy 本地 VRM 测试 manifest 注入。');
   assert(characterManager.includes('manifest.girl.json'), 'CharacterManager 应支持 girl 本地 VRM 测试 manifest 注入。');
-  assert(appController.includes('applyAvatarDirective'), 'AppController 应把 AvatarDirective 交给 avatar renderer。');
+  assert(appController.includes('PresentationOrchestrator'), 'AppController 应通过 PresentationOrchestrator 协调表现层。');
+  assert(orchestrator.includes('class PresentationOrchestrator'), '应存在 PresentationOrchestrator 表现编排骨架。');
+  assert(orchestrator.includes('createNoopController'), 'PresentationOrchestrator 应预留后续 controller safe no-op 接口。');
+  assert(vrmRenderer.includes('ExpressionController'), 'VRMRenderer 应委托 ExpressionController 处理表情 / blink。');
+  assert(vrmRenderer.includes('LipSyncController'), 'VRMRenderer 应委托 LipSyncController 处理 speaking mouth loop。');
+  assert(!vrmRenderer.includes('applyEmotion('), 'VRMRenderer 不应继续持有 emotion 表现决策。');
+  assert(!vrmRenderer.includes('updateBlink('), 'VRMRenderer 不应继续持有 blink timing 逻辑。');
+  assert(!vrmRenderer.includes('updateLipSync('), 'VRMRenderer 不应继续持有 lip-sync timing 逻辑。');
+}
+
+async function checkPresentationOrchestrator() {
+  const appliedDirectives = [];
+  const requestedSlots = [];
+  const orchestrator = new PresentationOrchestrator({
+    characterManager: {
+      applyAvatarDirective(directive) {
+        appliedDirectives.push(directive);
+        return { ok: true };
+      }
+    },
+    motionManager: {
+      requestSlot(slot, options) {
+        requestedSlots.push({ slot, options });
+      }
+    },
+    log: { debug() {} }
+  });
+
+  const dialogue = orchestrator.applyDialogueResponse({
+    avatarDirective: {
+      state: 'speaking',
+      emotion: 'happy',
+      gesture: 'soft_nod',
+      gaze: 'user',
+      lip_sync: 'auto',
+      intensity: 0.7
+    },
+    affect: {
+      emotion: 'happy',
+      tone: 'playful',
+      motion: { slot: 'happy', intensity: 0.7 }
+    }
+  });
+
+  assert(dialogue.directive.tone === 'playful', 'PresentationOrchestrator 应把 affect tone 合并到 AvatarDirective。');
+  assert(appliedDirectives.at(-1)?.emotion === 'happy', 'PresentationOrchestrator 应把 AvatarDirective 转交给 CharacterManager。');
+
+  orchestrator.handleAudioStart();
+  assert(requestedSlots.some((request) => request.slot === 'speaking'), 'audio:start 应请求 speaking motion slot。');
+  assert(requestedSlots.some((request) => request.slot === 'chat'), 'soft_nod / happy 应能映射到 chat motion slot。');
+
+  orchestrator.applyDialogueResponse({
+    avatarDirective: null,
+    affect: createFallbackAffect()
+  });
+  orchestrator.handleAudioStart();
+  assert(appliedDirectives.at(-1)?.state === 'speaking', '缺少 AvatarDirective 时 audio:start 应创建 speaking fallback directive。');
+
+  orchestrator.handleAudioEnd({ currentState: 'speaking', emotion: 'neutral' });
+  assert(appliedDirectives.at(-1)?.state === 'idle', 'audio:end 应恢复 idle directive。');
+  assert(requestedSlots.at(-1)?.slot === 'idle', 'speaking 结束后应请求 idle motion slot。');
+}
+
+async function checkPresentationControllers() {
+  const fakeMesh = {
+    isMesh: true,
+    morphTargetDictionary: {
+      Fcl_ALL_Joy: 0,
+      Fcl_ALL_Sorrow: 1,
+      Fcl_MTH_A: 2,
+      Fcl_MTH_I: 3,
+      Fcl_EYE_Close: 4
+    },
+    morphTargetInfluences: new Array(5).fill(0)
+  };
+  const executor = {
+    resetExpressionGroups(groups) {
+      groups.forEach((group) => this.setGroupInfluence(group, 0));
+    },
+    setGroupInfluence(group, value) {
+      const indexByGroup = {
+        happy: 0,
+        sad: 1,
+        mouthA: 2,
+        mouthI: 3,
+        blink: 4
+      };
+      const index = indexByGroup[group];
+      if (Number.isInteger(index)) fakeMesh.morphTargetInfluences[index] = value;
+    },
+    hasAnyGroup(groups) {
+      return groups.includes('blink');
+    }
+  };
+
+  const expression = new ExpressionController({ executor });
+  expression.applyDirective({ emotion: 'happy', intensity: 0.8, tone: 'playful' });
+  assert(fakeMesh.morphTargetInfluences[0] > 0, 'ExpressionController 应能把 happy emotion 映射为表情 influence。');
+  expression.blink.nextIn = 0;
+  expression.update(0.08);
+  assert(fakeMesh.morphTargetInfluences[4] > 0, 'ExpressionController 应能驱动 blink。');
+
+  const lipSync = new LipSyncController({ executor });
+  lipSync.setMouthGroups(['mouthA', 'mouthI']);
+  lipSync.applyDirective({ state: 'speaking', lip_sync: 'auto', intensity: 0.8, tone: 'playful' });
+  assert(fakeMesh.morphTargetInfluences[2] > 0, 'LipSyncController 应能启动 mouthA。');
+  lipSync.update(0.12);
+  assert(fakeMesh.morphTargetInfluences[3] > 0, 'LipSyncController 应能推进到 mouthI。');
+  lipSync.applyDirective({ state: 'idle', lip_sync: 'none', intensity: 0 });
+  assert(fakeMesh.morphTargetInfluences[2] === 0 && fakeMesh.morphTargetInfluences[3] === 0, 'LipSyncController 应在 idle 时清理 mouth。');
 }
 
 async function checkVrmManifestCapabilities() {
@@ -214,7 +330,7 @@ async function checkDirectiveApplication() {
   });
   assert(fakeMesh.morphTargetInfluences[1] > 0, 'concerned emotion 应低强度 fallback 到 sad morph group。');
 
-  renderer.blink.nextIn = 0;
+  renderer.expressionController.blink.nextIn = 0;
   renderer.update(0.08);
   assert(fakeMesh.morphTargetInfluences[9] > 0, 'auto blink 应能驱动双眼 blink。');
   assert(fakeMesh.morphTargetInfluences[10] > 0, 'auto blink 应能驱动右眼 blink。');

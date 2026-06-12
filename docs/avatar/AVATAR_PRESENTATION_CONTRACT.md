@@ -1,0 +1,320 @@
+# Avatar Presentation Contract
+
+This document defines the Web avatar presentation boundary for Alice. The goal is to keep future expression, lip-sync, TTS, motion, and renderer work out of `DialogueManager`, `AppController`, `CharacterManager`, and model-specific renderer files.
+
+## Current Audit Result
+
+Status: Partial, with a minimal orchestration skeleton in place.
+
+- `/api/dialogue` already returns renderer-agnostic semantic fields such as `companion_state`, `emotion`, `tone`, and `avatar_directive`.
+- `DialogueManager` only forwards dialogue response metadata and does not make renderer decisions.
+- `AudioManager` only applies non-secret `affect.voice` hints such as rate and pitch before delegating to TTS.
+- `MotionManager` remains the unified motion slot entry and does not require UI code to know animation filenames.
+- `CharacterManager` owns the active avatar renderer and delegates `AvatarDirective` through `applyAvatarDirective()`.
+- `DefaultAvatarRenderer` is a safe no-op renderer; `VRMRenderer` is the first active renderer adapter for expression, blink, and basic lip-sync.
+- `PresentationOrchestrator` now owns the first layer of Web presentation routing: dialogue directive application, affect tone hints, audio start / end presentation state, speaking / idle directive fallback, and semantic motion slot fallback.
+- `AppController` still listens to app events and updates UI/debug state, but it no longer owns the direct AvatarDirective-to-renderer and affect-to-motion mapping logic.
+- `ExpressionController` now owns emotion-to-expression mapping, tone intensity policy, and blink timing.
+- `LipSyncController` now owns speaking mouth loop timing, mouth group cycling, and mouth reset.
+- `VRMRenderer` now stays closer to execution: it collects morph targets, reports capabilities, delegates expression / lip-sync decisions, and writes morph influence values.
+
+## Current Web Presentation Flow
+
+```text
+/api/dialogue
+  -> DialogueManager
+  -> DIALOGUE_ASSISTANT { text, memory, affect, avatarDirective, meta }
+  -> AppController
+     -> patch UI/debug state
+     -> AudioManager.speak()
+     -> PresentationOrchestrator
+        -> CharacterManager.applyAvatarDirective()
+        -> MotionManager.requestSlot()
+  -> CharacterManager
+     -> active AvatarRenderer.applyDirective()
+     -> active AvatarRenderer.update(delta)
+```
+
+Runtime loop:
+
+```text
+SceneRuntime.render(delta)
+  -> MotionManager.update(delta)
+  -> CharacterManager.updateAvatarRenderer(delta)
+```
+
+This means body motion and renderer-level expression are already separated at runtime. The missing layer is a dedicated Web presentation coordinator that consumes semantic state and distributes it to expression, motion, lip-sync, and audio controllers.
+
+## Contract Principles
+
+1. Backend business services output semantic state only.
+2. Dialogue / Memory / Persona / Emotion do not depend on FBX, VRM, Rive, skeleton names, animation files, or model paths.
+3. Web and future iOS clients consume the same `/api/dialogue` semantic contract.
+4. Renderers execute presentation instructions; they do not decide persona, memory, emotion policy, or dialogue behavior.
+5. Missing renderer capability must be a safe no-op.
+6. Model-specific morph target names, expression aliases, and motion compatibility belong in manifest / capability mapping, not in business services.
+7. TTS provider secrets and backend provider decisions never enter presentation-layer code.
+
+## Semantic Input
+
+The presentation layer consumes these values:
+
+```json
+{
+  "companion_state": "speaking",
+  "emotion": {
+    "name": "warm",
+    "intensity": 0.7
+  },
+  "tone": "gentle",
+  "avatar_directive": {
+    "state": "speaking",
+    "emotion": "warm",
+    "gesture": "soft_nod",
+    "gaze": "user",
+    "lip_sync": "auto",
+    "intensity": 0.7
+  },
+  "affect": {
+    "voice": {
+      "style": "gentle",
+      "rate": 1,
+      "pitch": 1
+    },
+    "motion": {
+      "slot": "speaking",
+      "intensity": 0.6
+    }
+  }
+}
+```
+
+Forbidden presentation contract fields:
+
+- `animationFile`
+- `fbxPath`
+- `vrmExpressionPreset`
+- `boneName`
+- `hardcoded animation path`
+- `provider secret`
+- `n8n webhook`
+
+## Recommended Module Boundary
+
+The following modules are the target shape. They should be introduced incrementally and only when the existing MVP behavior is preserved.
+
+```text
+js/avatar/presentation/
+  PresentationOrchestrator.js   # implemented minimal skeleton
+  ExpressionController.js       # implemented for emotion / tone / blink policy
+  LipSyncController.js          # implemented for basic speaking mouth loop
+  MotionController.js
+  TTSController.js
+  presentationTypes.js
+```
+
+### PresentationOrchestrator
+
+Responsibilities:
+
+- Consume `AvatarDirective`, `affect`, audio lifecycle events, and high-level companion state.
+- Coordinate expression, lip-sync, motion, and audio presentation.
+- Own presentation state such as current directive, last affect, speaking activity, and current renderer capability snapshot.
+- Keep `AppController` thin by replacing direct presentation glue such as `requestAffectMotion()` and `applyAvatarDirective()` orchestration.
+
+Non-responsibilities:
+
+- Persona decisions.
+- Memory writes or reads.
+- Prompt building.
+- LLM provider selection.
+- Renderer-specific morph target names.
+
+### ExpressionController
+
+Responsibilities:
+
+- Convert semantic emotion and tone into renderer expression instructions.
+- Handle neutral / happy / sad / angry / surprised / concerned / apologetic fallback.
+- Drive blink policy when the active renderer supports it.
+- Use `manifest.renderer.expressionMap` and capabilities to avoid model-specific hardcoding.
+- Provide expression pattern matching helpers used by `VRMRenderer` during morph target collection.
+
+Safe no-op:
+
+- If the renderer has no matching expression, keep the avatar visible and do nothing.
+
+### LipSyncController
+
+Responsibilities:
+
+- Convert `state=speaking` and `lip_sync=auto/basic` into mouth movement instructions.
+- Start and stop mouth movement from audio lifecycle.
+- Support browser TTS fallback without requiring phoneme analysis.
+- Later, optionally consume audio amplitude or viseme events.
+- Resolve A / I / U / E / O mouth groups with a generic `mouth` fallback.
+
+Safe no-op:
+
+- If no mouth morph exists, keep TTS and motion working without mouth animation.
+
+### MotionController
+
+Responsibilities:
+
+- Map semantic states and gestures into existing `MotionManager` slots.
+- Keep body motion queue, priority, fade, and idle recovery in `MotionManager`.
+- Avoid direct animation file references in UI or renderer code.
+
+Example mapping:
+
+```text
+thinking -> listening
+speaking -> speaking
+soft_nod -> chat
+wave -> armTap
+idle -> idle
+```
+
+Safe no-op:
+
+- If a target slot is unavailable, fall back to `speaking` or `idle`.
+
+### TTSController
+
+Responsibilities:
+
+- Bridge presentation needs to `AudioManager` / `TTSService`.
+- Apply non-secret voice hints such as rate, pitch, and style.
+- Emit or relay audio lifecycle state for lip-sync and motion.
+- Preserve browser fallback behavior.
+
+Non-responsibilities:
+
+- TTS provider secret handling.
+- Backend provider configuration.
+- Prompt or reply generation.
+
+### Renderer Boundary
+
+Renderers remain execution adapters:
+
+- `DefaultAvatarRenderer`: safe no-op and capability reporting.
+- `VRMRenderer`: morph target expression, basic lip-sync, blink, and future VRM-specific execution.
+- Future renderer adapters: FBX / Rive / native WebGL / iOS should consume the same semantic directive.
+
+Renderers should not:
+
+- Call `/api/dialogue`.
+- Read or write memory.
+- Choose persona.
+- Decide whether a response is apologetic, warm, or concerned.
+- Know provider keys, workflow URLs, or RAG details.
+
+## Manifest And Capabilities
+
+Each avatar manifest should remain the source of renderer capability truth:
+
+```json
+{
+  "renderer": {
+    "type": "vrm",
+    "fallback": "default",
+    "expressionMap": {
+      "happy": ["fcl_all_joy", "smile"],
+      "sad": ["fcl_all_sorrow"],
+      "mouthA": ["fcl_mth_a"]
+    }
+  },
+  "capabilities": {
+    "states": ["idle", "listening", "thinking", "speaking"],
+    "emotions": ["neutral", "warm", "happy", "sad", "concerned"],
+    "gestures": ["none", "soft_nod", "thinking", "wave"],
+    "gaze": ["user", "away", "down"],
+    "lipSync": ["none", "auto", "basic"],
+    "expressions": ["neutral", "happy", "sad", "blink"],
+    "renderer": "vrm"
+  }
+}
+```
+
+Rules:
+
+- Capabilities describe what a renderer can express.
+- Expression maps adapt model-specific morph names to semantic groups.
+- Motion compatibility stays in motion manifests / `MotionManager`.
+- Backend should never read these manifests to make business decisions.
+
+## Short-Term Development Plan
+
+### Presentation-1: Contract And Documentation
+
+Done. Freeze the module boundary and keep existing behavior unchanged.
+
+Acceptance:
+
+- Documentation explains where expression, lip-sync, TTS, motion, and renderer responsibilities belong.
+- No business code changes are required.
+
+### Presentation-2: Extract PresentationOrchestrator
+
+Partially done. The minimal `PresentationOrchestrator` now owns directive application, affect tone hints, audio start / end presentation fallback, and semantic motion slot mapping.
+
+Candidate moves:
+
+- `withAffectDirectiveHints()` moved.
+- `applyAvatarDirective()` moved.
+- `requestAffectMotion()` moved.
+- speaking reset directive construction moved.
+- audio start / end presentation coordination partially moved.
+
+Acceptance:
+
+- `AppController` still owns app flow and UI state, but no longer directly maps semantic gestures to motion slots.
+- Existing Alice / Shiro / Wambo / local girl VRM flows still pass.
+- Future work should move more audio lifecycle glue from `AppController` only after browser visual validation remains stable.
+
+### Presentation-3: Extract ExpressionController And LipSyncController
+
+Done for the MVP. Renderer expression and mouth timing policy moved out of `VRMRenderer` into reusable presentation helpers.
+
+Acceptance:
+
+- `VRMRenderer` becomes an execution adapter for morph influence writes.
+- Girl VRM expression, blink, and speaking mouth movement still work.
+- Missing morph targets remain safe no-op.
+- `check:vrm-renderer-flow` verifies the controller boundary and prevents expression / blink / lip-sync policy from drifting back into `VRMRenderer`.
+
+### Presentation-4: Capability Tests
+
+Add checks that validate avatar manifests declare renderer capabilities and that local expression maps do not leak into backend business services.
+
+Acceptance:
+
+- `npm run check` catches accidental renderer-specific fields in backend responses.
+- Local-only test avatars remain debug-gated.
+
+### Presentation-5: Audio-Driven Lip-Sync Evaluation
+
+Evaluate whether browser TTS timing, basic amplitude, or a lightweight viseme source is enough before introducing a VRM runtime dependency.
+
+Acceptance:
+
+- No new dependency unless the MVP proves GLTFLoader-only behavior is insufficient.
+- `@pixiv/three-vrm` remains a later decision for standard LookAt, SpringBone, and VRM expression APIs.
+
+## Current Risks
+
+- `AppController` still owns event binding, UI/debug state, and speech timer lifecycle. More expression / motion / audio policy should go through `PresentationOrchestrator`, not new direct methods.
+- `VRMRenderer` no longer owns emotion, blink, or speaking mouth timing policy, but it still owns morph target discovery and low-level influence writes. Future runtime-specific APIs should stay behind renderer adapters.
+- Existing body motion and renderer expression can run in parallel. Future work should define conflict rules for gestures that imply both motion and expression.
+- Visual verification still needs browser checks for each model because GLTF / VRM orientation, scale, and morph naming vary by asset.
+
+## Non-Goals
+
+- No backend renderer-specific fields.
+- No iOS implementation.
+- No full VRM runtime migration in this phase.
+- No advanced face capture.
+- No new animation system rewrite.
+- No model asset promotion without license and performance review.

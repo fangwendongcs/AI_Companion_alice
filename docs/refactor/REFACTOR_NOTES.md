@@ -1710,3 +1710,29 @@ npm run check:assets
 - `AppController` 会把 affect tone 作为表现层 hint 合并到 AvatarDirective，tone 只影响 renderer 强度，不参与业务决策。
 - `check:vrm-renderer-flow` 增加 girl 风格 expressionMap、happy / sad / angry / surprised、五元音 speaking 和 blink 自动化验证。
 - 本轮不引入 `@pixiv/three-vrm`，不做 SpringBone / 标准 LookAt / Mixamo retarget，不把 `girl.vrm` 加入正式 registry。
+
+## 69. Avatar Presentation 表现层边界规划
+
+- 新增 `docs/avatar/AVATAR_PRESENTATION_CONTRACT.md`，把 Web 表现层从 Dialogue / Memory / Persona / Emotion 业务层中明确拆开。
+- 审计确认当前 `/api/dialogue -> DialogueManager -> AppController -> CharacterManager -> AvatarRenderer` 链路已经使用 renderer-agnostic `AvatarDirective`，但 `AppController` 仍承担表现编排胶水，`VRMRenderer` 仍同时承担 expression、blink 和 mouth timing。
+- 文档规划后续逐步抽出 `PresentationOrchestrator`、`ExpressionController`、`LipSyncController`、`MotionController` 和 `TTSController`，优先保持现有行为，不重写动画系统。
+- 明确 renderer 只执行表现指令，manifest / capabilities 负责模型能力声明，缺失能力必须 safe no-op。
+- 本轮只做文档和边界收口，不修改 Dialogue / Memory / Persona / Emotion / TTS 后端业务逻辑，不引入 `@pixiv/three-vrm`，不改模型资产。
+
+## 70. Avatar PresentationOrchestrator MVP
+
+- 新增 `js/avatar/presentation/PresentationOrchestrator.js`，作为 Web 表现层最小编排骨架。
+- `PresentationOrchestrator` 接管原本散落在 `AppController` 中的 AvatarDirective 应用、affect tone hint 合并、audio start / end speaking/idle fallback 和语义 motion slot 映射。
+- `AppController` 继续负责应用事件、UI/debug 状态和 speech timer，不再直接维护 gesture -> motion slot、affect -> motion slot、AvatarDirective -> renderer 的映射细节。
+- `PresentationOrchestrator` 预留 expression / lipSync / tts controller safe no-op 接口，为后续拆出 `ExpressionController`、`LipSyncController` 和 `TTSController` 留出边界。
+- `check:vrm-renderer-flow` 增加 orchestrator 骨架验证，覆盖 tone 合并、audio:start speaking motion、缺少 directive 时 speaking fallback、audio:end idle recovery。
+- 本轮不改后端 Dialogue / Memory / Persona / Emotion 业务逻辑，不引入 `@pixiv/three-vrm`，不重写 MotionManager 主链路。
+
+## 71. Presentation-3 ExpressionController / LipSyncController
+
+- 新增 `js/avatar/presentation/ExpressionController.js`，接管 emotion -> expression、tone intensity 和 blink timing 策略。
+- 新增 `js/avatar/presentation/LipSyncController.js`，接管 speaking mouth loop、A/I/U/E/O 口型节奏、generic mouth fallback 和 mouth reset。
+- `VRMRenderer` 现在保留 morph target 收集、capability 汇报和 morph influence 写入，表情 / blink / mouth timing 决策委托给 controller。
+- `ExpressionController` 仍通过 manifest `renderer.expressionMap` 与通用 pattern 识别 morph group，不在业务层写死 `girl.vrm` 字段。
+- `check:vrm-renderer-flow` 增加 controller 级验证，并防止 `applyEmotion / updateBlink / updateLipSync` 这类表现决策回流到 `VRMRenderer`。
+- 本轮不引入 `@pixiv/three-vrm`，不改后端业务逻辑，不重写 MotionManager，不提交本地 `.vrm` 模型本体。

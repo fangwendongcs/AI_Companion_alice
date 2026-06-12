@@ -18,6 +18,7 @@ Before this phase, those files were loaded through the existing Three.js `GLTFLo
   -> avatar_directive
   -> DialogueManager
   -> AppController
+  -> PresentationOrchestrator
   -> CharacterManager.applyAvatarDirective()
   -> active AvatarRenderer
 ```
@@ -40,13 +41,26 @@ js/avatar/renderers/
   AvatarRendererFactory.js
   DefaultAvatarRenderer.js
   VRMRenderer.js
+
+js/avatar/presentation/
+  PresentationOrchestrator.js
+  ExpressionController.js
+  LipSyncController.js
 ```
 
 - `DefaultAvatarRenderer` is a no-op adapter for existing GLB / fallback avatars.
-- `VRMRenderer` consumes `AvatarDirective` and applies a conservative morph-target mapping when compatible expression names exist.
+- `VRMRenderer` consumes `AvatarDirective`, collects compatible morph targets, and delegates expression / blink policy to `ExpressionController` and speaking mouth timing to `LipSyncController`.
 - `AvatarRendererFactory` selects `vrm` for manifests with `renderer.type = "vrm"` or `model.format = "vrm"`.
 
 The existing `MotionManager` and animation slot queue remain responsible for body actions. VRMRenderer only handles presentation-level expression / basic lip-sync hints.
+
+`PresentationOrchestrator` is the Web-side coordinator between app events and presentation execution. It owns the first layer of directive application, affect tone hinting, audio start / end presentation fallback, and semantic motion slot mapping. It does not decide persona, memory, dialogue policy, or backend provider behavior.
+
+`ExpressionController` and `LipSyncController` keep `VRMRenderer` close to the execution layer:
+
+- `ExpressionController`: emotion / tone / blink policy and expression pattern helpers.
+- `LipSyncController`: basic speaking mouth loop, A/I/U/E/O cycling, generic mouth fallback, and mouth reset.
+- `VRMRenderer`: model morph target collection, capability reporting, and low-level morph influence writes.
 
 ## Avatar Manifest Fields
 
@@ -163,6 +177,7 @@ This verifies:
 - `AppController` forwards `AvatarDirective`.
 - `VRMRenderer` can apply expression and basic mouth movement on a fake morph-target avatar.
 - `VRMRenderer` can drive girl-style happy / sad / angry / surprised expression groups, five-vowel speaking mouth movement, and automatic blink.
+- `ExpressionController` and `LipSyncController` are covered directly so expression / blink / lip-sync policy does not drift back into `VRMRenderer`.
 - Backend business services do not depend on renderer-specific fields.
 - Local test VRM assets are ignored unless explicitly promoted.
 - `alice_test.vrm`, `boy.vrm`, and `girl.vrm` can be audited locally without entering the official registry.

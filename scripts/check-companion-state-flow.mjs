@@ -27,9 +27,11 @@ async function checkFrontendDialogueContract() {
 
 async function checkAudioAndMotionAffectContract() {
   const app = await readFile('js/app/AppController.js', 'utf8');
+  const presentation = await readFile('js/avatar/presentation/PresentationOrchestrator.js', 'utf8');
   const audio = await readFile('js/audio/AudioManager.js', 'utf8');
-  assert(app.includes('requestAffectMotion'), 'AppController 必须包含 affect -> motion 映射。');
-  assert(app.includes('MotionSlot.CHAT') && app.includes('MotionSlot.BODY_TAP'), 'affect motion 必须能映射到现有 motion slot fallback。');
+  assert(app.includes('PresentationOrchestrator'), 'AppController 必须通过 PresentationOrchestrator 协调表现层。');
+  assert(presentation.includes('requestAffectMotion'), 'PresentationOrchestrator 必须包含 affect -> motion 映射。');
+  assert(presentation.includes('PresentationMotionSlot.CHAT') && presentation.includes('PresentationMotionSlot.BODY_TAP'), 'affect motion 必须能映射到现有 motion slot fallback。');
   assert(audio.includes('applyVoiceAffect'), 'AudioManager 必须根据 affect.voice 调整语音参数。');
   assert(audio.includes('affect'), 'AudioManager 必须透传 affect 到 audio events。');
 }
