@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { ExpressionController } from '../js/avatar/presentation/ExpressionController.js';
 import { LipSyncController } from '../js/avatar/presentation/LipSyncController.js';
+import { MotionController } from '../js/avatar/presentation/MotionController.js';
 import { PresentationOrchestrator, createFallbackAffect } from '../js/avatar/presentation/PresentationOrchestrator.js';
 import { VRMRenderer } from '../js/avatar/renderers/VRMRenderer.js';
 
@@ -29,6 +30,7 @@ const modelAudits = [];
 await checkRendererModules();
 await checkPresentationOrchestrator();
 await checkPresentationControllers();
+await checkMotionController();
 await checkVrmManifestCapabilities();
 await checkLocalTestManifests();
 await checkLocalTestModelsIfPresent();
@@ -53,6 +55,7 @@ async function checkRendererModules() {
   const characterManager = await readText('js/avatar/CharacterManager.js');
   const appController = await readText('js/app/AppController.js');
   const orchestrator = await readText('js/avatar/presentation/PresentationOrchestrator.js');
+  const motionController = await readText('js/avatar/presentation/MotionController.js');
   const vrmRenderer = await readText('js/avatar/renderers/VRMRenderer.js');
 
   assert(characterManager.includes('createAvatarRenderer'), 'CharacterManager 应通过 AvatarRendererFactory 创建 renderer。');
@@ -62,6 +65,10 @@ async function checkRendererModules() {
   assert(appController.includes('PresentationOrchestrator'), 'AppController 应通过 PresentationOrchestrator 协调表现层。');
   assert(orchestrator.includes('class PresentationOrchestrator'), '应存在 PresentationOrchestrator 表现编排骨架。');
   assert(orchestrator.includes('createNoopController'), 'PresentationOrchestrator 应预留后续 controller safe no-op 接口。');
+  assert(orchestrator.includes('MotionController'), 'PresentationOrchestrator 应委托 MotionController 处理动作表现。');
+  assert(!orchestrator.includes('getMotionSlotForDirective('), 'PresentationOrchestrator 不应继续持有具体 directive -> motion 映射。');
+  assert(motionController.includes('getMotionSlotForDirective'), 'MotionController 应集中处理 directive -> motion 映射。');
+  assert(motionController.includes('getMotionSlotForAffect'), 'MotionController 应集中处理 affect -> motion 映射。');
   assert(vrmRenderer.includes('ExpressionController'), 'VRMRenderer 应委托 ExpressionController 处理表情 / blink。');
   assert(vrmRenderer.includes('LipSyncController'), 'VRMRenderer 应委托 LipSyncController 处理 speaking mouth loop。');
   assert(!vrmRenderer.includes('applyEmotion('), 'VRMRenderer 不应继续持有 emotion 表现决策。');
@@ -120,6 +127,44 @@ async function checkPresentationOrchestrator() {
   orchestrator.handleAudioEnd({ currentState: 'speaking', emotion: 'neutral' });
   assert(appliedDirectives.at(-1)?.state === 'idle', 'audio:end 应恢复 idle directive。');
   assert(requestedSlots.at(-1)?.slot === 'idle', 'speaking 结束后应请求 idle motion slot。');
+}
+
+async function checkMotionController() {
+  const requestedSlots = [];
+  const controller = new MotionController({
+    motionManager: {
+      requestSlot(slot, options) {
+        requestedSlots.push({ slot, options });
+        return true;
+      }
+    },
+    log: { debug() {} }
+  });
+
+  const audioStart = controller.onAudioStart({
+    directive: {
+      state: 'speaking',
+      gesture: 'soft_nod'
+    },
+    affect: {
+      motion: { slot: 'happy' }
+    }
+  });
+  assert(audioStart.slot === 'chat', 'MotionController 应优先把 soft_nod / happy 映射到 chat slot。');
+  assert(requestedSlots.some((request) => request.slot === 'speaking'), 'MotionController audio:start 应请求 speaking base slot。');
+  assert(requestedSlots.some((request) => request.slot === 'chat'), 'MotionController audio:start 应请求 semantic gesture slot。');
+
+  const idle = controller.onAudioEnd({ currentState: 'speaking' });
+  assert(idle.slot === 'idle', 'MotionController audio:end 应能在 speaking 后请求 idle。');
+
+  const listening = controller.applyDirective({ state: 'thinking', gesture: 'thinking' });
+  assert(listening.slot === 'listening', 'MotionController 应把 thinking 映射到 listening slot。');
+
+  const safeNoop = new MotionController().requestAffectMotion(
+    { motion: { slot: 'apologize' } },
+    'bodyTap'
+  );
+  assert(safeNoop.ok === false && safeNoop.requested.length > 0, 'MotionController 缺少 MotionManager 时应返回 safe no-op 结果。');
 }
 
 async function checkPresentationControllers() {

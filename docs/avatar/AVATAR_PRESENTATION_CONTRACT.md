@@ -12,10 +12,11 @@ Status: Partial, with a minimal orchestration skeleton in place.
 - `MotionManager` remains the unified motion slot entry and does not require UI code to know animation filenames.
 - `CharacterManager` owns the active avatar renderer and delegates `AvatarDirective` through `applyAvatarDirective()`.
 - `DefaultAvatarRenderer` is a safe no-op renderer; `VRMRenderer` is the first active renderer adapter for expression, blink, and basic lip-sync.
-- `PresentationOrchestrator` now owns the first layer of Web presentation routing: dialogue directive application, affect tone hints, audio start / end presentation state, speaking / idle directive fallback, and semantic motion slot fallback.
+- `PresentationOrchestrator` now owns the first layer of Web presentation routing: dialogue directive application, affect tone hints, audio start / end presentation state, and speaking / idle directive fallback.
 - `AppController` still listens to app events and updates UI/debug state, but it no longer owns the direct AvatarDirective-to-renderer and affect-to-motion mapping logic.
 - `ExpressionController` now owns emotion-to-expression mapping, tone intensity policy, and blink timing.
 - `LipSyncController` now owns speaking mouth loop timing, mouth group cycling, and mouth reset.
+- `MotionController` now owns semantic motion intent mapping from `AvatarDirective`, `affect.motion`, and audio lifecycle events into the existing `MotionManager` slots.
 - `VRMRenderer` now stays closer to execution: it collects morph targets, reports capabilities, delegates expression / lip-sync decisions, and writes morph influence values.
 
 ## Current Web Presentation Flow
@@ -108,7 +109,7 @@ js/avatar/presentation/
   PresentationOrchestrator.js   # implemented minimal skeleton
   ExpressionController.js       # implemented for emotion / tone / blink policy
   LipSyncController.js          # implemented for basic speaking mouth loop
-  MotionController.js
+  MotionController.js           # implemented for semantic motion intent mapping
   TTSController.js
   presentationTypes.js
 ```
@@ -163,6 +164,8 @@ Safe no-op:
 Responsibilities:
 
 - Map semantic states and gestures into existing `MotionManager` slots.
+- Map `affect.motion.slot` into the nearest supported body motion slot.
+- Handle audio lifecycle motion requests such as `audio:start -> speaking` and `audio:end -> idle`.
 - Keep body motion queue, priority, fade, and idle recovery in `MotionManager`.
 - Avoid direct animation file references in UI or renderer code.
 
@@ -179,6 +182,7 @@ idle -> idle
 Safe no-op:
 
 - If a target slot is unavailable, fall back to `speaking` or `idle`.
+- If `MotionManager` is not ready, return a stable no-op result instead of blocking dialogue, TTS, or renderer updates.
 
 ### TTSController
 
@@ -258,13 +262,13 @@ Acceptance:
 
 ### Presentation-2: Extract PresentationOrchestrator
 
-Partially done. The minimal `PresentationOrchestrator` now owns directive application, affect tone hints, audio start / end presentation fallback, and semantic motion slot mapping.
+Done for the MVP. The minimal `PresentationOrchestrator` owns directive application, affect tone hints, audio start / end presentation fallback, and controller coordination.
 
 Candidate moves:
 
 - `withAffectDirectiveHints()` moved.
 - `applyAvatarDirective()` moved.
-- `requestAffectMotion()` moved.
+- `requestAffectMotion()` moved behind the presentation boundary and now delegates to `MotionController`.
 - speaking reset directive construction moved.
 - audio start / end presentation coordination partially moved.
 
@@ -285,7 +289,30 @@ Acceptance:
 - Missing morph targets remain safe no-op.
 - `check:vrm-renderer-flow` verifies the controller boundary and prevents expression / blink / lip-sync policy from drifting back into `VRMRenderer`.
 
-### Presentation-4: Capability Tests
+### Presentation-4A: Extract MotionController
+
+Done for the MVP. Semantic motion mapping moved out of `PresentationOrchestrator` into `MotionController`.
+
+Acceptance:
+
+- `PresentationOrchestrator` coordinates motion through a controller instead of owning gesture / affect mapping tables.
+- `MotionController` maps `idle / listening / thinking / speaking / gesture / affect.motion` into existing `MotionManager` slots.
+- `MotionManager` remains the owner of motion resources, queueing, state, and playback.
+- Missing `MotionManager` or unsupported motion slots must be safe no-op.
+- `check:vrm-renderer-flow`, `check:companion-state-flow`, and `check:dialogue-contract` cover this boundary.
+
+### Presentation-4B: Extract TTSController
+
+Next. Move remaining audio / TTS presentation lifecycle glue behind a small controller without changing `AudioManager` or `TTSService`.
+
+Acceptance:
+
+- `PresentationOrchestrator` coordinates TTS lifecycle through `TTSController`.
+- `AudioManager` keeps playback and fallback behavior.
+- `TTSService` keeps provider calls and backend endpoint logic.
+- Lip-sync can later consume audio lifecycle from one place.
+
+### Presentation-5: Capability Tests
 
 Add checks that validate avatar manifests declare renderer capabilities and that local expression maps do not leak into backend business services.
 
@@ -294,7 +321,7 @@ Acceptance:
 - `npm run check` catches accidental renderer-specific fields in backend responses.
 - Local-only test avatars remain debug-gated.
 
-### Presentation-5: Audio-Driven Lip-Sync Evaluation
+### Presentation-6: Audio-Driven Lip-Sync Evaluation
 
 Evaluate whether browser TTS timing, basic amplitude, or a lightweight viseme source is enough before introducing a VRM runtime dependency.
 
@@ -307,7 +334,7 @@ Acceptance:
 
 - `AppController` still owns event binding, UI/debug state, and speech timer lifecycle. More expression / motion / audio policy should go through `PresentationOrchestrator`, not new direct methods.
 - `VRMRenderer` no longer owns emotion, blink, or speaking mouth timing policy, but it still owns morph target discovery and low-level influence writes. Future runtime-specific APIs should stay behind renderer adapters.
-- Existing body motion and renderer expression can run in parallel. Future work should define conflict rules for gestures that imply both motion and expression.
+- Existing body motion and renderer expression can run in parallel. `MotionController` now owns semantic slot mapping, but future work should define conflict rules for gestures that imply both motion and expression.
 - Visual verification still needs browser checks for each model because GLTF / VRM orientation, scale, and morph naming vary by asset.
 
 ## Non-Goals

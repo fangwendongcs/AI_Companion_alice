@@ -1,15 +1,6 @@
-export const PresentationMotionSlot = {
-  IDLE: 'idle',
-  CHAT: 'chat',
-  ARM_TAP: 'armTap',
-  BODY_TAP: 'bodyTap',
-  SPEAKING: 'speaking',
-  LISTENING: 'listening'
-};
+import { MotionController, PresentationMotionSlot } from './MotionController.js';
 
-const PRESENTATION_AVATAR_STATE = {
-  SPEAKING: 'speaking'
-};
+export { PresentationMotionSlot };
 
 export class PresentationOrchestrator {
   constructor({ characterManager, motionManager, log = null, controllers = {} } = {}) {
@@ -20,7 +11,7 @@ export class PresentationOrchestrator {
       expression: controllers.expression || createNoopController('expression'),
       lipSync: controllers.lipSync || createNoopController('lipSync'),
       tts: controllers.tts || createNoopController('tts'),
-      motion: controllers.motion || null
+      motion: controllers.motion || new MotionController({ motionManager, log })
     };
     this.lastDialogueAffect = null;
     this.lastAvatarDirective = null;
@@ -49,7 +40,7 @@ export class PresentationOrchestrator {
     const directive = this.lastAvatarDirective || createSpeakingDirective(activeAffect);
     const result = this.applyAvatarDirective(directive, source);
     this.controllers.lipSync.onAudioStart?.({ directive, affect: activeAffect, source });
-    this.requestAffectMotion(activeAffect, PresentationMotionSlot.SPEAKING, directive);
+    this.controllers.motion.onAudioStart?.({ affect: activeAffect, directive, source });
     return {
       directive,
       affect: activeAffect,
@@ -61,11 +52,7 @@ export class PresentationOrchestrator {
     const directive = createIdleDirective(emotion);
     const result = this.applyAvatarDirective(directive, source);
     this.controllers.lipSync.onAudioEnd?.({ directive, source });
-    if (currentState === PRESENTATION_AVATAR_STATE.SPEAKING) {
-      this.motionManager?.requestSlot(PresentationMotionSlot.IDLE, {
-        replacePending: false
-      });
-    }
+    this.controllers.motion.onAudioEnd?.({ currentState, source });
     return {
       directive,
       result
@@ -73,12 +60,7 @@ export class PresentationOrchestrator {
   }
 
   requestAffectMotion(affect, fallbackSlot = PresentationMotionSlot.SPEAKING, avatarDirective = null) {
-    const slot = this.getMotionSlotForDirective(avatarDirective) || this.getMotionSlotForAffect(affect) || fallbackSlot;
-    this.motionManager?.requestSlot(PresentationMotionSlot.SPEAKING, { replacePending: false });
-    if (slot && slot !== PresentationMotionSlot.SPEAKING && slot !== PresentationMotionSlot.IDLE) {
-      this.motionManager?.requestSlot(slot, { replacePending: false });
-    }
-    return slot;
+    return this.controllers.motion.requestAffectMotion?.(affect, fallbackSlot, avatarDirective);
   }
 
   applyAvatarDirective(avatarDirective, source = 'avatar:directive') {
@@ -113,26 +95,6 @@ export class PresentationOrchestrator {
     Object.values(this.controllers).forEach((controller) => controller?.destroy?.());
     this.lastDialogueAffect = null;
     this.lastAvatarDirective = null;
-  }
-
-  getMotionSlotForDirective(avatarDirective) {
-    const gesture = avatarDirective?.gesture;
-    if (gesture === 'thinking') return PresentationMotionSlot.LISTENING;
-    if (gesture === 'soft_nod') return PresentationMotionSlot.CHAT;
-    if (gesture === 'wave') return PresentationMotionSlot.ARM_TAP;
-    if (avatarDirective?.state === 'idle') return PresentationMotionSlot.IDLE;
-    if (avatarDirective?.state === 'speaking') return PresentationMotionSlot.SPEAKING;
-    return null;
-  }
-
-  getMotionSlotForAffect(affect) {
-    const slot = affect?.motion?.slot;
-    if (slot === 'happy') return PresentationMotionSlot.CHAT;
-    if (slot === 'apologize') return PresentationMotionSlot.BODY_TAP;
-    if (slot === 'thinking') return PresentationMotionSlot.LISTENING;
-    if (slot === 'speaking') return PresentationMotionSlot.SPEAKING;
-    if (slot === 'idle') return PresentationMotionSlot.IDLE;
-    return null;
   }
 }
 

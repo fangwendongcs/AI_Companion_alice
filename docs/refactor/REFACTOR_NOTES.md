@@ -1736,3 +1736,13 @@ npm run check:assets
 - `ExpressionController` 仍通过 manifest `renderer.expressionMap` 与通用 pattern 识别 morph group，不在业务层写死 `girl.vrm` 字段。
 - `check:vrm-renderer-flow` 增加 controller 级验证，并防止 `applyEmotion / updateBlink / updateLipSync` 这类表现决策回流到 `VRMRenderer`。
 - 本轮不引入 `@pixiv/three-vrm`，不改后端业务逻辑，不重写 MotionManager，不提交本地 `.vrm` 模型本体。
+
+## 72. Presentation-4A MotionController
+
+- 新增 `js/avatar/presentation/MotionController.js`，接管 `AvatarDirective / affect.motion / audio:start / audio:end` 到现有 `MotionManager` slot 的映射。
+- `PresentationOrchestrator` 继续作为表现层总协调，但不再直接维护 `gesture -> motion slot` 或 `affect.motion -> motion slot` 的映射表。
+- `MotionController` 只请求语义 motion slot，不引用动画文件、模型路径、骨骼名或 FBX / VRM 专属字段；`MotionManager` 仍负责动作资源、队列、状态和播放。
+- `audio:start` 仍会请求 speaking base motion，并按 `soft_nod / happy / apologize / thinking` 等语义补充 chat/bodyTap/listening 等 slot；`audio:end` 在 speaking 状态后请求 idle。
+- 缺少 `MotionManager` 时返回 stable no-op 结果，不阻塞 dialogue、TTS 或 renderer 表现。
+- `check:vrm-renderer-flow`、`check:companion-state-flow`、`check:dialogue-contract` 已同步验证 MotionController 边界，防止动作映射回流到 `PresentationOrchestrator`。
+- 本轮不重写 MotionManager，不做 Mixamo retarget，不引入 `@pixiv/three-vrm`，不改后端 Dialogue / Memory / Persona / Emotion / TTS 业务逻辑。
