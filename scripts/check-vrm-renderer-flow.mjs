@@ -3,6 +3,7 @@ import { ExpressionController } from '../js/avatar/presentation/ExpressionContro
 import { LipSyncController } from '../js/avatar/presentation/LipSyncController.js';
 import { MotionController } from '../js/avatar/presentation/MotionController.js';
 import { PresentationOrchestrator, createFallbackAffect } from '../js/avatar/presentation/PresentationOrchestrator.js';
+import { TTSController, TTSLifecycleStatus } from '../js/avatar/presentation/TTSController.js';
 import { VRMRenderer } from '../js/avatar/renderers/VRMRenderer.js';
 
 const failures = [];
@@ -31,6 +32,7 @@ await checkRendererModules();
 await checkPresentationOrchestrator();
 await checkPresentationControllers();
 await checkMotionController();
+await checkTTSController();
 await checkVrmManifestCapabilities();
 await checkLocalTestManifests();
 await checkLocalTestModelsIfPresent();
@@ -56,6 +58,7 @@ async function checkRendererModules() {
   const appController = await readText('js/app/AppController.js');
   const orchestrator = await readText('js/avatar/presentation/PresentationOrchestrator.js');
   const motionController = await readText('js/avatar/presentation/MotionController.js');
+  const ttsController = await readText('js/avatar/presentation/TTSController.js');
   const vrmRenderer = await readText('js/avatar/renderers/VRMRenderer.js');
 
   assert(characterManager.includes('createAvatarRenderer'), 'CharacterManager 应通过 AvatarRendererFactory 创建 renderer。');
@@ -66,9 +69,12 @@ async function checkRendererModules() {
   assert(orchestrator.includes('class PresentationOrchestrator'), '应存在 PresentationOrchestrator 表现编排骨架。');
   assert(orchestrator.includes('createNoopController'), 'PresentationOrchestrator 应预留后续 controller safe no-op 接口。');
   assert(orchestrator.includes('MotionController'), 'PresentationOrchestrator 应委托 MotionController 处理动作表现。');
+  assert(orchestrator.includes('TTSController'), 'PresentationOrchestrator 应委托 TTSController 处理 TTS 生命周期。');
   assert(!orchestrator.includes('getMotionSlotForDirective('), 'PresentationOrchestrator 不应继续持有具体 directive -> motion 映射。');
   assert(motionController.includes('getMotionSlotForDirective'), 'MotionController 应集中处理 directive -> motion 映射。');
   assert(motionController.includes('getMotionSlotForAffect'), 'MotionController 应集中处理 affect -> motion 映射。');
+  assert(ttsController.includes('TTSLifecycleStatus'), 'TTSController 应集中记录 TTS / audio lifecycle 状态。');
+  assert(ttsController.includes('onRequest') && ttsController.includes('onError'), 'TTSController 应覆盖 request/start/end/error 生命周期。');
   assert(vrmRenderer.includes('ExpressionController'), 'VRMRenderer 应委托 ExpressionController 处理表情 / blink。');
   assert(vrmRenderer.includes('LipSyncController'), 'VRMRenderer 应委托 LipSyncController 处理 speaking mouth loop。');
   assert(!vrmRenderer.includes('applyEmotion('), 'VRMRenderer 不应继续持有 emotion 表现决策。');
@@ -116,6 +122,7 @@ async function checkPresentationOrchestrator() {
   orchestrator.handleAudioStart();
   assert(requestedSlots.some((request) => request.slot === 'speaking'), 'audio:start 应请求 speaking motion slot。');
   assert(requestedSlots.some((request) => request.slot === 'chat'), 'soft_nod / happy 应能映射到 chat motion slot。');
+  assert(orchestrator.controllers.tts.getState().status === TTSLifecycleStatus.PLAYING, 'audio:start 应把 TTSController 标记为 playing。');
 
   orchestrator.applyDialogueResponse({
     avatarDirective: null,
@@ -127,6 +134,15 @@ async function checkPresentationOrchestrator() {
   orchestrator.handleAudioEnd({ currentState: 'speaking', emotion: 'neutral' });
   assert(appliedDirectives.at(-1)?.state === 'idle', 'audio:end 应恢复 idle directive。');
   assert(requestedSlots.at(-1)?.slot === 'idle', 'speaking 结束后应请求 idle motion slot。');
+  assert(orchestrator.controllers.tts.getState().status === TTSLifecycleStatus.ENDED, 'audio:end 应把 TTSController 标记为 ended。');
+
+  orchestrator.handleAudioError({
+    currentState: 'speaking',
+    error: new Error('test audio error'),
+    message: 'test audio error'
+  });
+  assert(appliedDirectives.at(-1)?.state === 'idle', 'audio:error 应恢复 idle directive。');
+  assert(orchestrator.controllers.tts.getState().status === TTSLifecycleStatus.ERROR, 'audio:error 应把 TTSController 标记为 error。');
 }
 
 async function checkMotionController() {
@@ -165,6 +181,39 @@ async function checkMotionController() {
     'bodyTap'
   );
   assert(safeNoop.ok === false && safeNoop.requested.length > 0, 'MotionController 缺少 MotionManager 时应返回 safe no-op 结果。');
+}
+
+async function checkTTSController() {
+  const controller = new TTSController();
+  const requested = controller.onRequest({
+    engine: 'browser',
+    affect: { emotion: 'warm' }
+  });
+  assert(requested.status === TTSLifecycleStatus.REQUESTED, 'TTSController audio:request 应进入 requested 状态。');
+  assert(requested.engine === 'browser', 'TTSController 应记录非敏感 TTS engine。');
+
+  const started = controller.onStart({
+    engine: 'browser',
+    directive: { state: 'speaking' }
+  });
+  assert(started.status === TTSLifecycleStatus.PLAYING, 'TTSController audio:start 应进入 playing 状态。');
+  assert(started.shouldStartLipSync === true, 'speaking directive 应提示可以启动 lip-sync。');
+
+  const fallback = controller.onFallback({
+    message: 'backend unavailable'
+  });
+  assert(fallback.status === TTSLifecycleStatus.FALLBACK, 'TTSController audio:fallback 应进入 fallback 状态。');
+  assert(fallback.error?.message === 'backend unavailable', 'TTSController fallback 应保留脱敏错误信息。');
+
+  const ended = controller.onEnd({ fallback: true });
+  assert(ended.status === TTSLifecycleStatus.ENDED, 'TTSController audio:end 应进入 ended 状态。');
+  assert(ended.shouldStopLipSync === true, 'audio:end 应提示停止 lip-sync。');
+
+  const errored = controller.onError({
+    error: Object.assign(new Error('audio failed'), { code: 'AUDIO_FAILED' })
+  });
+  assert(errored.status === TTSLifecycleStatus.ERROR, 'TTSController audio:error 应进入 error 状态。');
+  assert(errored.error?.code === 'AUDIO_FAILED', 'TTSController error 应保留稳定错误码。');
 }
 
 async function checkPresentationControllers() {

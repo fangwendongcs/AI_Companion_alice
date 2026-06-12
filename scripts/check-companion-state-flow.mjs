@@ -29,11 +29,17 @@ async function checkAudioAndMotionAffectContract() {
   const app = await readFile('js/app/AppController.js', 'utf8');
   const presentation = await readFile('js/avatar/presentation/PresentationOrchestrator.js', 'utf8');
   const motionController = await readFile('js/avatar/presentation/MotionController.js', 'utf8');
+  const ttsController = await readFile('js/avatar/presentation/TTSController.js', 'utf8');
   const audio = await readFile('js/audio/AudioManager.js', 'utf8');
   assert(app.includes('PresentationOrchestrator'), 'AppController 必须通过 PresentationOrchestrator 协调表现层。');
+  assert(app.includes('EVENT_NAMES.AUDIO_REQUEST') && app.includes('handleAudioRequest'), 'AppController 必须把 audio:request 交给 PresentationOrchestrator。');
+  assert(app.includes('EVENT_NAMES.AUDIO_FALLBACK') && app.includes('handleAudioFallback'), 'AppController 必须把 audio:fallback 交给 PresentationOrchestrator。');
+  assert(app.includes('handleAudioError'), 'AppController 必须把 audio:error 交给 PresentationOrchestrator 做表现层收敛。');
   assert(presentation.includes('MotionController'), 'PresentationOrchestrator 必须委托 MotionController 处理动作表现。');
+  assert(presentation.includes('TTSController'), 'PresentationOrchestrator 必须委托 TTSController 处理 TTS 生命周期。');
   assert(motionController.includes('requestAffectMotion'), 'MotionController 必须包含 affect -> motion 映射入口。');
   assert(motionController.includes('PresentationMotionSlot.CHAT') && motionController.includes('PresentationMotionSlot.BODY_TAP'), 'affect motion 必须能映射到现有 motion slot fallback。');
+  assert(ttsController.includes('onRequest') && ttsController.includes('onStart') && ttsController.includes('onEnd') && ttsController.includes('onError'), 'TTSController 必须覆盖 request/start/end/error 生命周期。');
   assert(audio.includes('applyVoiceAffect'), 'AudioManager 必须根据 affect.voice 调整语音参数。');
   assert(audio.includes('affect'), 'AudioManager 必须透传 affect 到 audio events。');
 }

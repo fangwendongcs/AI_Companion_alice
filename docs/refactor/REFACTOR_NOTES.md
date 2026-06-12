@@ -1746,3 +1746,13 @@ npm run check:assets
 - 缺少 `MotionManager` 时返回 stable no-op 结果，不阻塞 dialogue、TTS 或 renderer 表现。
 - `check:vrm-renderer-flow`、`check:companion-state-flow`、`check:dialogue-contract` 已同步验证 MotionController 边界，防止动作映射回流到 `PresentationOrchestrator`。
 - 本轮不重写 MotionManager，不做 Mixamo retarget，不引入 `@pixiv/three-vrm`，不改后端 Dialogue / Memory / Persona / Emotion / TTS 业务逻辑。
+
+## 73. Presentation-4B TTSController
+
+- 新增 `js/avatar/presentation/TTSController.js`，接管表现层的 TTS / audio lifecycle 状态：request、playing、fallback、ended、error。
+- `PresentationOrchestrator` 现在通过 `TTSController` 记录 `audio:request / start / fallback / end / error`，并继续协调 `LipSyncController` 和 `MotionController` 做 speaking / idle 收敛。
+- `AppController` 继续负责事件绑定和 UI/debug 状态，但 audio lifecycle 细节已经转给表现层，不再直接承担 TTS presentation 状态。
+- `AudioManager` 和 `TTSService` 继续负责实际音频播放、浏览器 fallback 和后端 `/api/tts` provider 调用，本轮不接真实第三方 TTS、不暴露 API key。
+- `audio:error` 现在通过 `PresentationOrchestrator.handleAudioError()` 统一停止 lip-sync、恢复 idle directive，并让 `TTSController` 记录稳定错误状态。
+- `check:vrm-renderer-flow` 和 `check:companion-state-flow` 已覆盖 TTSController 生命周期，防止 TTS lifecycle 状态漂回 `AppController`、`AudioManager` 或 `VRMRenderer`。
+- 本轮不引入 `@pixiv/three-vrm`，不做音频驱动 lip-sync、phoneme/viseme 分析、真实 TTS provider 或后端 TTS 业务改造。

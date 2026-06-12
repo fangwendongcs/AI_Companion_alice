@@ -47,6 +47,7 @@ js/avatar/presentation/
   ExpressionController.js
   LipSyncController.js
   MotionController.js
+  TTSController.js
 ```
 
 - `DefaultAvatarRenderer` is a no-op adapter for existing GLB / fallback avatars.
@@ -62,9 +63,12 @@ The existing `MotionManager` and animation slot queue remain responsible for bod
 - `ExpressionController`: emotion / tone / blink policy and expression pattern helpers.
 - `LipSyncController`: basic speaking mouth loop, A/I/U/E/O cycling, generic mouth fallback, and mouth reset.
 - `MotionController`: maps semantic `AvatarDirective`, `affect.motion`, and audio lifecycle into existing `MotionManager` slots.
+- `TTSController`: tracks presentation-level TTS / audio lifecycle state without owning playback or provider secrets.
 - `VRMRenderer`: model morph target collection, capability reporting, and low-level morph influence writes.
 
 `MotionManager` remains the owner of body motion resources, queueing, state, transitions, and playback. `MotionController` only decides which semantic slot to request; it never references animation files, skeleton names, model paths, or FBX / VRM internals.
+
+`AudioManager` and `TTSService` remain the owners of audio playback, browser fallback, and backend `/api/tts` provider behavior. `TTSController` only gives the presentation layer one stable lifecycle state for request / playing / fallback / end / error so lip-sync and motion can respond from a single place later.
 
 ## Avatar Manifest Fields
 
@@ -183,6 +187,7 @@ This verifies:
 - `VRMRenderer` can drive girl-style happy / sad / angry / surprised expression groups, five-vowel speaking mouth movement, and automatic blink.
 - `ExpressionController` and `LipSyncController` are covered directly so expression / blink / lip-sync policy does not drift back into `VRMRenderer`.
 - `MotionController` is covered directly so gesture / affect / audio lifecycle motion mapping does not drift back into `PresentationOrchestrator` or `VRMRenderer`.
+- `TTSController` is covered directly so audio lifecycle state does not drift back into `AppController`, `AudioManager`, or `VRMRenderer`.
 - Backend business services do not depend on renderer-specific fields.
 - Local test VRM assets are ignored unless explicitly promoted.
 - `alice_test.vrm`, `boy.vrm`, and `girl.vrm` can be audited locally without entering the official registry.

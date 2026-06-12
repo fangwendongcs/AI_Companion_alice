@@ -17,6 +17,7 @@ Status: Partial, with a minimal orchestration skeleton in place.
 - `ExpressionController` now owns emotion-to-expression mapping, tone intensity policy, and blink timing.
 - `LipSyncController` now owns speaking mouth loop timing, mouth group cycling, and mouth reset.
 - `MotionController` now owns semantic motion intent mapping from `AvatarDirective`, `affect.motion`, and audio lifecycle events into the existing `MotionManager` slots.
+- `TTSController` now owns the presentation-level TTS / audio lifecycle state: request, playing, fallback, end, and error.
 - `VRMRenderer` now stays closer to execution: it collects morph targets, reports capabilities, delegates expression / lip-sync decisions, and writes morph influence values.
 
 ## Current Web Presentation Flow
@@ -110,7 +111,7 @@ js/avatar/presentation/
   ExpressionController.js       # implemented for emotion / tone / blink policy
   LipSyncController.js          # implemented for basic speaking mouth loop
   MotionController.js           # implemented for semantic motion intent mapping
-  TTSController.js
+  TTSController.js              # implemented for presentation-level audio lifecycle state
   presentationTypes.js
 ```
 
@@ -189,6 +190,7 @@ Safe no-op:
 Responsibilities:
 
 - Bridge presentation needs to `AudioManager` / `TTSService`.
+- Track TTS lifecycle states: request, playing, fallback, end, and error.
 - Apply non-secret voice hints such as rate, pitch, and style.
 - Emit or relay audio lifecycle state for lip-sync and motion.
 - Preserve browser fallback behavior.
@@ -198,6 +200,12 @@ Non-responsibilities:
 - TTS provider secret handling.
 - Backend provider configuration.
 - Prompt or reply generation.
+- Actual audio playback, which stays in `AudioManager` / `TTSService`.
+
+Current rule:
+
+- The first implementation is lifecycle-only. It does not connect Higgs Audio, OpenAI TTS, Azure, ElevenLabs, or any new provider.
+- Real provider work should happen behind `TTSService` / backend `/api/tts` and continue to send only non-secret style hints to the frontend.
 
 ### Renderer Boundary
 
@@ -303,7 +311,7 @@ Acceptance:
 
 ### Presentation-4B: Extract TTSController
 
-Next. Move remaining audio / TTS presentation lifecycle glue behind a small controller without changing `AudioManager` or `TTSService`.
+Done for the MVP. TTS lifecycle state moved behind `TTSController` while `AudioManager` and `TTSService` continue to own playback and provider behavior.
 
 Acceptance:
 
@@ -311,6 +319,8 @@ Acceptance:
 - `AudioManager` keeps playback and fallback behavior.
 - `TTSService` keeps provider calls and backend endpoint logic.
 - Lip-sync can later consume audio lifecycle from one place.
+- `audio:request / start / fallback / end / error` all have a stable presentation-layer path.
+- `audio:error` stops lip-sync and restores an idle directive through the same presentation boundary.
 
 ### Presentation-5: Capability Tests
 

@@ -1,4 +1,5 @@
 import { MotionController, PresentationMotionSlot } from './MotionController.js';
+import { TTSController } from './TTSController.js';
 
 export { PresentationMotionSlot };
 
@@ -10,7 +11,7 @@ export class PresentationOrchestrator {
     this.controllers = {
       expression: controllers.expression || createNoopController('expression'),
       lipSync: controllers.lipSync || createNoopController('lipSync'),
-      tts: controllers.tts || createNoopController('tts'),
+      tts: controllers.tts || new TTSController({ log }),
       motion: controllers.motion || new MotionController({ motionManager, log })
     };
     this.lastDialogueAffect = null;
@@ -35,26 +36,55 @@ export class PresentationOrchestrator {
     return this.lastDialogueAffect;
   }
 
-  handleAudioStart({ affect = null, source = 'audio:start' } = {}) {
+  handleAudioRequest({ engine = null, affect = null, source = 'audio:request' } = {}) {
+    const activeAffect = affect || this.lastDialogueAffect || null;
+    return this.controllers.tts.onRequest?.({ engine, affect: activeAffect, source });
+  }
+
+  handleAudioStart({ engine = null, affect = null, source = 'audio:start' } = {}) {
     const activeAffect = affect || this.lastDialogueAffect || null;
     const directive = this.lastAvatarDirective || createSpeakingDirective(activeAffect);
     const result = this.applyAvatarDirective(directive, source);
+    const tts = this.controllers.tts.onStart?.({ engine, affect: activeAffect, directive, source });
     this.controllers.lipSync.onAudioStart?.({ directive, affect: activeAffect, source });
     this.controllers.motion.onAudioStart?.({ affect: activeAffect, directive, source });
     return {
       directive,
       affect: activeAffect,
+      tts,
       result
     };
   }
 
-  handleAudioEnd({ source = 'audio:end', currentState = null, emotion = 'neutral' } = {}) {
+  handleAudioFallback({ engine = null, message = '', error = null, affect = null, source = 'audio:fallback' } = {}) {
+    const activeAffect = affect || this.lastDialogueAffect || null;
+    return this.controllers.tts.onFallback?.({ engine, message, error, affect: activeAffect, source });
+  }
+
+  handleAudioEnd({ engine = null, fallback = false, source = 'audio:end', currentState = null, emotion = 'neutral' } = {}) {
     const directive = createIdleDirective(emotion);
+    const result = this.applyAvatarDirective(directive, source);
+    const tts = this.controllers.tts.onEnd?.({ engine, fallback, source });
+    this.controllers.lipSync.onAudioEnd?.({ directive, source });
+    this.controllers.motion.onAudioEnd?.({ currentState, source });
+    return {
+      directive,
+      tts,
+      result
+    };
+  }
+
+  handleAudioError({ engine = null, message = '', error = null, affect = null, source = 'audio:error', currentState = null, emotion = 'apologetic' } = {}) {
+    const directive = createIdleDirective(emotion);
+    const activeAffect = affect || this.lastDialogueAffect || null;
+    const tts = this.controllers.tts.onError?.({ engine, message, error, affect: activeAffect, source });
     const result = this.applyAvatarDirective(directive, source);
     this.controllers.lipSync.onAudioEnd?.({ directive, source });
     this.controllers.motion.onAudioEnd?.({ currentState, source });
     return {
       directive,
+      affect: activeAffect,
+      tts,
       result
     };
   }

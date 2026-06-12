@@ -257,19 +257,36 @@ export class AppController {
       });
     }));
 
-    this.registry.add(this.eventBus.on(EVENT_NAMES.AUDIO_START, ({ affect } = {}) => {
+    this.registry.add(this.eventBus.on(EVENT_NAMES.AUDIO_REQUEST, ({ engine, affect } = {}) => {
+      this.presentation.handleAudioRequest({
+        engine,
+        affect,
+        source: EVENT_NAMES.AUDIO_REQUEST
+      });
+    }));
+    this.registry.add(this.eventBus.on(EVENT_NAMES.AUDIO_START, ({ engine, affect } = {}) => {
       this.patchState({ isSpeaking: true }, EVENT_NAMES.AUDIO_START);
       const presentation = this.presentation.handleAudioStart({
+        engine,
         affect,
         source: EVENT_NAMES.AUDIO_START
       });
       this.lastDialogueAffect = presentation.affect;
       this.lastAvatarDirective = presentation.directive;
     }));
-    this.registry.add(this.eventBus.on(EVENT_NAMES.AUDIO_END, () => {
-      this.resetSpeakingState(EVENT_NAMES.AUDIO_END);
+    this.registry.add(this.eventBus.on(EVENT_NAMES.AUDIO_FALLBACK, ({ engine, message, error, affect } = {}) => {
+      this.presentation.handleAudioFallback({
+        engine,
+        message,
+        error,
+        affect,
+        source: EVENT_NAMES.AUDIO_FALLBACK
+      });
     }));
-    this.registry.add(this.eventBus.on(EVENT_NAMES.AUDIO_ERROR, ({ error }) => {
+    this.registry.add(this.eventBus.on(EVENT_NAMES.AUDIO_END, ({ engine, fallback } = {}) => {
+      this.resetSpeakingState(EVENT_NAMES.AUDIO_END, { engine, fallback });
+    }));
+    this.registry.add(this.eventBus.on(EVENT_NAMES.AUDIO_ERROR, ({ engine, message, error, affect } = {}) => {
       handleAppError(error || new Error('Audio playback failed'), {
         eventBus: this.eventBus,
         stateStore: this.stateStore,
@@ -277,7 +294,7 @@ export class AppController {
         code: error?.code || ERROR_CODES.API_REQUEST_FAILED,
         userMessage: error?.message || '音频播放失败。'
       });
-      this.resetSpeakingState(EVENT_NAMES.AUDIO_ERROR);
+      this.resetSpeakingState(EVENT_NAMES.AUDIO_ERROR, { engine, message, error, affect });
     }));
   }
 
@@ -689,17 +706,27 @@ export class AppController {
     });
   }
 
-  resetSpeakingState(source = 'audio:reset') {
+  resetSpeakingState(source = 'audio:reset', audioEvent = {}) {
     if (this.state.speechTimer) {
       clearTimeout(this.state.speechTimer);
       this.state.speechTimer = null;
     }
     this.patchState({ isSpeaking: false }, source);
-    this.presentation.handleAudioEnd({
-      source,
-      currentState: this.state.currentState,
-      emotion: this.state.affect?.emotion || 'neutral'
-    });
+    if (source === EVENT_NAMES.AUDIO_ERROR) {
+      this.presentation.handleAudioError({
+        ...audioEvent,
+        source,
+        currentState: this.state.currentState,
+        emotion: this.state.affect?.emotion || 'apologetic'
+      });
+    } else {
+      this.presentation.handleAudioEnd({
+        ...audioEvent,
+        source,
+        currentState: this.state.currentState,
+        emotion: this.state.affect?.emotion || 'neutral'
+      });
+    }
   }
 
   scheduleInteractionStateSettle() {
