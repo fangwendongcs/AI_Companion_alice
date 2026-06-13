@@ -51,6 +51,8 @@ export class AppController {
     this.avatarSwitchChain = Promise.resolve();
     this.avatarSwitchVersion = 0;
     this.lastDialogueInput = '';
+    this.lastPresentationDebugSyncAt = 0;
+    this.lastPresentationDebugSignature = '';
     this.destroyed = false;
 
     this.stateStore = new CompanionStateStore(this.createInitialState(), this.eventBus);
@@ -86,7 +88,8 @@ export class AppController {
         currentAvatarId: null,
         loading: false,
         loaded: false,
-        meta: null
+        meta: null,
+        capabilities: null
       },
       animation: {
         currentAnimation: null,
@@ -129,6 +132,20 @@ export class AppController {
         voiceStyle: null,
         motionSlot: null
       },
+      presentation: {
+        lipSync: {
+          active: false,
+          mode: 'idle',
+          audioDriven: false,
+          fallback: false,
+          amplitude: 0,
+          smoothedAmplitude: 0,
+          mouthGroup: '-',
+          mouthAmount: 0,
+          updatedAt: null
+        },
+        tts: null
+      },
       avatarDirective: null,
       currentState: AvatarState.IDLE,
       isMuted: false,
@@ -143,6 +160,7 @@ export class AppController {
       avatarRegistry: null,
       currentAvatarId: null,
       characterMeta: null,
+      avatarCapabilities: null,
       systemError: null
     };
   }
@@ -274,6 +292,7 @@ export class AppController {
       });
       this.lastDialogueAffect = presentation.affect;
       this.lastAvatarDirective = presentation.directive;
+      this.syncPresentationDebugState({ force: true });
     }));
     this.registry.add(this.eventBus.on(EVENT_NAMES.AUDIO_FALLBACK, ({ engine, message, error, affect } = {}) => {
       this.presentation.handleAudioFallback({
@@ -327,6 +346,7 @@ export class AppController {
       this.runtime.render((delta) => {
         this.motionManager.update(delta);
         this.characterManager.updateAvatarRenderer(delta);
+        this.syncPresentationDebugState();
       });
 
       await this.switchAvatar(this.state.currentAvatarId);
@@ -366,11 +386,12 @@ export class AppController {
         error: patch.systemError || null
       };
     }
-    if ('currentAvatarId' in patch || 'characterMeta' in patch || 'modelLoaded' in patch) {
+    if ('currentAvatarId' in patch || 'characterMeta' in patch || 'modelLoaded' in patch || 'avatarCapabilities' in patch) {
       layered.avatar = {
         ...this.state.avatar,
         currentAvatarId: patch.currentAvatarId ?? this.state.currentAvatarId,
         meta: patch.characterMeta ?? this.state.characterMeta,
+        capabilities: patch.avatarCapabilities ?? this.state.avatar?.capabilities ?? this.state.avatarCapabilities ?? null,
         loaded: patch.modelLoaded ?? this.state.modelLoaded,
         loading: patch.modelLoaded === false ? true : patch.modelLoaded === true ? false : this.state.avatar?.loading
       };
@@ -420,6 +441,23 @@ export class AppController {
     if ('affect' in patch) {
       layered.affect = normalizeAffectState(patch.affect, this.state.affect);
     }
+    if ('presentation' in patch) {
+      const presentation = patch.presentation || {};
+      layered.presentation = {
+        ...this.state.presentation,
+        ...presentation,
+        lipSync: {
+          ...this.state.presentation?.lipSync,
+          ...(presentation.lipSync || {})
+        },
+        tts: presentation.tts === null
+          ? null
+          : {
+            ...(this.state.presentation?.tts || {}),
+            ...(presentation.tts || {})
+          }
+      };
+    }
     if ('lastInteractionAt' in patch) {
       layered.interaction = {
         ...this.state.interaction,
@@ -428,6 +466,29 @@ export class AppController {
     }
 
     return layered;
+  }
+
+  syncPresentationDebugState({ force = false } = {}) {
+    const debugState = this.presentation?.getDebugState?.();
+    const lipSync = debugState?.lipSync || null;
+    if (!lipSync) return;
+
+    const mode = lipSync.mode || 'idle';
+    const active = Boolean(lipSync.active) || mode !== 'idle';
+    const now = Date.now();
+    if (!force && !active) return;
+    if (!force && now - this.lastPresentationDebugSyncAt < 250) return;
+
+    const nextPresentation = {
+      lipSync,
+      tts: debugState.tts || null
+    };
+    const signature = JSON.stringify(nextPresentation);
+    if (!force && signature === this.lastPresentationDebugSignature) return;
+
+    this.lastPresentationDebugSyncAt = now;
+    this.lastPresentationDebugSignature = signature;
+    this.patchState({ presentation: nextPresentation }, 'presentation:debug');
   }
 
   requestAvatarSwitch(avatarId) {
@@ -460,6 +521,7 @@ export class AppController {
       this.patchState({
         currentAvatarId: result.id,
         characterMeta: result.meta,
+        avatarCapabilities: this.characterManager.getAvatarCapabilities(),
         modelLoaded: true
       }, 'avatar:switch');
       this.store.saveAvatarId(result.id);
@@ -728,6 +790,7 @@ export class AppController {
         emotion: this.state.affect?.emotion || 'neutral'
       });
     }
+    this.syncPresentationDebugState({ force: true });
   }
 
   scheduleInteractionStateSettle() {

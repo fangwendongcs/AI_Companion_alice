@@ -62,7 +62,7 @@ The existing `MotionManager` and animation slot queue remain responsible for bod
 `ExpressionController` and `LipSyncController` keep `VRMRenderer` close to the execution layer:
 
 - `ExpressionController`: emotion / tone / blink policy and expression pattern helpers.
-- `LipSyncController`: basic speaking mouth loop, optional audio-amplitude mouth intensity, A/I/U/E/O cycling, generic mouth fallback, and mouth reset.
+- `LipSyncController`: basic speaking mouth loop, optional audio-amplitude mouth intensity, A/I/U/E/O cycling, generic mouth fallback, mouth reset, and a small renderer-agnostic debug snapshot.
 - `AudioAmplitudeSampler`: optional Web Audio sampler for playable backend audio sources. If analysis is unavailable, lip-sync falls back to the basic speaking loop.
 - `MotionController`: maps semantic `AvatarDirective`, `affect.motion`, and audio lifecycle into existing `MotionManager` slots.
 - `TTSController`: tracks presentation-level TTS / audio lifecycle state without owning playback or provider secrets.
@@ -73,6 +73,8 @@ The existing `MotionManager` and animation slot queue remain responsible for bod
 `AudioManager` and `TTSService` remain the owners of audio playback, browser fallback, and backend `/api/tts` provider behavior. `TTSController` only gives the presentation layer one stable lifecycle state for request / playing / fallback / end / error so lip-sync and motion can respond from a single place.
 
 For backend audio playback, `TTSService` can pass a local `HTMLAudioElement` as a non-secret `audioSource`. `LipSyncController` uses it only for amplitude sampling. Browser `speechSynthesis` does not expose a safe audio stream, so browser fallback remains on the basic speaking loop. This phase does not add Higgs Audio, OpenAI TTS, Azure, ElevenLabs, phoneme / viseme metadata, or a new provider.
+
+`AppController` syncs the lip-sync debug snapshot into `state.presentation.lipSync` only while lip-sync is active or when audio lifecycle changes. The Debug Panel reads that state to show mode, amplitude, fallback status, and current mouth group without storing audio objects, morph target names, provider keys, or renderer-specific paths.
 
 ## Avatar Manifest Fields
 

@@ -28,6 +28,11 @@ const DISPLAY_ROWS = [
   ['currentAvatarId', 'currentAvatarId'],
   ['avatar.loading', 'avatarLoading'],
   ['avatar.loaded', 'avatarLoaded'],
+  ['avatar.renderer', 'avatarRenderer'],
+  ['vrm.runtime', 'vrmRuntime'],
+  ['vrm.expressionManager', 'vrmExpressionManager'],
+  ['vrm.lookAt', 'vrmLookAt'],
+  ['vrm.springBone', 'vrmSpringBone'],
   ['currentState', 'currentState'],
   ['animation.state', 'animationState'],
   ['currentAnimation', 'currentAnimation'],
@@ -43,6 +48,11 @@ const DISPLAY_ROWS = [
   ['tone', 'tone'],
   ['voice.style', 'voiceStyle'],
   ['motion.slot', 'motionSlot'],
+  ['lipSync.mode', 'lipSyncMode'],
+  ['lipSync.audioDriven', 'lipSyncAudioDriven'],
+  ['lipSync.fallback', 'lipSyncFallback'],
+  ['lipSync.amplitude', 'lipSyncAmplitude'],
+  ['lipSync.mouth', 'lipSyncMouth'],
   ['isMuted', 'isMuted'],
   ['ttsEngine', 'ttsEngine'],
   ['lastInteractionAt', 'lastInteractionAt'],
@@ -138,12 +148,19 @@ export class DebugPanelController {
     if (!this.panel) return;
     const state = this.getState();
     const ttsConfig = this.getTTSConfig();
+    const avatarCapabilities = state.avatar?.capabilities || state.avatarCapabilities || state.characterMeta?.capabilities || {};
+    const vrmRuntime = avatarCapabilities.vrmRuntime || {};
     const values = {
       appReady: state.app?.isReady ?? false,
       appMode: state.app?.mode || APP_MODE,
       currentAvatarId: state.avatar?.currentAvatarId || state.currentAvatarId || '-',
       avatarLoading: state.avatar?.loading ?? false,
       avatarLoaded: state.avatar?.loaded ?? state.modelLoaded ?? false,
+      avatarRenderer: avatarCapabilities.renderer || '-',
+      vrmRuntime: avatarCapabilities.hasVrmRuntime ?? vrmRuntime.available ?? false,
+      vrmExpressionManager: avatarCapabilities.hasExpressionManager ?? vrmRuntime.hasExpressionManager ?? false,
+      vrmLookAt: avatarCapabilities.hasLookAt ?? vrmRuntime.hasLookAt ?? false,
+      vrmSpringBone: avatarCapabilities.hasSpringBoneManager ?? vrmRuntime.hasSpringBoneManager ?? false,
       currentState: state.currentState || '-',
       animationState: state.animation?.state || state.animationState || '-',
       currentAnimation: state.animation?.currentAnimation || state.currentAnimation || '-',
@@ -159,6 +176,11 @@ export class DebugPanelController {
       tone: state.affect?.tone || '-',
       voiceStyle: state.affect?.voiceStyle || '-',
       motionSlot: state.affect?.motionSlot || '-',
+      lipSyncMode: state.presentation?.lipSync?.mode || '-',
+      lipSyncAudioDriven: state.presentation?.lipSync?.audioDriven ?? false,
+      lipSyncFallback: state.presentation?.lipSync?.fallback ?? false,
+      lipSyncAmplitude: this.formatMetric(state.presentation?.lipSync?.smoothedAmplitude ?? state.presentation?.lipSync?.amplitude),
+      lipSyncMouth: this.formatLipSyncMouth(state.presentation?.lipSync),
       isMuted: state.audio?.muted ?? state.isMuted ?? false,
       ttsEngine: ttsConfig?.engine || '-',
       lastInteractionAt: this.formatTimestamp(state.interaction?.lastInteractionAt || state.lastInteractionAt),
@@ -193,6 +215,17 @@ export class DebugPanelController {
   formatTimestamp(timestamp) {
     if (!timestamp) return '-';
     return new Date(timestamp).toLocaleTimeString();
+  }
+
+  formatMetric(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return '0.00';
+    return number.toFixed(2);
+  }
+
+  formatLipSyncMouth(lipSync = {}) {
+    if (!lipSync?.mouthGroup || lipSync.mouthGroup === '-') return '-';
+    return `${lipSync.mouthGroup}:${this.formatMetric(lipSync.mouthAmount)}`;
   }
 
   getErrorMessage(error) {

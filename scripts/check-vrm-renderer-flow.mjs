@@ -55,6 +55,7 @@ console.log('[check-vrm-renderer-flow] ok');
 
 async function checkRendererModules() {
   const characterManager = await readText('js/avatar/CharacterManager.js');
+  const avatarLoader = await readText('js/avatar/AvatarLoader.js');
   const appController = await readText('js/app/AppController.js');
   const orchestrator = await readText('js/avatar/presentation/PresentationOrchestrator.js');
   const motionController = await readText('js/avatar/presentation/MotionController.js');
@@ -67,10 +68,14 @@ async function checkRendererModules() {
   assert(characterManager.includes('manifest.boy.json'), 'CharacterManager 应支持 boy 本地 VRM 测试 manifest 注入。');
   assert(characterManager.includes('manifest.girl.json'), 'CharacterManager 应支持 girl 本地 VRM 测试 manifest 注入。');
   assert(appController.includes('PresentationOrchestrator'), 'AppController 应通过 PresentationOrchestrator 协调表现层。');
+  assert(appController.includes('avatarCapabilities'), 'AppController 应把 renderer capability 快照同步到前端状态。');
+  assert(avatarLoader.includes('VRMLoaderPlugin'), 'AvatarLoader 应使用 three-vrm VRMLoaderPlugin 加载 VRM。');
+  assert(avatarLoader.includes('vrmRuntime'), 'AvatarLoader 应暴露 VRM runtime capability 快照。');
   assert(orchestrator.includes('class PresentationOrchestrator'), '应存在 PresentationOrchestrator 表现编排骨架。');
   assert(orchestrator.includes('createNoopController'), 'PresentationOrchestrator 应预留后续 controller safe no-op 接口。');
   assert(orchestrator.includes('MotionController'), 'PresentationOrchestrator 应委托 MotionController 处理动作表现。');
   assert(orchestrator.includes('TTSController'), 'PresentationOrchestrator 应委托 TTSController 处理 TTS 生命周期。');
+  assert(orchestrator.includes('getDebugState'), 'PresentationOrchestrator 应暴露表现层 debug snapshot。');
   assert(!orchestrator.includes('getMotionSlotForDirective('), 'PresentationOrchestrator 不应继续持有具体 directive -> motion 映射。');
   assert(motionController.includes('getMotionSlotForDirective'), 'MotionController 应集中处理 directive -> motion 映射。');
   assert(motionController.includes('getMotionSlotForAffect'), 'MotionController 应集中处理 affect -> motion 映射。');
@@ -79,6 +84,9 @@ async function checkRendererModules() {
   assert(audioSampler.includes('createAudioAmplitudeSampler'), '应存在可选 audio amplitude sampler 供 lip-sync 使用。');
   assert(vrmRenderer.includes('ExpressionController'), 'VRMRenderer 应委托 ExpressionController 处理表情 / blink。');
   assert(vrmRenderer.includes('LipSyncController'), 'VRMRenderer 应委托 LipSyncController 处理 speaking mouth loop。');
+  assert(vrmRenderer.includes('this.vrm?.update'), 'VRMRenderer.update 应推进 three-vrm runtime。');
+  assert(vrmRenderer.includes('setLookAt'), 'VRMRenderer 应暴露 setLookAt 执行入口。');
+  assert(vrmRenderer.includes('hasSpringBoneManager'), 'VRMRenderer capability 应暴露 springBone runtime 状态。');
   assert(!vrmRenderer.includes('applyEmotion('), 'VRMRenderer 不应继续持有 emotion 表现决策。');
   assert(!vrmRenderer.includes('updateBlink('), 'VRMRenderer 不应继续持有 blink timing 逻辑。');
   assert(!vrmRenderer.includes('updateLipSync('), 'VRMRenderer 不应继续持有 lip-sync timing 逻辑。');
@@ -264,24 +272,31 @@ async function checkPresentationControllers() {
   lipSync.update(0.12);
   assert(fakeMesh.morphTargetInfluences[3] > 0, 'LipSyncController 应能推进到 mouthI。');
   const fixedLoopAmount = fakeMesh.morphTargetInfluences[3];
+  const loopDebug = lipSync.getDebugState();
+  assert(loopDebug.mode === 'loop', 'LipSyncController 应暴露 fallback speaking loop debug mode。');
+  assert(loopDebug.mouthGroup === 'mouthI', 'LipSyncController debug 应记录当前 mouth group。');
   const amplitudes = [0.05, 0.95];
   lipSync.onAudioStart({
     directive: { state: 'speaking', lip_sync: 'auto', intensity: 0.8, tone: 'playful' },
     audioSource: { getAmplitude: () => amplitudes.shift() ?? 0.95 }
   });
+  assert(lipSync.getDebugState().audioDriven === true, 'LipSyncController debug 应标记 audio-driven 模式。');
   lipSync.update(0.04);
   const lowAudioAmount = Math.max(fakeMesh.morphTargetInfluences[2], fakeMesh.morphTargetInfluences[3]);
   lipSync.update(0.04);
   const highAudioAmount = Math.max(fakeMesh.morphTargetInfluences[2], fakeMesh.morphTargetInfluences[3]);
   assert(lowAudioAmount !== fixedLoopAmount, 'LipSyncController audio-driven 模式应不再只使用固定 speaking loop 强度。');
   assert(highAudioAmount > lowAudioAmount, 'LipSyncController 应能用 audio amplitude 提升 mouth intensity。');
+  assert(lipSync.getDebugState().smoothedAmplitude > 0, 'LipSyncController debug 应暴露平滑音量。');
   lipSync.onAudioEnd();
+  assert(lipSync.getDebugState().mode === 'idle', 'LipSyncController audio:end 后 debug mode 应回到 idle。');
   assert(fakeMesh.morphTargetInfluences[2] === 0 && fakeMesh.morphTargetInfluences[3] === 0, 'LipSyncController audio:end 应清理 mouth influence。');
   const fallback = lipSync.onAudioStart({
     directive: { state: 'speaking', lip_sync: 'auto', intensity: 0.8 },
     audioSource: null
   });
   assert(fallback.fallback === true, '缺少 audioSource 时 LipSyncController 应安全 fallback 到 speaking loop。');
+  assert(lipSync.getDebugState().fallback === true, 'LipSyncController debug 应标记缺少 audioSource 时的 fallback。');
   lipSync.applyDirective({ state: 'idle', lip_sync: 'none', intensity: 0 });
   assert(fakeMesh.morphTargetInfluences[2] === 0 && fakeMesh.morphTargetInfluences[3] === 0, 'LipSyncController 应在 idle 时清理 mouth。');
 }
@@ -364,7 +379,37 @@ async function checkDirectiveApplication() {
     },
     morphTargetInfluences: new Array(12).fill(0)
   };
+  const fakeExpressionValues = {};
+  const fakeExpressions = new Set(['happy', 'aa', 'ih', 'ou', 'ee', 'oh', 'blink', 'blinkLeft', 'blinkRight']);
+  const fakeVrm = {
+    humanoid: {},
+    expressionManager: {
+      expressionMap: Object.fromEntries([...fakeExpressions].map((name) => [name, {}])),
+      getExpression(name) {
+        return fakeExpressions.has(name) ? {} : null;
+      },
+      setValue(name, value) {
+        fakeExpressionValues[name] = value;
+      }
+    },
+    lookAt: {
+      target: null,
+      lookAt(target) {
+        this.lastTarget = target;
+      },
+      reset() {
+        this.lastTarget = null;
+      }
+    },
+    springBoneManager: {},
+    update(delta) {
+      this.lastDelta = delta;
+    }
+  };
   const fakeAvatar = {
+    userData: {
+      vrm: fakeVrm
+    },
     traverse(callback) {
       callback(fakeMesh);
     }
@@ -395,6 +440,10 @@ async function checkDirectiveApplication() {
     }
   });
   const initResult = renderer.init();
+  assert(initResult.capabilities.hasVrmRuntime === true, 'VRMRenderer capability 应暴露 three-vrm runtime。');
+  assert(initResult.capabilities.hasExpressionManager === true, 'VRMRenderer capability 应暴露 expressionManager。');
+  assert(initResult.capabilities.hasLookAt === true, 'VRMRenderer capability 应暴露 lookAt。');
+  assert(initResult.capabilities.hasSpringBoneManager === true, 'VRMRenderer capability 应暴露 springBoneManager。');
   assert(initResult.capabilities.hasMorphTargets === true, 'VRMRenderer 应能发现 morph target。');
   assert(initResult.capabilities.mouthGroups.length === 5, 'VRMRenderer 应能发现五元音 mouth groups。');
 
@@ -409,9 +458,11 @@ async function checkDirectiveApplication() {
   });
 
   assert(result.ok === true && result.applied === true, 'VRMRenderer 应能应用 AvatarDirective。');
+  assert(fakeExpressionValues.happy > 0, 'VRMRenderer 应优先通过 expressionManager 写入 VRM preset 表情。');
   assert(fakeMesh.morphTargetInfluences[0] > 0, 'happy 表情应通过 expressionMap 产生 morph influence。');
   assert(fakeMesh.morphTargetInfluences[4] > 0, 'speaking + lip_sync=auto 应先驱动 mouthA。');
   renderer.update(0.1);
+  assert(fakeVrm.lastDelta > 0, 'VRMRenderer.update 应调用 vrm.update(delta)。');
   renderer.update(0.03);
   assert(fakeMesh.morphTargetInfluences[5] > 0, 'speaking update 应能推进到 mouthI，形成轻量节奏口型。');
 

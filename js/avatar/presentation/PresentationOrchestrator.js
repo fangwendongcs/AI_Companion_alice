@@ -46,12 +46,13 @@ export class PresentationOrchestrator {
     const directive = this.lastAvatarDirective || createSpeakingDirective(activeAffect);
     const result = this.applyAvatarDirective(directive, source);
     const tts = this.controllers.tts.onStart?.({ engine, affect: activeAffect, directive, source });
-    this.controllers.lipSync.onAudioStart?.({ directive, affect: activeAffect, audioSource, source });
+    const lipSync = this.controllers.lipSync.onAudioStart?.({ directive, affect: activeAffect, audioSource, source });
     this.controllers.motion.onAudioStart?.({ affect: activeAffect, directive, source });
     return {
       directive,
       affect: activeAffect,
       tts,
+      lipSync,
       result
     };
   }
@@ -65,11 +66,12 @@ export class PresentationOrchestrator {
     const directive = createIdleDirective(emotion);
     const result = this.applyAvatarDirective(directive, source);
     const tts = this.controllers.tts.onEnd?.({ engine, fallback, source });
-    this.controllers.lipSync.onAudioEnd?.({ directive, source });
+    const lipSync = this.controllers.lipSync.onAudioEnd?.({ directive, source });
     this.controllers.motion.onAudioEnd?.({ currentState, source });
     return {
       directive,
       tts,
+      lipSync,
       result
     };
   }
@@ -79,12 +81,13 @@ export class PresentationOrchestrator {
     const activeAffect = affect || this.lastDialogueAffect || null;
     const tts = this.controllers.tts.onError?.({ engine, message, error, affect: activeAffect, source });
     const result = this.applyAvatarDirective(directive, source);
-    this.controllers.lipSync.onAudioEnd?.({ directive, source });
+    const lipSync = this.controllers.lipSync.onAudioEnd?.({ directive, source });
     this.controllers.motion.onAudioEnd?.({ currentState, source });
     return {
       directive,
       affect: activeAffect,
       tts,
+      lipSync,
       result
     };
   }
@@ -119,6 +122,13 @@ export class PresentationOrchestrator {
 
   getLastAffect() {
     return this.lastDialogueAffect;
+  }
+
+  getDebugState() {
+    return {
+      lipSync: this.controllers.lipSync.getDebugState?.() || null,
+      tts: this.controllers.tts.getState?.() || null
+    };
   }
 
   destroy() {

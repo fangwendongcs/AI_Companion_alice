@@ -1766,3 +1766,12 @@ npm run check:assets
 - `audio:end` 和 `audio:error` 会清理 sampler、reset mouth influence，并继续通过 `MotionController` 回到 idle/listening。
 - `check:vrm-renderer-flow` 增加 fake amplitude fixture，覆盖 audio-driven intensity、fallback loop 和 mouth reset；`check:companion-state-flow` 增加 audioSource 透传边界检查。
 - 本轮不接真实第三方 TTS、不做 phoneme/viseme、高精度口型、LookAt、SpringBone 或 `@pixiv/three-vrm` runtime。
+
+## 75. Presentation-5B Lip-Sync Debug Observability
+
+- `LipSyncController` 现在暴露 `getDebugState()`，记录 `mode / audioDriven / fallback / amplitude / smoothedAmplitude / mouthGroup / mouthAmount`，便于区分 audio-driven、fallback speaking loop、no-mouth 和 idle 状态。
+- `PresentationOrchestrator` 新增 `getDebugState()`，把 lip-sync 和 TTS lifecycle 的只读表现层状态集中给 App 层消费，不让 Debug Panel 直接依赖 renderer。
+- `AppController` 新增低频 `syncPresentationDebugState()`，只在 lip-sync 活跃或 audio lifecycle 切换时把状态同步到 `state.presentation.lipSync`，避免每帧刷新 Debug Panel。
+- `DebugPanelController` 新增 `lipSync.mode / lipSync.audioDriven / lipSync.fallback / lipSync.amplitude / lipSync.mouth` 字段，使用 `textContent` 展示，不保存音频对象、provider secret 或模型专属 morph 名称。
+- `check:vrm-renderer-flow` 和 `check:companion-state-flow` 已覆盖 lip-sync debug snapshot、状态同步边界和 Debug Panel 字段。
+- 本轮只做可观测性收口，不接真实 TTS provider、不做 phoneme/viseme、不引入 `@pixiv/three-vrm`，不改后端 Dialogue / Memory / Persona / Emotion 业务逻辑。

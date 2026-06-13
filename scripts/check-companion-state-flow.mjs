@@ -37,8 +37,10 @@ async function checkAudioAndMotionAffectContract() {
   assert(app.includes('EVENT_NAMES.AUDIO_FALLBACK') && app.includes('handleAudioFallback'), 'AppController 必须把 audio:fallback 交给 PresentationOrchestrator。');
   assert(app.includes('audioSource') && app.includes('handleAudioStart'), 'AppController 必须把可选 audioSource 透传给表现层。');
   assert(app.includes('handleAudioError'), 'AppController 必须把 audio:error 交给 PresentationOrchestrator 做表现层收敛。');
+  assert(app.includes('syncPresentationDebugState'), 'AppController 必须把表现层 debug snapshot 同步到状态基座。');
   assert(presentation.includes('MotionController'), 'PresentationOrchestrator 必须委托 MotionController 处理动作表现。');
   assert(presentation.includes('TTSController'), 'PresentationOrchestrator 必须委托 TTSController 处理 TTS 生命周期。');
+  assert(presentation.includes('getDebugState'), 'PresentationOrchestrator 必须暴露表现层 debug snapshot。');
   assert(presentation.includes('audioSource') && presentation.includes('lipSync.onAudioStart'), 'PresentationOrchestrator 必须把 audioSource 交给 LipSyncController。');
   assert(motionController.includes('requestAffectMotion'), 'MotionController 必须包含 affect -> motion 映射入口。');
   assert(motionController.includes('PresentationMotionSlot.CHAT') && motionController.includes('PresentationMotionSlot.BODY_TAP'), 'affect motion 必须能映射到现有 motion slot fallback。');
@@ -71,9 +73,27 @@ async function checkDialoguePolishControls() {
 
 async function checkDebugPanelAffectFields() {
   const source = await readFile('js/ui/DebugPanelController.js', 'utf8');
-  ['persona', 'emotion', 'tone', 'voice.style', 'motion.slot', 'memory.longTerm'].forEach((field) => {
+  [
+    'persona',
+    'emotion',
+    'tone',
+    'voice.style',
+    'motion.slot',
+    'memory.longTerm',
+    'avatar.renderer',
+    'vrm.runtime',
+    'vrm.expressionManager',
+    'vrm.lookAt',
+    'vrm.springBone',
+    'lipSync.mode',
+    'lipSync.audioDriven',
+    'lipSync.amplitude',
+    'lipSync.mouth'
+  ].forEach((field) => {
     assert(source.includes(field), `DebugPanelController 必须展示 ${field}。`);
   });
+  assert(source.includes('state.presentation?.lipSync'), 'DebugPanelController 必须从 presentation.lipSync 读取口型 debug 状态。');
+  assert(source.includes('state.avatar?.capabilities'), 'DebugPanelController 必须从 avatar.capabilities 读取 renderer capability debug 状态。');
 }
 
 function assert(condition, message) {

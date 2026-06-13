@@ -156,6 +156,7 @@ Responsibilities:
 - Support browser TTS fallback without requiring phoneme analysis.
 - Consume optional audio amplitude from playable audio sources and fall back to the basic speaking loop when analysis is unavailable.
 - Resolve A / I / U / E / O mouth groups with a generic `mouth` fallback.
+- Expose a small debug snapshot for `mode`, `audioDriven`, `fallback`, amplitude, mouth group, and mouth amount so the Debug Panel can show whether lip-sync is running.
 
 Safe no-op:
 
@@ -336,14 +337,17 @@ Acceptance:
 - `audio:end` and `audio:error` stop sampling, reset mouth influence, and return to idle/listening through the existing presentation path.
 - `check:vrm-renderer-flow` verifies audio-driven intensity and fallback behavior.
 
-### Presentation-5B: Capability Tests
+### Presentation-5B: Lip-Sync Debug Observability
 
-Add checks that validate avatar manifests declare renderer capabilities and that local expression maps do not leak into backend business services.
+Done for the MVP. Lip-sync now exposes a low-noise debug snapshot through `LipSyncController -> PresentationOrchestrator -> AppController -> DebugPanelController`.
 
 Acceptance:
 
-- `npm run check` catches accidental renderer-specific fields in backend responses.
-- Local-only test avatars remain debug-gated.
+- Debug Panel can show `lipSync.mode`, `lipSync.audioDriven`, `lipSync.fallback`, `lipSync.amplitude`, and the active mouth group / amount.
+- `AppController` syncs presentation debug state at a throttled interval while lip-sync is active, and forces one sync at audio start/end/error.
+- `LipSyncController` reports `audio-driven` when amplitude sampling is available, `loop` when it falls back to the basic speaking loop, `no-mouth` when a renderer has no mouth morphs, and `idle` after cleanup.
+- `check:vrm-renderer-flow` and `check:companion-state-flow` cover the debug snapshot and Debug Panel fields.
+- No audio body, provider key, or model-specific morph name is stored in global app state.
 
 ### Presentation-6: Phoneme / Viseme And Real TTS Evaluation
 

@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { createLogger } from '../core/logger.js';
 import { StaticAssetLoader } from '../core/resources/StaticAssetLoader.js';
+
+const log = createLogger('AvatarLoader');
 
 export class AvatarLoader {
   constructor(runtime, { staticAssetLoader = new StaticAssetLoader() } = {}) {
@@ -11,7 +14,8 @@ export class AvatarLoader {
 
   async load(characterManifest, onProgress) {
     const modelUrl = this.getModelUrl(characterManifest);
-    const gltf = await this.staticAssetLoader.loadWith(this.loader, modelUrl, {
+    const loaderContext = await this.createLoaderContext(characterManifest);
+    const gltf = await this.staticAssetLoader.loadWith(loaderContext.loader, modelUrl, {
       kind: 'avatar',
       onProgress: (xhr) => {
         if (xhr.lengthComputable && xhr.total > 0) {
@@ -20,7 +24,10 @@ export class AvatarLoader {
       }
     });
 
-    const avatar = gltf.scene;
+    const vrm = gltf.userData?.vrm || null;
+    const avatar = vrm?.scene || gltf.scene;
+    avatar.userData.vrm = vrm;
+    avatar.userData.vrmRuntime = this.createVrmRuntimeInfo(vrm, loaderContext);
     this.applyRotation(avatar, characterManifest);
     this.runtime.interactableMeshes = [];
 
@@ -46,7 +53,61 @@ export class AvatarLoader {
       avatar,
       animations: gltf.animations || [],
       baseScale,
-      capability: this.inspectCapability(avatar, gltf.animations || [], characterManifest)
+      capability: this.inspectCapability(avatar, gltf.animations || [], characterManifest, {
+        vrm,
+        loaderContext
+      })
+    };
+  }
+
+  async createLoaderContext(characterManifest) {
+    if (!this.isVrmManifest(characterManifest)) {
+      return {
+        loader: this.loader,
+        vrmRuntimeRequested: false,
+        vrmRuntimeAvailable: false,
+        vrmRuntimeError: ''
+      };
+    }
+
+    const loader = new GLTFLoader();
+    try {
+      const { VRMLoaderPlugin } = await import('@pixiv/three-vrm');
+      loader.register((parser) => new VRMLoaderPlugin(parser));
+      return {
+        loader,
+        vrmRuntimeRequested: true,
+        vrmRuntimeAvailable: true,
+        vrmRuntimeError: ''
+      };
+    } catch (error) {
+      const message = error?.message || String(error);
+      log.warn(`three-vrm runtime 不可用，回退到普通 GLTFLoader: ${message}`);
+      return {
+        loader: this.loader,
+        vrmRuntimeRequested: true,
+        vrmRuntimeAvailable: false,
+        vrmRuntimeError: message
+      };
+    }
+  }
+
+  isVrmManifest(characterManifest = {}) {
+    const format = String(characterManifest.model?.format || '').toLowerCase();
+    const url = this.getModelUrl(characterManifest);
+    return format === 'vrm' || String(url || '').toLowerCase().split('?')[0].endsWith('.vrm');
+  }
+
+  createVrmRuntimeInfo(vrm, loaderContext = {}) {
+    return {
+      requested: Boolean(loaderContext.vrmRuntimeRequested),
+      available: Boolean(vrm),
+      loaderPluginAvailable: Boolean(loaderContext.vrmRuntimeAvailable),
+      error: loaderContext.vrmRuntimeError || '',
+      hasHumanoid: Boolean(vrm?.humanoid),
+      hasExpressionManager: Boolean(vrm?.expressionManager),
+      hasLookAt: Boolean(vrm?.lookAt),
+      hasSpringBoneManager: Boolean(vrm?.springBoneManager)
     };
   }
 
@@ -87,7 +148,7 @@ export class AvatarLoader {
     return fallbackMesh;
   }
 
-  inspectCapability(avatar, animations, characterManifest = {}) {
+  inspectCapability(avatar, animations, characterManifest = {}, { vrm = null, loaderContext = {} } = {}) {
     let hasSkinnedMesh = false;
     const boneNames = [];
 
@@ -106,7 +167,8 @@ export class AvatarLoader {
       type: characterManifest.type || 'humanoid-gltf',
       hasSkinnedMesh,
       boneNames,
-      hasAnimations: animations.length > 0
+      hasAnimations: animations.length > 0,
+      vrmRuntime: this.createVrmRuntimeInfo(vrm, loaderContext)
     };
   }
 }
