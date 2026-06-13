@@ -59,6 +59,7 @@ async function checkRendererModules() {
   const orchestrator = await readText('js/avatar/presentation/PresentationOrchestrator.js');
   const motionController = await readText('js/avatar/presentation/MotionController.js');
   const ttsController = await readText('js/avatar/presentation/TTSController.js');
+  const audioSampler = await readText('js/avatar/presentation/AudioAmplitudeSampler.js');
   const vrmRenderer = await readText('js/avatar/renderers/VRMRenderer.js');
 
   assert(characterManager.includes('createAvatarRenderer'), 'CharacterManager 应通过 AvatarRendererFactory 创建 renderer。');
@@ -75,6 +76,7 @@ async function checkRendererModules() {
   assert(motionController.includes('getMotionSlotForAffect'), 'MotionController 应集中处理 affect -> motion 映射。');
   assert(ttsController.includes('TTSLifecycleStatus'), 'TTSController 应集中记录 TTS / audio lifecycle 状态。');
   assert(ttsController.includes('onRequest') && ttsController.includes('onError'), 'TTSController 应覆盖 request/start/end/error 生命周期。');
+  assert(audioSampler.includes('createAudioAmplitudeSampler'), '应存在可选 audio amplitude sampler 供 lip-sync 使用。');
   assert(vrmRenderer.includes('ExpressionController'), 'VRMRenderer 应委托 ExpressionController 处理表情 / blink。');
   assert(vrmRenderer.includes('LipSyncController'), 'VRMRenderer 应委托 LipSyncController 处理 speaking mouth loop。');
   assert(!vrmRenderer.includes('applyEmotion('), 'VRMRenderer 不应继续持有 emotion 表现决策。');
@@ -261,6 +263,25 @@ async function checkPresentationControllers() {
   assert(fakeMesh.morphTargetInfluences[2] > 0, 'LipSyncController 应能启动 mouthA。');
   lipSync.update(0.12);
   assert(fakeMesh.morphTargetInfluences[3] > 0, 'LipSyncController 应能推进到 mouthI。');
+  const fixedLoopAmount = fakeMesh.morphTargetInfluences[3];
+  const amplitudes = [0.05, 0.95];
+  lipSync.onAudioStart({
+    directive: { state: 'speaking', lip_sync: 'auto', intensity: 0.8, tone: 'playful' },
+    audioSource: { getAmplitude: () => amplitudes.shift() ?? 0.95 }
+  });
+  lipSync.update(0.04);
+  const lowAudioAmount = Math.max(fakeMesh.morphTargetInfluences[2], fakeMesh.morphTargetInfluences[3]);
+  lipSync.update(0.04);
+  const highAudioAmount = Math.max(fakeMesh.morphTargetInfluences[2], fakeMesh.morphTargetInfluences[3]);
+  assert(lowAudioAmount !== fixedLoopAmount, 'LipSyncController audio-driven 模式应不再只使用固定 speaking loop 强度。');
+  assert(highAudioAmount > lowAudioAmount, 'LipSyncController 应能用 audio amplitude 提升 mouth intensity。');
+  lipSync.onAudioEnd();
+  assert(fakeMesh.morphTargetInfluences[2] === 0 && fakeMesh.morphTargetInfluences[3] === 0, 'LipSyncController audio:end 应清理 mouth influence。');
+  const fallback = lipSync.onAudioStart({
+    directive: { state: 'speaking', lip_sync: 'auto', intensity: 0.8 },
+    audioSource: null
+  });
+  assert(fallback.fallback === true, '缺少 audioSource 时 LipSyncController 应安全 fallback 到 speaking loop。');
   lipSync.applyDirective({ state: 'idle', lip_sync: 'none', intensity: 0 });
   assert(fakeMesh.morphTargetInfluences[2] === 0 && fakeMesh.morphTargetInfluences[3] === 0, 'LipSyncController 应在 idle 时清理 mouth。');
 }

@@ -1,4 +1,5 @@
 import { getToneAdjustedIntensity } from './ExpressionController.js';
+import { createAudioAmplitudeSampler } from './AudioAmplitudeSampler.js';
 
 export const MOUTH_GROUPS = ['mouthA', 'mouthI', 'mouthU', 'mouthE', 'mouthO'];
 
@@ -9,6 +10,8 @@ export class LipSyncController {
     this.mouthIndex = 0;
     this.mouthElapsed = 0;
     this.lastDirective = null;
+    this.audioSampler = null;
+    this.smoothedAmplitude = 0;
   }
 
   setMouthGroups(groups = []) {
@@ -26,6 +29,23 @@ export class LipSyncController {
     return { ok: true, applied: this.mouthGroups.length > 0 };
   }
 
+  onAudioStart({ directive = null, audioSource = null } = {}) {
+    if (directive) this.lastDirective = directive;
+    this.setAudioSource(audioSource);
+    if (this.lastDirective?.state === 'speaking') this.update(0);
+    return {
+      ok: true,
+      audioDriven: Boolean(this.audioSampler),
+      fallback: !this.audioSampler
+    };
+  }
+
+  onAudioEnd() {
+    this.clearAudioSource();
+    this.reset();
+    return { ok: true };
+  }
+
   update(delta = 0) {
     this.reset();
     const directive = this.lastDirective || {};
@@ -33,14 +53,10 @@ export class LipSyncController {
     if (!['auto', 'basic'].includes(directive.lip_sync)) return;
     if (!this.mouthGroups.length) return;
 
-    this.mouthElapsed += delta;
-    if (this.mouthElapsed >= this.getMouthInterval(directive)) {
-      this.mouthElapsed = 0;
-      this.mouthIndex = (this.mouthIndex + 1) % this.mouthGroups.length;
-    }
+    this.advanceMouthGroup(delta, directive);
 
     const group = this.getCurrentMouthGroup();
-    const amount = Math.max(0.12, Math.min(0.42, getToneAdjustedIntensity(directive) * 0.42));
+    const amount = this.getMouthAmount(directive);
     this.executor?.setGroupInfluence?.(group, amount);
   }
 
@@ -49,6 +65,7 @@ export class LipSyncController {
   }
 
   destroy() {
+    this.clearAudioSource();
     this.reset();
     this.executor = null;
     this.mouthGroups = [];
@@ -64,6 +81,37 @@ export class LipSyncController {
     if (directive.tone === 'playful') return 0.11;
     if (directive.tone === 'concise') return 0.16;
     return 0.13;
+  }
+
+  setAudioSource(audioSource = null) {
+    this.clearAudioSource();
+    this.audioSampler = createAudioAmplitudeSampler(audioSource);
+    this.smoothedAmplitude = 0;
+  }
+
+  clearAudioSource() {
+    this.audioSampler?.dispose?.();
+    this.audioSampler = null;
+    this.smoothedAmplitude = 0;
+  }
+
+  advanceMouthGroup(delta, directive = {}) {
+    this.mouthElapsed += delta;
+    if (this.mouthElapsed < this.getMouthInterval(directive)) return;
+    this.mouthElapsed = 0;
+    this.mouthIndex = (this.mouthIndex + 1) % this.mouthGroups.length;
+  }
+
+  getMouthAmount(directive = {}) {
+    const toneIntensity = getToneAdjustedIntensity(directive);
+    if (!this.audioSampler) {
+      return Math.max(0.12, Math.min(0.42, toneIntensity * 0.42));
+    }
+
+    const amplitude = this.audioSampler.getAmplitude();
+    this.smoothedAmplitude += (amplitude - this.smoothedAmplitude) * 0.38;
+    const amount = 0.03 + this.smoothedAmplitude * toneIntensity * 0.72;
+    return Math.max(0.02, Math.min(0.62, amount));
   }
 }
 

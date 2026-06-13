@@ -41,12 +41,12 @@ export class PresentationOrchestrator {
     return this.controllers.tts.onRequest?.({ engine, affect: activeAffect, source });
   }
 
-  handleAudioStart({ engine = null, affect = null, source = 'audio:start' } = {}) {
+  handleAudioStart({ engine = null, affect = null, audioSource = null, source = 'audio:start' } = {}) {
     const activeAffect = affect || this.lastDialogueAffect || null;
     const directive = this.lastAvatarDirective || createSpeakingDirective(activeAffect);
     const result = this.applyAvatarDirective(directive, source);
     const tts = this.controllers.tts.onStart?.({ engine, affect: activeAffect, directive, source });
-    this.controllers.lipSync.onAudioStart?.({ directive, affect: activeAffect, source });
+    this.controllers.lipSync.onAudioStart?.({ directive, affect: activeAffect, audioSource, source });
     this.controllers.motion.onAudioStart?.({ affect: activeAffect, directive, source });
     return {
       directive,

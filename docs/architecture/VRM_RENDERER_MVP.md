@@ -46,6 +46,7 @@ js/avatar/presentation/
   PresentationOrchestrator.js
   ExpressionController.js
   LipSyncController.js
+  AudioAmplitudeSampler.js
   MotionController.js
   TTSController.js
 ```
@@ -61,14 +62,17 @@ The existing `MotionManager` and animation slot queue remain responsible for bod
 `ExpressionController` and `LipSyncController` keep `VRMRenderer` close to the execution layer:
 
 - `ExpressionController`: emotion / tone / blink policy and expression pattern helpers.
-- `LipSyncController`: basic speaking mouth loop, A/I/U/E/O cycling, generic mouth fallback, and mouth reset.
+- `LipSyncController`: basic speaking mouth loop, optional audio-amplitude mouth intensity, A/I/U/E/O cycling, generic mouth fallback, and mouth reset.
+- `AudioAmplitudeSampler`: optional Web Audio sampler for playable backend audio sources. If analysis is unavailable, lip-sync falls back to the basic speaking loop.
 - `MotionController`: maps semantic `AvatarDirective`, `affect.motion`, and audio lifecycle into existing `MotionManager` slots.
 - `TTSController`: tracks presentation-level TTS / audio lifecycle state without owning playback or provider secrets.
 - `VRMRenderer`: model morph target collection, capability reporting, and low-level morph influence writes.
 
 `MotionManager` remains the owner of body motion resources, queueing, state, transitions, and playback. `MotionController` only decides which semantic slot to request; it never references animation files, skeleton names, model paths, or FBX / VRM internals.
 
-`AudioManager` and `TTSService` remain the owners of audio playback, browser fallback, and backend `/api/tts` provider behavior. `TTSController` only gives the presentation layer one stable lifecycle state for request / playing / fallback / end / error so lip-sync and motion can respond from a single place later.
+`AudioManager` and `TTSService` remain the owners of audio playback, browser fallback, and backend `/api/tts` provider behavior. `TTSController` only gives the presentation layer one stable lifecycle state for request / playing / fallback / end / error so lip-sync and motion can respond from a single place.
+
+For backend audio playback, `TTSService` can pass a local `HTMLAudioElement` as a non-secret `audioSource`. `LipSyncController` uses it only for amplitude sampling. Browser `speechSynthesis` does not expose a safe audio stream, so browser fallback remains on the basic speaking loop. This phase does not add Higgs Audio, OpenAI TTS, Azure, ElevenLabs, phoneme / viseme metadata, or a new provider.
 
 ## Avatar Manifest Fields
 
@@ -186,6 +190,7 @@ This verifies:
 - `VRMRenderer` can apply expression and basic mouth movement on a fake morph-target avatar.
 - `VRMRenderer` can drive girl-style happy / sad / angry / surprised expression groups, five-vowel speaking mouth movement, and automatic blink.
 - `ExpressionController` and `LipSyncController` are covered directly so expression / blink / lip-sync policy does not drift back into `VRMRenderer`.
+- `LipSyncController` is covered for optional audio-amplitude mouth intensity and for fallback when no audio source is available.
 - `MotionController` is covered directly so gesture / affect / audio lifecycle motion mapping does not drift back into `PresentationOrchestrator` or `VRMRenderer`.
 - `TTSController` is covered directly so audio lifecycle state does not drift back into `AppController`, `AudioManager`, or `VRMRenderer`.
 - Backend business services do not depend on renderer-specific fields.

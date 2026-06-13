@@ -32,25 +32,24 @@ export class TTSService {
   async speak(text, config, { muted = false, onStart, onEnd, onError, onFallback } = {}) {
     if (muted) return;
     this.stop();
-    onStart?.();
     const provider = getTTSProvider(config.engine);
     const isBackendEngine = provider.transport === 'backend';
 
     try {
       if (isBackendEngine) {
-        await this.speakWithBackend(text, config, provider);
+        await this.speakWithBackend(text, config, provider, { onStart });
         onEnd?.();
         return;
       }
 
-      await this.speakWithBrowser(text, config);
+      await this.speakWithBrowser(text, config, { onStart });
       onEnd?.();
     } catch (error) {
       const normalizedError = isBackendEngine ? formatTTSTransportError(error) : error;
       if (isBackendEngine) {
         log.info('后端语音不可用，切换到浏览器兜底:', normalizedError.message);
         onFallback?.(normalizedError);
-        await this.speakWithBrowser(text, config);
+        await this.speakWithBrowser(text, config, { onStart });
         onEnd?.();
         return;
       }
@@ -59,7 +58,7 @@ export class TTSService {
     }
   }
 
-  async speakWithBackend(text, config, provider = getTTSProvider(config.engine)) {
+  async speakWithBackend(text, config, provider = getTTSProvider(config.engine), { onStart } = {}) {
     const response = await this.apiClient.response(this.endpoint, {
       method: 'POST',
       source: 'tts',
@@ -76,7 +75,16 @@ export class TTSService {
         this.currentAudio = audio;
         audio.onended = resolve;
         audio.onerror = reject;
-        audio.play().catch(reject);
+        audio.play()
+          .then(() => {
+            onStart?.({
+              audioSource: {
+                type: 'html-audio',
+                audioElement: audio
+              }
+            });
+          })
+          .catch(reject);
       });
     } finally {
       URL.revokeObjectURL(url);
@@ -84,7 +92,7 @@ export class TTSService {
     }
   }
 
-  speakWithBrowser(text, config) {
+  speakWithBrowser(text, config, { onStart } = {}) {
     if (!('speechSynthesis' in window)) return Promise.resolve();
 
     return new Promise((resolve) => {
@@ -92,6 +100,13 @@ export class TTSService {
       utterance.lang = 'zh-CN';
       utterance.rate = config.rate;
       utterance.pitch = config.pitch;
+      let startEmitted = false;
+      const emitStart = () => {
+        if (startEmitted) return;
+        startEmitted = true;
+        onStart?.({ audioSource: null });
+      };
+      utterance.onstart = emitStart;
       utterance.onend = resolve;
       utterance.onerror = resolve;
 
@@ -125,6 +140,7 @@ export class TTSService {
         }
 
         window.speechSynthesis.speak(utterance);
+        emitStart();
       };
 
       if (window.speechSynthesis.getVoices().length > 0) {

@@ -15,7 +15,7 @@ Status: Partial, with a minimal orchestration skeleton in place.
 - `PresentationOrchestrator` now owns the first layer of Web presentation routing: dialogue directive application, affect tone hints, audio start / end presentation state, and speaking / idle directive fallback.
 - `AppController` still listens to app events and updates UI/debug state, but it no longer owns the direct AvatarDirective-to-renderer and affect-to-motion mapping logic.
 - `ExpressionController` now owns emotion-to-expression mapping, tone intensity policy, and blink timing.
-- `LipSyncController` now owns speaking mouth loop timing, mouth group cycling, and mouth reset.
+- `LipSyncController` now owns speaking mouth loop timing, optional audio-amplitude mouth intensity, mouth group cycling, and mouth reset.
 - `MotionController` now owns semantic motion intent mapping from `AvatarDirective`, `affect.motion`, and audio lifecycle events into the existing `MotionManager` slots.
 - `TTSController` now owns the presentation-level TTS / audio lifecycle state: request, playing, fallback, end, and error.
 - `VRMRenderer` now stays closer to execution: it collects morph targets, reports capabilities, delegates expression / lip-sync decisions, and writes morph influence values.
@@ -109,7 +109,8 @@ The following modules are the target shape. They should be introduced incrementa
 js/avatar/presentation/
   PresentationOrchestrator.js   # implemented minimal skeleton
   ExpressionController.js       # implemented for emotion / tone / blink policy
-  LipSyncController.js          # implemented for basic speaking mouth loop
+  LipSyncController.js          # implemented for basic speaking mouth loop and optional audio amplitude
+  AudioAmplitudeSampler.js      # implemented for optional Web Audio amplitude sampling
   MotionController.js           # implemented for semantic motion intent mapping
   TTSController.js              # implemented for presentation-level audio lifecycle state
   presentationTypes.js
@@ -153,7 +154,7 @@ Responsibilities:
 - Convert `state=speaking` and `lip_sync=auto/basic` into mouth movement instructions.
 - Start and stop mouth movement from audio lifecycle.
 - Support browser TTS fallback without requiring phoneme analysis.
-- Later, optionally consume audio amplitude or viseme events.
+- Consume optional audio amplitude from playable audio sources and fall back to the basic speaking loop when analysis is unavailable.
 - Resolve A / I / U / E / O mouth groups with a generic `mouth` fallback.
 
 Safe no-op:
@@ -206,6 +207,7 @@ Current rule:
 
 - The first implementation is lifecycle-only. It does not connect Higgs Audio, OpenAI TTS, Azure, ElevenLabs, or any new provider.
 - Real provider work should happen behind `TTSService` / backend `/api/tts` and continue to send only non-secret style hints to the frontend.
+- When backend audio playback exposes an `HTMLAudioElement`, the presentation layer may use a local amplitude sampler for lip-sync. Browser `speechSynthesis` does not expose a safe audio element, so it remains on the fallback speaking loop.
 
 ### Renderer Boundary
 
@@ -322,7 +324,19 @@ Acceptance:
 - `audio:request / start / fallback / end / error` all have a stable presentation-layer path.
 - `audio:error` stops lip-sync and restores an idle directive through the same presentation boundary.
 
-### Presentation-5: Capability Tests
+### Presentation-5A: Audio-Driven Lip-Sync Minimal Validation
+
+Done for the MVP. Lip-sync can now consume optional audio amplitude from backend audio playback. If no analysable audio source exists, the old speaking loop remains the fallback.
+
+Acceptance:
+
+- `AudioManager` / `TTSService` can pass a safe non-secret `audioSource` for backend audio playback.
+- `LipSyncController` samples amplitude through `AudioAmplitudeSampler` and smooths mouth intensity to avoid high-frequency jitter.
+- Browser fallback speech keeps using the fixed speaking loop because it does not expose an analysable audio element.
+- `audio:end` and `audio:error` stop sampling, reset mouth influence, and return to idle/listening through the existing presentation path.
+- `check:vrm-renderer-flow` verifies audio-driven intensity and fallback behavior.
+
+### Presentation-5B: Capability Tests
 
 Add checks that validate avatar manifests declare renderer capabilities and that local expression maps do not leak into backend business services.
 
@@ -331,9 +345,9 @@ Acceptance:
 - `npm run check` catches accidental renderer-specific fields in backend responses.
 - Local-only test avatars remain debug-gated.
 
-### Presentation-6: Audio-Driven Lip-Sync Evaluation
+### Presentation-6: Phoneme / Viseme And Real TTS Evaluation
 
-Evaluate whether browser TTS timing, basic amplitude, or a lightweight viseme source is enough before introducing a VRM runtime dependency.
+Evaluate whether real TTS timing, phoneme / viseme metadata, or provider-specific marks are worth introducing after the amplitude MVP is stable.
 
 Acceptance:
 

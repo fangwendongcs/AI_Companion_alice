@@ -264,11 +264,12 @@ export class AppController {
         source: EVENT_NAMES.AUDIO_REQUEST
       });
     }));
-    this.registry.add(this.eventBus.on(EVENT_NAMES.AUDIO_START, ({ engine, affect } = {}) => {
+    this.registry.add(this.eventBus.on(EVENT_NAMES.AUDIO_START, ({ engine, affect, audioSource } = {}) => {
       this.patchState({ isSpeaking: true }, EVENT_NAMES.AUDIO_START);
       const presentation = this.presentation.handleAudioStart({
         engine,
         affect,
+        audioSource,
         source: EVENT_NAMES.AUDIO_START
       });
       this.lastDialogueAffect = presentation.affect;

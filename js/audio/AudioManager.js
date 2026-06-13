@@ -20,10 +20,11 @@ export class AudioManager {
     try {
       await this.ttsService.speak(text, config, {
         muted: false,
-        onStart: () => {
+        onStart: ({ audioSource = null } = {}) => {
           this.eventBus?.emit(EVENT_NAMES.AUDIO_START, {
             engine: config.engine,
-            affect
+            affect,
+            audioSource
           });
         },
         onEnd: () => {

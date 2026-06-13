@@ -1756,3 +1756,13 @@ npm run check:assets
 - `audio:error` 现在通过 `PresentationOrchestrator.handleAudioError()` 统一停止 lip-sync、恢复 idle directive，并让 `TTSController` 记录稳定错误状态。
 - `check:vrm-renderer-flow` 和 `check:companion-state-flow` 已覆盖 TTSController 生命周期，防止 TTS lifecycle 状态漂回 `AppController`、`AudioManager` 或 `VRMRenderer`。
 - 本轮不引入 `@pixiv/three-vrm`，不做音频驱动 lip-sync、phoneme/viseme 分析、真实 TTS provider 或后端 TTS 业务改造。
+
+## 74. Presentation-5A Audio-Driven Lip-Sync
+
+- 新增 `js/avatar/presentation/AudioAmplitudeSampler.js`，为可播放的 backend audio 提供可选 Web Audio 音量采样；无法采样时返回 `null` 并走 fallback。
+- `TTSService` 在 backend `/api/tts` 音频播放开始后，把本地 `HTMLAudioElement` 作为非敏感 `audioSource` 传给 `AudioManager`；browser `speechSynthesis` 不暴露可分析音频源，继续走固定 speaking loop。
+- `AudioManager`、`AppController` 和 `PresentationOrchestrator` 只透传 `audioSource`，不做音频分析、不保存音频对象到全局状态、不改变 provider / secret 边界。
+- `LipSyncController` 现在支持两种模式：有 `audioSource` 时按 amplitude 平滑驱动 mouth intensity；没有可分析音频时保留原有 A/I/U/E/O speaking loop。
+- `audio:end` 和 `audio:error` 会清理 sampler、reset mouth influence，并继续通过 `MotionController` 回到 idle/listening。
+- `check:vrm-renderer-flow` 增加 fake amplitude fixture，覆盖 audio-driven intensity、fallback loop 和 mouth reset；`check:companion-state-flow` 增加 audioSource 透传边界检查。
+- 本轮不接真实第三方 TTS、不做 phoneme/viseme、高精度口型、LookAt、SpringBone 或 `@pixiv/three-vrm` runtime。
