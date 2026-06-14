@@ -35,6 +35,7 @@ await checkMotionController();
 await checkTTSController();
 await checkVrmManifestCapabilities();
 await checkLocalTestManifests();
+await checkLocalGirlWaveMotionConfig();
 await checkLocalTestModelsIfPresent();
 await checkDirectiveApplication();
 await checkBusinessLayerIsolation();
@@ -80,6 +81,7 @@ async function checkRendererModules() {
   assert(!orchestrator.includes('getMotionSlotForDirective('), 'PresentationOrchestrator 不应继续持有具体 directive -> motion 映射。');
   assert(motionController.includes('getMotionSlotForDirective'), 'MotionController 应集中处理 directive -> motion 映射。');
   assert(motionController.includes('getMotionSlotForAffect'), 'MotionController 应集中处理 affect -> motion 映射。');
+  assert(motionController.includes("gesture === 'wave'") && motionController.includes('PresentationMotionSlot.WAVE'), 'MotionController 应把 wave 指令映射到独立 wave slot。');
   assert(ttsController.includes('TTSLifecycleStatus'), 'TTSController 应集中记录 TTS / audio lifecycle 状态。');
   assert(ttsController.includes('onRequest') && ttsController.includes('onError'), 'TTSController 应覆盖 request/start/end/error 生命周期。');
   assert(audioSampler.includes('createAudioAmplitudeSampler'), '应存在可选 audio amplitude sampler 供 lip-sync 使用。');
@@ -338,6 +340,20 @@ async function checkLocalTestManifests() {
       });
     }
   }
+}
+
+async function checkLocalGirlWaveMotionConfig() {
+  const motions = await readJson('assets/avatars/test-vrm/motions.json');
+  const wave = motions.slots?.wave || {};
+  assert(wave.id === 'wave', 'local_girl_vrm_test motions.json 应提供 wave 测试 slot。');
+  assert(wave.renderer === 'vrm', 'wave 测试动作应声明 renderer=vrm。');
+  assert(wave.mode === 'retargeted', 'wave 测试动作应声明 mode=retargeted。');
+  assert(wave.source === 'file', 'wave 测试动作应声明 source=file。');
+  assert(wave.format === 'fbx', 'wave 测试动作应声明 format=fbx。');
+  assert(wave.path === 'assets/motions/vrm/test/wave.fbx', 'wave 测试动作应使用人工放置的授权测试路径。');
+  assert(wave.layer === 'gesture', 'wave 测试动作应运行在 gesture layer。');
+  assert(wave.fallback === 'procedural', 'wave 测试动作缺文件时应回退 procedural。');
+  assert(motions.proceduralFallbacks?.wave === true, 'wave 缺外部文件时应保留 procedural fallback。');
 }
 
 async function checkLocalTestModelsIfPresent() {

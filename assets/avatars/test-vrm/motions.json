@@ -1,12 +1,32 @@
 {
   "version": 1,
-  "slots": {},
+  "slots": {
+    "wave": {
+      "id": "wave",
+      "renderer": "vrm",
+      "mode": "retargeted",
+      "source": "file",
+      "format": "fbx",
+      "path": "assets/motions/vrm/test/wave.fbx",
+      "loop": "once",
+      "fadeIn": 0.25,
+      "fadeOut": 0.35,
+      "layer": "gesture",
+      "fallback": "procedural",
+      "tags": [
+        "test",
+        "wave",
+        "manual-placement"
+      ]
+    }
+  },
   "proceduralFallbacks": {
     "idle": true,
     "intro": true,
     "headTap": true,
     "legTap": true,
     "armTap": true,
+    "wave": true,
     "bodyTap": true,
     "chat": true,
     "speaking": true,

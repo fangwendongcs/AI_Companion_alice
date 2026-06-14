@@ -178,7 +178,7 @@ Example mapping:
 thinking -> listening
 speaking -> speaking
 soft_nod -> chat
-wave -> armTap
+wave -> wave
 idle -> idle
 ```
 

@@ -6,6 +6,7 @@ export const MotionSlot = {
   HEAD_TAP: 'headTap',
   LEG_TAP: 'legTap',
   ARM_TAP: 'armTap',
+  WAVE: 'wave',
   BODY_TAP: 'bodyTap',
   CHAT: 'chat',
   SPEAKING: 'speaking',
@@ -18,6 +19,7 @@ export const MOTION_SLOT_DEFAULTS = {
   [MotionSlot.HEAD_TAP]: { loop: 'once', priority: 10, layer: 'gesture', interrupt: true, fadeIn: 0.15, fadeOut: 0.2 },
   [MotionSlot.LEG_TAP]: { loop: 'once', priority: 10, layer: 'gesture', interrupt: true, fadeIn: 0.15, fadeOut: 0.2 },
   [MotionSlot.ARM_TAP]: { loop: 'once', priority: 10, layer: 'gesture', interrupt: true, fadeIn: 0.15, fadeOut: 0.2 },
+  [MotionSlot.WAVE]: { loop: 'once', priority: 10, layer: 'gesture', interrupt: true, fadeIn: 0.2, fadeOut: 0.35 },
   [MotionSlot.BODY_TAP]: { loop: 'once', priority: 8, layer: 'gesture', interrupt: true, fadeIn: 0.12, fadeOut: 0.18 },
   [MotionSlot.CHAT]: { loop: 'once', priority: 8, layer: 'gesture', interrupt: true, fadeIn: 0.12, fadeOut: 0.18 },
   [MotionSlot.SPEAKING]: { loop: 'repeat', priority: 1, layer: 'base', interrupt: false, fadeIn: 0.2, fadeOut: 0.2 },
@@ -30,6 +32,7 @@ export const MOTION_SLOT_STATES = {
   [MotionSlot.HEAD_TAP]: AvatarState.HEAD_ACTION,
   [MotionSlot.LEG_TAP]: AvatarState.LEG_ACTION,
   [MotionSlot.ARM_TAP]: AvatarState.ARM_ACTION,
+  [MotionSlot.WAVE]: AvatarState.ARM_ACTION,
   [MotionSlot.BODY_TAP]: AvatarState.REACTING,
   [MotionSlot.CHAT]: AvatarState.REACTING,
   [MotionSlot.SPEAKING]: AvatarState.SPEAKING,
@@ -42,6 +45,7 @@ const DEFAULT_PROCEDURAL_FALLBACKS = {
   headTap: true,
   legTap: true,
   armTap: true,
+  wave: true,
   bodyTap: true,
   chat: true,
   speaking: true,
@@ -90,12 +94,13 @@ export class MotionSlotRegistry {
 
   toActionEntry(slot, slots) {
     const resolved = this.resolveSlot(slot, slots);
-    if (!resolved?.file) return null;
+    if (!resolved?.file && !resolved?.path) return null;
 
     return {
       name: slot,
       ...this.getDefaults(slot),
       ...resolved,
+      file: resolved.file || resolved.path,
       fallbackSlot: undefined
     };
   }
@@ -113,7 +118,7 @@ export class MotionSlotRegistry {
     return {
       ...fallback,
       ...own,
-      file: own.file || fallback.file,
+      file: own.file || own.path || fallback.file || fallback.path,
       fallbackSlot: undefined,
       tags: [...(fallback.tags || []), ...(own.tags || [])]
     };

@@ -243,7 +243,7 @@ export class DebugPanelController {
   }
 
   formatMotionError(motion = {}) {
-    if (motion?.lastError) return this.truncate(motion.lastError, 36);
+    if (motion?.lastError) return this.truncate(motion.lastError, 96);
     const missing = motion?.retargetMissingBones || [];
     if (missing.length) return `missing:${this.truncate(missing.join(','), 28)}`;
     return '-';

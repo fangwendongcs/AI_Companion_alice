@@ -40,6 +40,32 @@ Field guidance:
 - `layer`: `base`, `upperBody`, `gesture`, or `face`.
 - `fallback`: safe slot to use when loading or retargeting fails.
 
+## Manual Test Motion Placement
+
+This repository does not currently include an authorized external `wave` motion file for `local_girl_vrm_test`.
+
+The local girl VRM config reserves one test slot at:
+
+```text
+assets/motions/vrm/test/wave.fbx
+```
+
+Use this slot only with a motion file whose source and license are explicitly verified. If the file is absent, Alice must keep loading the avatar, report `motion.lastError`, and fall back to the procedural `wave` / `idle` behavior. A missing test file is configuration readiness, not proof that external motion has entered the mixer.
+
+Expected debug state after a valid authorized file is placed and the `wave` slot is triggered:
+
+- `motion.current=wave`
+- `motion.mode=retargeted`
+- `motion.source=file`
+- `motion.mixerActive=true`
+
+Expected debug state while the file is absent:
+
+- `motion.current=idle`
+- `motion.mode=procedural`
+- `motion.source=procedural`
+- `motion.lastError=motion_file_missing_or_failed:wave:assets/motions/vrm/test/wave.fbx`
+
 ## Retarget Risks
 
 Mixamo / FBX motions must not be treated as automatically compatible with VRM.

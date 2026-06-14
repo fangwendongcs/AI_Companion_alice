@@ -2,6 +2,7 @@ export const PresentationMotionSlot = {
   IDLE: 'idle',
   CHAT: 'chat',
   ARM_TAP: 'armTap',
+  WAVE: 'wave',
   BODY_TAP: 'bodyTap',
   SPEAKING: 'speaking',
   LISTENING: 'listening'
@@ -103,7 +104,7 @@ export class MotionController {
     const gesture = avatarDirective?.gesture;
     if (gesture === 'thinking') return PresentationMotionSlot.LISTENING;
     if (gesture === 'soft_nod') return PresentationMotionSlot.CHAT;
-    if (gesture === 'wave') return PresentationMotionSlot.ARM_TAP;
+    if (gesture === 'wave') return PresentationMotionSlot.WAVE;
     if (avatarDirective?.state === 'idle') return PresentationMotionSlot.IDLE;
     if (avatarDirective?.state === 'listening') return PresentationMotionSlot.LISTENING;
     if (avatarDirective?.state === 'thinking') return PresentationMotionSlot.LISTENING;
@@ -116,6 +117,7 @@ export class MotionController {
     if (slot === 'happy') return PresentationMotionSlot.CHAT;
     if (slot === 'apologize') return PresentationMotionSlot.BODY_TAP;
     if (slot === 'thinking') return PresentationMotionSlot.LISTENING;
+    if (slot === 'wave') return PresentationMotionSlot.WAVE;
     if (slot === 'speaking') return PresentationMotionSlot.SPEAKING;
     if (slot === 'listening') return PresentationMotionSlot.LISTENING;
     if (slot === 'idle') return PresentationMotionSlot.IDLE;

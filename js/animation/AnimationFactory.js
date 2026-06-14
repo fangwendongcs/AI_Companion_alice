@@ -9,6 +9,7 @@ export const PROCEDURAL_ACTION_DEFS = {
   headTap: { loop: AnimationLoop.ONCE, priority: 10, layer: AnimationLayer.GESTURE, interrupt: true, fadeIn: 0.12, fadeOut: 0.18, baseWeightWhileActive: 0.18, returnToIdle: true, cooldown: 240 },
   legTap: { loop: AnimationLoop.ONCE, priority: 10, layer: AnimationLayer.GESTURE, interrupt: true, fadeIn: 0.12, fadeOut: 0.18, baseWeightWhileActive: 0.12, returnToIdle: true, cooldown: 240 },
   armTap: { loop: AnimationLoop.ONCE, priority: 10, layer: AnimationLayer.GESTURE, interrupt: true, fadeIn: 0.12, fadeOut: 0.18, baseWeightWhileActive: 0.12, returnToIdle: true, cooldown: 240 },
+  wave: { loop: AnimationLoop.ONCE, priority: 10, layer: AnimationLayer.GESTURE, interrupt: true, fadeIn: 0.2, fadeOut: 0.35, baseWeightWhileActive: 0.12, returnToIdle: true, cooldown: 300 },
   bodyTap: { loop: AnimationLoop.ONCE, priority: 8, layer: AnimationLayer.GESTURE, interrupt: true, fadeIn: 0.12, fadeOut: 0.18, baseWeightWhileActive: 0.16, returnToIdle: true, cooldown: 240 },
   chat: { loop: AnimationLoop.ONCE, priority: 8, layer: AnimationLayer.GESTURE, interrupt: true, fadeIn: 0.12, fadeOut: 0.18, baseWeightWhileActive: 0.12, returnToIdle: true, cooldown: 240 }
 };
@@ -37,6 +38,7 @@ export class AnimationFactory {
       headTap: this.createHeadTapClip,
       legTap: this.createLegTapClip,
       armTap: this.createArmTapClip,
+      wave: this.createWaveClip,
       bodyTap: this.createBodyTapClip,
       chat: this.createChatClip
     }[name] || null;
@@ -133,6 +135,17 @@ export class AnimationFactory {
       { boneName: 'mixamorigHead', wave: { axis: 'x', amp: 0.04 } }
     ];
     return this.createProceduralClip('chat', 1.0, [0, 0.24, 0.5, 0.76, 1.0], defs);
+  }
+
+  createWaveClip() {
+    const defs = [
+      { boneName: 'mixamorigRightArm', rotation: { z: 0.65 }, wave: { axis: 'z', amp: 0.35, cycles: 2 } },
+      { boneName: 'mixamorigRightForeArm', rotation: { z: -0.95 }, wave: { axis: 'z', amp: -0.32, cycles: 2 } },
+      { boneName: 'mixamorigRightHand', rotation: { z: 0.35 }, wave: { axis: 'z', amp: 0.5, cycles: 3 } },
+      { boneName: 'mixamorigSpine2', wave: { axis: 'z', amp: -0.05 } },
+      { boneName: 'mixamorigHead', wave: { axis: 'x', amp: 0.035 } }
+    ];
+    return this.createProceduralClip('wave', 1.2, [0, 0.2, 0.4, 0.65, 0.9, 1.2], defs);
   }
 
   createProceduralClip(name, duration, times, defs, { includeRelaxedPose = true } = {}) {

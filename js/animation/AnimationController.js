@@ -95,11 +95,13 @@ export class AnimationController {
     const clips = await Promise.all(
       entries.map(async (entry) => {
         try {
-          const clip = await this.loadFBXClip(entry.file || entry.path);
+          const path = entry.file || entry.path;
+          const clip = await this.loadFBXClip(path);
           return { entry, clip };
         } catch (error) {
-          log.error(`动画加载失败: ${entry.name}`, error);
-          this.lastError = `load_failed:${entry.name || entry.file || entry.path}`;
+          const path = entry.file || entry.path || 'unknown_path';
+          log.error(`动画加载失败: ${entry.name || path}`, error);
+          this.lastError = `motion_file_missing_or_failed:${entry.name || 'unknown'}:${path}`;
           return { entry, clip: null };
         }
       })
@@ -403,7 +405,7 @@ export class AnimationController {
       mode: this.resolveMotionMode(meta),
       source: meta?.source || 'none',
       mixerActive: Boolean(this.mixer),
-      proceduralActive: activeLayers.some(({ active }) => active?.meta?.source === AnimationSource.PROCEDURAL),
+      proceduralActive: primary?.active?.meta?.source === AnimationSource.PROCEDURAL,
       activeLayers: activeLayers.map(({ layerName, active }) => ({
         layer: layerName,
         motion: active.name,
