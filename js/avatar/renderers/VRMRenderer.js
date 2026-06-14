@@ -19,6 +19,27 @@ const VRM_EXPRESSION_ALIASES = {
   mouth: ['aa', 'oh', 'ou']
 };
 
+const RETARGET_REQUIRED_HUMANOID_BONES = [
+  'hips',
+  'spine',
+  'chest',
+  'upperChest',
+  'neck',
+  'head',
+  'leftUpperArm',
+  'rightUpperArm',
+  'leftLowerArm',
+  'rightLowerArm',
+  'leftHand',
+  'rightHand',
+  'leftUpperLeg',
+  'rightUpperLeg',
+  'leftLowerLeg',
+  'rightLowerLeg',
+  'leftFoot',
+  'rightFoot'
+];
+
 export class VRMRenderer extends DefaultAvatarRenderer {
   constructor(options = {}) {
     super(options);
@@ -73,6 +94,7 @@ export class VRMRenderer extends DefaultAvatarRenderer {
   }
 
   getCapabilities() {
+    const retargetReadiness = this.inspectRetargetReadiness();
     return {
       ...super.getCapabilities(),
       renderer: 'vrm',
@@ -81,6 +103,9 @@ export class VRMRenderer extends DefaultAvatarRenderer {
       hasExpressionManager: Boolean(this.vrm?.expressionManager),
       hasLookAt: Boolean(this.vrm?.lookAt),
       hasSpringBoneManager: Boolean(this.vrm?.springBoneManager),
+      retargetReady: retargetReadiness.ready,
+      retargetMissingBones: retargetReadiness.missing,
+      humanoidBones: retargetReadiness.bones,
       vrmExpressions: this.vrmExpressionNames,
       hasMorphTargets: this.morphTargets.length > 0,
       detectedExpressions: Array.from(this.detectedExpressions),
@@ -128,6 +153,35 @@ export class VRMRenderer extends DefaultAvatarRenderer {
   getVrmExpressionNames() {
     const expressionMap = this.vrm?.expressionManager?.expressionMap || {};
     return Object.keys(expressionMap);
+  }
+
+  inspectRetargetReadiness() {
+    const humanoid = this.vrm?.humanoid;
+    const bones = {};
+    const missing = [];
+
+    RETARGET_REQUIRED_HUMANOID_BONES.forEach((boneName) => {
+      const node = this.getHumanoidBoneNode(boneName, humanoid);
+      bones[boneName] = node?.name || null;
+      if (!node) missing.push(boneName);
+    });
+
+    return {
+      ready: Boolean(humanoid) && missing.length === 0,
+      bones,
+      missing
+    };
+  }
+
+  getHumanoidBoneNode(boneName, humanoid = this.vrm?.humanoid) {
+    if (!humanoid || !boneName) return null;
+    try {
+      return humanoid.getNormalizedBoneNode?.(boneName)
+        || humanoid.getRawBoneNode?.(boneName)
+        || null;
+    } catch {
+      return null;
+    }
   }
 
   getCurrentMouthGroup() {

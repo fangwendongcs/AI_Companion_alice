@@ -48,6 +48,13 @@ const DISPLAY_ROWS = [
   ['tone', 'tone'],
   ['voice.style', 'voiceStyle'],
   ['motion.slot', 'motionSlot'],
+  ['motion.current', 'motionCurrent'],
+  ['motion.mode', 'motionMode'],
+  ['motion.source', 'motionSource'],
+  ['motion.mixerActive', 'motionMixerActive'],
+  ['motion.retargetReady', 'motionRetargetReady'],
+  ['motion.proceduralActive', 'motionProceduralActive'],
+  ['motion.lastError', 'motionLastError'],
   ['lipSync.mode', 'lipSyncMode'],
   ['lipSync.audioDriven', 'lipSyncAudioDriven'],
   ['lipSync.fallback', 'lipSyncFallback'],
@@ -176,6 +183,13 @@ export class DebugPanelController {
       tone: state.affect?.tone || '-',
       voiceStyle: state.affect?.voiceStyle || '-',
       motionSlot: state.affect?.motionSlot || '-',
+      motionCurrent: state.motion?.current || '-',
+      motionMode: state.motion?.mode || '-',
+      motionSource: state.motion?.source || '-',
+      motionMixerActive: state.motion?.mixerActive ?? false,
+      motionRetargetReady: state.motion?.retargetReady ?? false,
+      motionProceduralActive: state.motion?.proceduralActive ?? false,
+      motionLastError: this.formatMotionError(state.motion),
       lipSyncMode: state.presentation?.lipSync?.mode || '-',
       lipSyncAudioDriven: state.presentation?.lipSync?.audioDriven ?? false,
       lipSyncFallback: state.presentation?.lipSync?.fallback ?? false,
@@ -226,6 +240,13 @@ export class DebugPanelController {
   formatLipSyncMouth(lipSync = {}) {
     if (!lipSync?.mouthGroup || lipSync.mouthGroup === '-') return '-';
     return `${lipSync.mouthGroup}:${this.formatMetric(lipSync.mouthAmount)}`;
+  }
+
+  formatMotionError(motion = {}) {
+    if (motion?.lastError) return this.truncate(motion.lastError, 36);
+    const missing = motion?.retargetMissingBones || [];
+    if (missing.length) return `missing:${this.truncate(missing.join(','), 28)}`;
+    return '-';
   }
 
   getErrorMessage(error) {

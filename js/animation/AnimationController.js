@@ -59,6 +59,7 @@ export class AnimationController {
     this.activeRequests = new Map();
     this.currentState = AvatarState.IDLE;
     this.retargetAdapter = null;
+    this.lastError = '';
   }
 
   reset() {
@@ -98,6 +99,7 @@ export class AnimationController {
           return { entry, clip };
         } catch (error) {
           log.error(`动画加载失败: ${entry.name}`, error);
+          this.lastError = `load_failed:${entry.name || entry.file || entry.path}`;
           return { entry, clip: null };
         }
       })
@@ -118,10 +120,13 @@ export class AnimationController {
           clip: retargeted,
           meta: {
             source: AnimationSource.FILE,
+            mode: entry.mode || 'retargeted',
             path: entry.path || entry.file,
             ...entry
           }
         });
+      } else {
+        this.lastError = `retarget_failed:${entry.name || entry.file || entry.path}`;
       }
     });
   }
@@ -381,5 +386,39 @@ export class AnimationController {
 
   update(delta) {
     if (this.mixer) this.mixer.update(delta);
+  }
+
+  getDebugState() {
+    const activeLayers = Object.entries(this.layers)
+      .map(([layerName, layer]) => ({ layerName, active: layer.active }))
+      .filter(({ active }) => Boolean(active?.action));
+    const primary = activeLayers.find(({ layerName }) => layerName === 'gesture')
+      || activeLayers.find(({ layerName }) => layerName === 'base')
+      || activeLayers[0]
+      || null;
+    const meta = primary?.active?.meta || null;
+
+    return {
+      current: primary?.active?.name || null,
+      mode: this.resolveMotionMode(meta),
+      source: meta?.source || 'none',
+      mixerActive: Boolean(this.mixer),
+      proceduralActive: activeLayers.some(({ active }) => active?.meta?.source === AnimationSource.PROCEDURAL),
+      activeLayers: activeLayers.map(({ layerName, active }) => ({
+        layer: layerName,
+        motion: active.name,
+        source: active.meta?.source || 'none',
+        mode: this.resolveMotionMode(active.meta)
+      })),
+      lastError: this.lastError
+    };
+  }
+
+  resolveMotionMode(meta = null) {
+    if (!meta) return 'none';
+    if (meta.mode) return meta.mode;
+    if (meta.source === AnimationSource.PROCEDURAL) return 'procedural';
+    if (meta.source === AnimationSource.FILE) return 'retargeted';
+    return 'unknown';
   }
 }

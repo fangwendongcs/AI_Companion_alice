@@ -70,6 +70,15 @@ export class MotionManager {
     this.controller.update(delta);
   }
 
+  getDebugState() {
+    const debug = this.controller.getDebugState?.() || {};
+    return {
+      ...debug,
+      motionManifest: this.characterMeta?.motionManifest || null,
+      avatarType: this.characterMeta?.type || null
+    };
+  }
+
   stopAll() {
     this.controller.stopAll();
   }

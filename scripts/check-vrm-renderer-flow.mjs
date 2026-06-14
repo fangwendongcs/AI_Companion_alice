@@ -69,6 +69,7 @@ async function checkRendererModules() {
   assert(characterManager.includes('manifest.girl.json'), 'CharacterManager 应支持 girl 本地 VRM 测试 manifest 注入。');
   assert(appController.includes('PresentationOrchestrator'), 'AppController 应通过 PresentationOrchestrator 协调表现层。');
   assert(appController.includes('avatarCapabilities'), 'AppController 应把 renderer capability 快照同步到前端状态。');
+  assert(appController.includes('syncMotionDebugState'), 'AppController 应同步 MotionManager debug 状态。');
   assert(avatarLoader.includes('VRMLoaderPlugin'), 'AvatarLoader 应使用 three-vrm VRMLoaderPlugin 加载 VRM。');
   assert(avatarLoader.includes('vrmRuntime'), 'AvatarLoader 应暴露 VRM runtime capability 快照。');
   assert(orchestrator.includes('class PresentationOrchestrator'), '应存在 PresentationOrchestrator 表现编排骨架。');
@@ -87,6 +88,7 @@ async function checkRendererModules() {
   assert(vrmRenderer.includes('this.vrm?.update'), 'VRMRenderer.update 应推进 three-vrm runtime。');
   assert(vrmRenderer.includes('setLookAt'), 'VRMRenderer 应暴露 setLookAt 执行入口。');
   assert(vrmRenderer.includes('hasSpringBoneManager'), 'VRMRenderer capability 应暴露 springBone runtime 状态。');
+  assert(vrmRenderer.includes('inspectRetargetReadiness'), 'VRMRenderer capability 应暴露 retarget readiness。');
   assert(!vrmRenderer.includes('applyEmotion('), 'VRMRenderer 不应继续持有 emotion 表现决策。');
   assert(!vrmRenderer.includes('updateBlink('), 'VRMRenderer 不应继续持有 blink timing 逻辑。');
   assert(!vrmRenderer.includes('updateLipSync('), 'VRMRenderer 不应继续持有 lip-sync timing 逻辑。');
@@ -381,8 +383,32 @@ async function checkDirectiveApplication() {
   };
   const fakeExpressionValues = {};
   const fakeExpressions = new Set(['happy', 'aa', 'ih', 'ou', 'ee', 'oh', 'blink', 'blinkLeft', 'blinkRight']);
+  const requiredHumanoidBones = [
+    'hips',
+    'spine',
+    'chest',
+    'upperChest',
+    'neck',
+    'head',
+    'leftUpperArm',
+    'rightUpperArm',
+    'leftLowerArm',
+    'rightLowerArm',
+    'leftHand',
+    'rightHand',
+    'leftUpperLeg',
+    'rightUpperLeg',
+    'leftLowerLeg',
+    'rightLowerLeg',
+    'leftFoot',
+    'rightFoot'
+  ];
   const fakeVrm = {
-    humanoid: {},
+    humanoid: {
+      getNormalizedBoneNode(name) {
+        return requiredHumanoidBones.includes(name) ? { name: `VRM_${name}` } : null;
+      }
+    },
     expressionManager: {
       expressionMap: Object.fromEntries([...fakeExpressions].map((name) => [name, {}])),
       getExpression(name) {
@@ -444,6 +470,8 @@ async function checkDirectiveApplication() {
   assert(initResult.capabilities.hasExpressionManager === true, 'VRMRenderer capability 应暴露 expressionManager。');
   assert(initResult.capabilities.hasLookAt === true, 'VRMRenderer capability 应暴露 lookAt。');
   assert(initResult.capabilities.hasSpringBoneManager === true, 'VRMRenderer capability 应暴露 springBoneManager。');
+  assert(initResult.capabilities.retargetReady === true, 'VRMRenderer capability 应能确认 humanoid retarget readiness。');
+  assert(initResult.capabilities.retargetMissingBones.length === 0, 'VRMRenderer retarget readiness 不应误报关键骨骼缺失。');
   assert(initResult.capabilities.hasMorphTargets === true, 'VRMRenderer 应能发现 morph target。');
   assert(initResult.capabilities.mouthGroups.length === 5, 'VRMRenderer 应能发现五元音 mouth groups。');
 

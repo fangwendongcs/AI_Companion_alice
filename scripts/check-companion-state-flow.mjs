@@ -79,6 +79,13 @@ async function checkDebugPanelAffectFields() {
     'tone',
     'voice.style',
     'motion.slot',
+    'motion.current',
+    'motion.mode',
+    'motion.source',
+    'motion.mixerActive',
+    'motion.retargetReady',
+    'motion.proceduralActive',
+    'motion.lastError',
     'memory.longTerm',
     'avatar.renderer',
     'vrm.runtime',
@@ -94,6 +101,7 @@ async function checkDebugPanelAffectFields() {
   });
   assert(source.includes('state.presentation?.lipSync'), 'DebugPanelController 必须从 presentation.lipSync 读取口型 debug 状态。');
   assert(source.includes('state.avatar?.capabilities'), 'DebugPanelController 必须从 avatar.capabilities 读取 renderer capability debug 状态。');
+  assert(source.includes('state.motion?.'), 'DebugPanelController 必须从 motion debug 状态读取动作调试字段。');
 }
 
 function assert(condition, message) {

@@ -53,6 +53,8 @@ export class AppController {
     this.lastDialogueInput = '';
     this.lastPresentationDebugSyncAt = 0;
     this.lastPresentationDebugSignature = '';
+    this.lastMotionDebugSyncAt = 0;
+    this.lastMotionDebugSignature = '';
     this.destroyed = false;
 
     this.stateStore = new CompanionStateStore(this.createInitialState(), this.eventBus);
@@ -131,6 +133,15 @@ export class AppController {
         tone: 'calm',
         voiceStyle: null,
         motionSlot: null
+      },
+      motion: {
+        current: null,
+        mode: 'none',
+        source: 'none',
+        mixerActive: false,
+        retargetReady: false,
+        proceduralActive: false,
+        lastError: ''
       },
       presentation: {
         lipSync: {
@@ -346,6 +357,7 @@ export class AppController {
       this.runtime.render((delta) => {
         this.motionManager.update(delta);
         this.characterManager.updateAvatarRenderer(delta);
+        this.syncMotionDebugState();
         this.syncPresentationDebugState();
       });
 
@@ -441,6 +453,12 @@ export class AppController {
     if ('affect' in patch) {
       layered.affect = normalizeAffectState(patch.affect, this.state.affect);
     }
+    if ('motion' in patch) {
+      layered.motion = {
+        ...this.state.motion,
+        ...(patch.motion || {})
+      };
+    }
     if ('presentation' in patch) {
       const presentation = patch.presentation || {};
       layered.presentation = {
@@ -491,6 +509,35 @@ export class AppController {
     this.patchState({ presentation: nextPresentation }, 'presentation:debug');
   }
 
+  syncMotionDebugState({ force = false } = {}) {
+    const motion = this.motionManager?.getDebugState?.();
+    if (!motion) return;
+
+    const capabilities = this.characterManager?.getAvatarCapabilities?.()
+      || this.state.avatar?.capabilities
+      || this.state.avatarCapabilities
+      || {};
+    const nextMotion = {
+      current: motion.current || null,
+      mode: motion.mode || 'none',
+      source: motion.source || 'none',
+      mixerActive: Boolean(motion.mixerActive),
+      retargetReady: Boolean(capabilities.retargetReady),
+      proceduralActive: Boolean(motion.proceduralActive),
+      lastError: motion.lastError || '',
+      retargetMissingBones: capabilities.retargetMissingBones || []
+    };
+    const now = Date.now();
+    if (!force && now - this.lastMotionDebugSyncAt < 250) return;
+
+    const signature = JSON.stringify(nextMotion);
+    if (!force && signature === this.lastMotionDebugSignature) return;
+
+    this.lastMotionDebugSyncAt = now;
+    this.lastMotionDebugSignature = signature;
+    this.patchState({ motion: nextMotion }, 'motion:debug');
+  }
+
   requestAvatarSwitch(avatarId) {
     this.avatarSwitchChain = this.avatarSwitchChain
       .catch(() => {})
@@ -533,6 +580,7 @@ export class AppController {
         avatar: result.avatar,
         characterMeta: result.meta
       });
+      this.syncMotionDebugState({ force: true });
 
       this.setAvatarState(AvatarState.BOOT);
       this.registry.addTimeout(() => {
