@@ -25,6 +25,7 @@ import { TTSService } from '../voice/TTSService.js';
 export class AppController {
   constructor({ documentRef = document } = {}) {
     this.log = createLogger('App');
+    this.documentRef = documentRef;
     this.registry = new DisposableRegistry();
     this.refs = createDomRefs(documentRef);
     this.eventBus = new EventBus();
@@ -55,6 +56,7 @@ export class AppController {
     this.lastPresentationDebugSignature = '';
     this.lastMotionDebugSyncAt = 0;
     this.lastMotionDebugSignature = '';
+    this.qaMode = this.getRequestedQAMode();
     this.destroyed = false;
 
     this.stateStore = new CompanionStateStore(this.createInitialState(), this.eventBus);
@@ -84,6 +86,7 @@ export class AppController {
       app: {
         isReady: false,
         mode: APP_MODE,
+        qaMode: this.qaMode || null,
         error: null
       },
       avatar: {
@@ -332,6 +335,7 @@ export class AppController {
   async init() {
     try {
       this.eventBus.emit(EVENT_NAMES.APP_INIT, {});
+      this.applyRequestedQAMode();
       const configValidation = validateRuntimeConfig();
       if (!configValidation.ok) {
         this.log.warn('运行配置校验警告:', configValidation.errors.join('；'));
@@ -362,6 +366,7 @@ export class AppController {
       });
 
       await this.switchAvatar(this.state.currentAvatarId);
+      this.applyRequestedDebugMotion();
       this.patchState({ app: { ...this.state.app, isReady: true } }, 'app:ready');
       this.eventBus.emit(EVENT_NAMES.APP_READY, { avatarId: this.state.currentAvatarId });
     } catch (error) {
@@ -383,6 +388,48 @@ export class AppController {
     } catch {
       return '';
     }
+  }
+
+  getRequestedMotionId() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const debugEnabled = params.get('debug') === '1' || params.get('localVrm') === '1';
+      if (!debugEnabled) return '';
+      return params.get('motion') || '';
+    } catch {
+      return '';
+    }
+  }
+
+  getRequestedQAMode() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const debugEnabled = params.get('debug') === '1' || params.get('localVrm') === '1';
+      const qaMode = String(params.get('qa') || '').trim().toLowerCase();
+      if (!debugEnabled || qaMode !== 'motion') return '';
+      return qaMode;
+    } catch {
+      return '';
+    }
+  }
+
+  applyRequestedQAMode() {
+    if (!this.qaMode) return;
+    this.documentRef.body?.classList.add(`qa-${this.qaMode}`);
+    if (this.documentRef.documentElement) {
+      this.documentRef.documentElement.dataset.qa = this.qaMode;
+    }
+  }
+
+  applyRequestedDebugMotion() {
+    const motionId = this.getRequestedMotionId();
+    if (!motionId) return;
+    const accepted = this.motionManager.requestSlot(motionId, {
+      replacePending: true,
+      transitionState: false
+    });
+    if (!accepted) this.log.debug('Debug motion request was not accepted:', motionId);
+    this.syncMotionDebugState({ force: true });
   }
 
   patchState(patch, source = 'app') {

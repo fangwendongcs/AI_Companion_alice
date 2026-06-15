@@ -4,10 +4,10 @@
     "wave": {
       "id": "wave",
       "renderer": "vrm",
-      "mode": "retargeted",
+      "mode": "vrma",
       "source": "file",
-      "format": "fbx",
-      "path": "assets/motions/vrm/test/wave.fbx",
+      "format": "vrma",
+      "path": "assets/motions/vrm/test/VRMA_02Greeting.vrma",
       "loop": "once",
       "fadeIn": 0.25,
       "fadeOut": 0.35,

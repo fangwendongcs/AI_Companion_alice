@@ -57,7 +57,10 @@ console.log('[check-vrm-renderer-flow] ok');
 async function checkRendererModules() {
   const characterManager = await readText('js/avatar/CharacterManager.js');
   const avatarLoader = await readText('js/avatar/AvatarLoader.js');
+  const animationController = await readText('js/animation/AnimationController.js');
   const appController = await readText('js/app/AppController.js');
+  const indexHtml = await readText('index.html');
+  const styles = await readText('css/style.css');
   const orchestrator = await readText('js/avatar/presentation/PresentationOrchestrator.js');
   const motionController = await readText('js/avatar/presentation/MotionController.js');
   const ttsController = await readText('js/avatar/presentation/TTSController.js');
@@ -71,8 +74,16 @@ async function checkRendererModules() {
   assert(appController.includes('PresentationOrchestrator'), 'AppController 应通过 PresentationOrchestrator 协调表现层。');
   assert(appController.includes('avatarCapabilities'), 'AppController 应把 renderer capability 快照同步到前端状态。');
   assert(appController.includes('syncMotionDebugState'), 'AppController 应同步 MotionManager debug 状态。');
+  assert(appController.includes('getRequestedMotionId') && appController.includes("params.get('motion')"), 'AppController 应支持 debug-only motion query 触发。');
+  assert(appController.includes('transitionState: false'), 'debug motion query 不应被业务状态机切换阻塞。');
+  assert(appController.includes('getRequestedQAMode') && appController.includes("qaMode !== 'motion'"), 'AppController 应支持 debug-only qa=motion 视觉验收模式。');
+  assert(styles.includes('body.qa-motion .bottom-hud') && styles.includes('body.qa-motion .debug-panel'), 'qa=motion 应隐藏底部输入遮挡并调整 Debug 面板位置。');
+  assert(indexHtml.includes('@pixiv/three-vrm-animation'), 'index.html import map 应声明 @pixiv/three-vrm-animation。');
   assert(avatarLoader.includes('VRMLoaderPlugin'), 'AvatarLoader 应使用 three-vrm VRMLoaderPlugin 加载 VRM。');
   assert(avatarLoader.includes('vrmRuntime'), 'AvatarLoader 应暴露 VRM runtime capability 快照。');
+  assert(animationController.includes('VRMAnimationLoaderPlugin'), 'AnimationController 应使用 VRMAnimationLoaderPlugin 加载 VRMA。');
+  assert(animationController.includes('createVRMAnimationClip'), 'AnimationController 应把 VRMA 转换为 AnimationClip。');
+  assert(animationController.includes('loadVRMAClip'), 'AnimationController 应提供 VRMA clip 加载入口。');
   assert(orchestrator.includes('class PresentationOrchestrator'), '应存在 PresentationOrchestrator 表现编排骨架。');
   assert(orchestrator.includes('createNoopController'), 'PresentationOrchestrator 应预留后续 controller safe no-op 接口。');
   assert(orchestrator.includes('MotionController'), 'PresentationOrchestrator 应委托 MotionController 处理动作表现。');
@@ -90,6 +101,8 @@ async function checkRendererModules() {
   assert(vrmRenderer.includes('this.vrm?.update'), 'VRMRenderer.update 应推进 three-vrm runtime。');
   assert(vrmRenderer.includes('setLookAt'), 'VRMRenderer 应暴露 setLookAt 执行入口。');
   assert(vrmRenderer.includes('hasSpringBoneManager'), 'VRMRenderer capability 应暴露 springBone runtime 状态。');
+  assert(vrmRenderer.includes('hasSpringBoneReset'), 'VRMRenderer capability 应暴露 springBone reset 可用性。');
+  assert(vrmRenderer.includes('resetSecondaryMotion'), 'VRMRenderer 应提供 secondary motion reset 执行入口供后续 QA 验证。');
   assert(vrmRenderer.includes('inspectRetargetReadiness'), 'VRMRenderer capability 应暴露 retarget readiness。');
   assert(!vrmRenderer.includes('applyEmotion('), 'VRMRenderer 不应继续持有 emotion 表现决策。');
   assert(!vrmRenderer.includes('updateBlink('), 'VRMRenderer 不应继续持有 blink timing 逻辑。');
@@ -347,10 +360,10 @@ async function checkLocalGirlWaveMotionConfig() {
   const wave = motions.slots?.wave || {};
   assert(wave.id === 'wave', 'local_girl_vrm_test motions.json 应提供 wave 测试 slot。');
   assert(wave.renderer === 'vrm', 'wave 测试动作应声明 renderer=vrm。');
-  assert(wave.mode === 'retargeted', 'wave 测试动作应声明 mode=retargeted。');
+  assert(wave.mode === 'vrma', 'wave 测试动作应声明 mode=vrma。');
   assert(wave.source === 'file', 'wave 测试动作应声明 source=file。');
-  assert(wave.format === 'fbx', 'wave 测试动作应声明 format=fbx。');
-  assert(wave.path === 'assets/motions/vrm/test/wave.fbx', 'wave 测试动作应使用人工放置的授权测试路径。');
+  assert(wave.format === 'vrma', 'wave 测试动作应声明 format=vrma。');
+  assert(wave.path === 'assets/motions/vrm/test/VRMA_02Greeting.vrma', 'wave 测试动作应使用人工放置的授权 VRMA 测试路径。');
   assert(wave.layer === 'gesture', 'wave 测试动作应运行在 gesture layer。');
   assert(wave.fallback === 'procedural', 'wave 测试动作缺文件时应回退 procedural。');
   assert(motions.proceduralFallbacks?.wave === true, 'wave 缺外部文件时应保留 procedural fallback。');
@@ -443,7 +456,11 @@ async function checkDirectiveApplication() {
         this.lastTarget = null;
       }
     },
-    springBoneManager: {},
+    springBoneManager: {
+      reset() {
+        this.wasReset = true;
+      }
+    },
     update(delta) {
       this.lastDelta = delta;
     }
@@ -486,6 +503,7 @@ async function checkDirectiveApplication() {
   assert(initResult.capabilities.hasExpressionManager === true, 'VRMRenderer capability 应暴露 expressionManager。');
   assert(initResult.capabilities.hasLookAt === true, 'VRMRenderer capability 应暴露 lookAt。');
   assert(initResult.capabilities.hasSpringBoneManager === true, 'VRMRenderer capability 应暴露 springBoneManager。');
+  assert(initResult.capabilities.hasSpringBoneReset === true, 'VRMRenderer capability 应暴露 springBone reset 可用性。');
   assert(initResult.capabilities.retargetReady === true, 'VRMRenderer capability 应能确认 humanoid retarget readiness。');
   assert(initResult.capabilities.retargetMissingBones.length === 0, 'VRMRenderer retarget readiness 不应误报关键骨骼缺失。');
   assert(initResult.capabilities.hasMorphTargets === true, 'VRMRenderer 应能发现 morph target。');
@@ -519,6 +537,9 @@ async function checkDirectiveApplication() {
     intensity: 0.8
   });
   assert(fakeMesh.morphTargetInfluences[2] > 0, 'angry emotion 应映射到 angry morph group。');
+
+  const resetResult = renderer.resetSecondaryMotion('qa-test');
+  assert(resetResult.ok === true && fakeVrm.springBoneManager.wasReset === true, 'VRMRenderer resetSecondaryMotion 应调用 springBoneManager.reset。');
 
   renderer.applyDirective({
     state: 'idle',

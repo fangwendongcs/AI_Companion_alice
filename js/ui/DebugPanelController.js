@@ -25,6 +25,7 @@ const TRACKED_EVENTS = [
 const DISPLAY_ROWS = [
   ['app.ready', 'appReady'],
   ['app.mode', 'appMode'],
+  ['qa.mode', 'qaMode'],
   ['currentAvatarId', 'currentAvatarId'],
   ['avatar.loading', 'avatarLoading'],
   ['avatar.loaded', 'avatarLoaded'],
@@ -33,6 +34,7 @@ const DISPLAY_ROWS = [
   ['vrm.expressionManager', 'vrmExpressionManager'],
   ['vrm.lookAt', 'vrmLookAt'],
   ['vrm.springBone', 'vrmSpringBone'],
+  ['vrm.springBoneReset', 'vrmSpringBoneReset'],
   ['currentState', 'currentState'],
   ['animation.state', 'animationState'],
   ['currentAnimation', 'currentAnimation'],
@@ -160,6 +162,7 @@ export class DebugPanelController {
     const values = {
       appReady: state.app?.isReady ?? false,
       appMode: state.app?.mode || APP_MODE,
+      qaMode: state.app?.qaMode || '-',
       currentAvatarId: state.avatar?.currentAvatarId || state.currentAvatarId || '-',
       avatarLoading: state.avatar?.loading ?? false,
       avatarLoaded: state.avatar?.loaded ?? state.modelLoaded ?? false,
@@ -168,6 +171,7 @@ export class DebugPanelController {
       vrmExpressionManager: avatarCapabilities.hasExpressionManager ?? vrmRuntime.hasExpressionManager ?? false,
       vrmLookAt: avatarCapabilities.hasLookAt ?? vrmRuntime.hasLookAt ?? false,
       vrmSpringBone: avatarCapabilities.hasSpringBoneManager ?? vrmRuntime.hasSpringBoneManager ?? false,
+      vrmSpringBoneReset: avatarCapabilities.hasSpringBoneReset ?? false,
       currentState: state.currentState || '-',
       animationState: state.animation?.state || state.animationState || '-',
       currentAnimation: state.animation?.currentAnimation || state.currentAnimation || '-',

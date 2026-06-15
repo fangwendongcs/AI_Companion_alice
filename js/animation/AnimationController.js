@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { AnimationBlender, createAnimationLayers } from './AnimationBlender.js';
 import { AnimationFactory } from './AnimationFactory.js';
 import { AnimationQueue } from './AnimationQueue.js';
@@ -96,35 +97,33 @@ export class AnimationController {
       entries.map(async (entry) => {
         try {
           const path = entry.file || entry.path;
-          const clip = await this.loadFBXClip(path);
-          return { entry, clip };
+          const result = await this.loadFileClip(entry);
+          return { entry, path, ...result };
         } catch (error) {
           const path = entry.file || entry.path || 'unknown_path';
           log.error(`动画加载失败: ${entry.name || path}`, error);
           this.lastError = `motion_file_missing_or_failed:${entry.name || 'unknown'}:${path}`;
-          return { entry, clip: null };
+          return { entry, clip: null, path };
         }
       })
     );
 
-    clips.forEach(({ entry, clip }) => {
+    clips.forEach(({ entry, clip, path, needsRetarget, mode }) => {
       if (!clip) return;
-      const retargeted = this.retargeter.retargetClipToAvatar(
-        clip,
-        skeletonMap,
-        this.retargetAdapter
-      );
-      if (retargeted) {
+      const playableClip = needsRetarget
+        ? this.retargeter.retargetClipToAvatar(clip, skeletonMap, this.retargetAdapter)
+        : clip;
+      if (playableClip) {
         this.registry.register({
           mixer: this.mixer,
           avatar: this.avatar,
           name: entry.name,
-          clip: retargeted,
+          clip: playableClip,
           meta: {
             source: AnimationSource.FILE,
-            mode: entry.mode || 'retargeted',
-            path: entry.path || entry.file,
-            ...entry
+            ...entry,
+            mode: entry.mode || mode || (needsRetarget ? 'retargeted' : 'external'),
+            path: entry.path || entry.file || path
           }
         });
       } else {
@@ -133,12 +132,66 @@ export class AnimationController {
     });
   }
 
+  async loadFileClip(entry) {
+    const path = entry.file || entry.path;
+    const format = this.getMotionFormat(entry);
+    if (format === 'vrma') {
+      return {
+        clip: await this.loadVRMAClip(path),
+        needsRetarget: false,
+        mode: 'vrma'
+      };
+    }
+
+    if (!format || format === 'fbx') {
+      return {
+        clip: await this.loadFBXClip(path),
+        needsRetarget: true,
+        mode: 'retargeted'
+      };
+    }
+
+    throw new Error(`Unsupported motion format: ${format}`);
+  }
+
+  getMotionFormat(entry = {}) {
+    const configured = String(entry.format || '').trim().toLowerCase();
+    if (configured) return configured;
+    return String(entry.file || entry.path || '')
+      .split('?')[0]
+      .split('.')
+      .pop()
+      ?.toLowerCase() || '';
+  }
+
   async loadFBXClip(path) {
     const fbx = await this.staticAssetLoader.loadWith(this.fbxLoader, path, { kind: 'animation' });
     if (!fbx.animations || fbx.animations.length === 0) {
       throw new Error(`FBX has no animations: ${path}`);
     }
     return fbx.animations[0];
+  }
+
+  async loadVRMAClip(path) {
+    const vrm = this.avatar?.userData?.vrm;
+    if (!vrm) {
+      throw new Error('VRM runtime is required to create a VRMA AnimationClip.');
+    }
+
+    const { VRMAnimationLoaderPlugin, createVRMAnimationClip } = await import('@pixiv/three-vrm-animation');
+    const loader = new GLTFLoader();
+    loader.register((parser) => new VRMAnimationLoaderPlugin(parser));
+    const gltf = await this.staticAssetLoader.loadWith(loader, path, { kind: 'animation' });
+    const vrmAnimation = gltf.userData?.vrmAnimations?.[0] || null;
+    if (!vrmAnimation) {
+      throw new Error(`VRMA has no VRM animations: ${path}`);
+    }
+
+    const clip = createVRMAnimationClip(vrmAnimation, vrm);
+    if (!clip?.tracks?.length) {
+      throw new Error(`VRMA produced an empty AnimationClip: ${path}`);
+    }
+    return clip;
   }
 
   registerProceduralFallbacks(fallbacks) {

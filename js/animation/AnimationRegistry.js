@@ -48,6 +48,8 @@ export class AnimationRegistry {
       name,
       type: loop === AnimationLoop.REPEAT ? 'loop' : 'once',
       source,
+      mode: meta.mode || null,
+      format: meta.format || '',
       path: meta.path || meta.file || '',
       factory: meta.factory || null,
       loop,

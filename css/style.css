@@ -204,6 +204,31 @@ body {
   overflow-wrap: anywhere;
 }
 
+body.qa-motion .ui-layer {
+  padding: 16px;
+}
+
+body.qa-motion .bottom-hud,
+body.qa-motion .interaction-hint {
+  display: none;
+}
+
+body.qa-motion .top-hud {
+  opacity: 0.72;
+}
+
+body.qa-motion .debug-panel {
+  left: auto;
+  right: 16px;
+  bottom: 16px;
+  width: min(360px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+}
+
+body.qa-motion .debug-panel.collapsed {
+  width: auto;
+}
+
 .top-actions {
   display: flex;
   gap: 12px;
@@ -1003,6 +1028,14 @@ select.custom-input:hover {
     left: 12px;
     bottom: 84px;
     width: min(300px, calc(100vw - 24px));
+  }
+
+  body.qa-motion .debug-panel {
+    left: auto;
+    right: 12px;
+    bottom: 12px;
+    width: min(320px, calc(100vw - 24px));
+    max-height: calc(100vh - 24px);
   }
 
   .side-panel {

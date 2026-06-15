@@ -7,7 +7,7 @@ This note records the minimum contract before Alice adds external humanoid motio
 - `local_girl_vrm_test` is loaded through three-vrm and exposes humanoid, expression, lookAt, and springBone runtime features.
 - Body motion is still owned by `MotionManager` / `AnimationController`.
 - `VRMRenderer` reports renderer capabilities and runs `vrm.update(delta)`, but it does not choose motion resources.
-- The local girl VRM `motions.json` currently uses procedural fallbacks only.
+- The local girl VRM `motions.json` has one authorized test entry for the `wave` slot; other routine body motion still relies on procedural fallbacks unless explicitly configured.
 
 ## Recommended Motion Config Fields
 
@@ -42,29 +42,37 @@ Field guidance:
 
 ## Manual Test Motion Placement
 
-This repository does not currently include an authorized external `wave` motion file for `local_girl_vrm_test`.
+The local VRM validation setup uses a single external `wave` motion entry for `local_girl_vrm_test`.
 
-The local girl VRM config reserves one test slot at:
+The local girl VRM config points the test slot at:
 
 ```text
-assets/motions/vrm/test/wave.fbx
+assets/motions/vrm/test/VRMA_02Greeting.vrma
 ```
 
-Use this slot only with a motion file whose source and license are explicitly verified. If the file is absent, Alice must keep loading the avatar, report `motion.lastError`, and fall back to the procedural `wave` / `idle` behavior. A missing test file is configuration readiness, not proof that external motion has entered the mixer.
+Use this slot only with a motion file whose source and license are explicitly verified. If the file is absent or fails to load, Alice must keep loading the avatar, report `motion.lastError`, and fall back to the procedural `wave` / `idle` behavior. A missing or failed test file is configuration readiness, not proof that external motion has entered the mixer.
 
 Expected debug state after a valid authorized file is placed and the `wave` slot is triggered:
 
 - `motion.current=wave`
-- `motion.mode=retargeted`
+- `motion.mode=vrma`
 - `motion.source=file`
 - `motion.mixerActive=true`
+
+Use this debug URL when visually checking body shape, feet, hips, shoulders, hair, and clothing deformation:
+
+```text
+http://localhost:3001?debug=1&avatar=local_girl_vrm_test&motion=wave&qa=motion
+```
+
+`qa=motion` is a debug-only layout mode. It hides the bottom input dock and interaction hint so the full body stays visible during motion QA. It does not change the animation pipeline.
 
 Expected debug state while the file is absent:
 
 - `motion.current=idle`
 - `motion.mode=procedural`
 - `motion.source=procedural`
-- `motion.lastError=motion_file_missing_or_failed:wave:assets/motions/vrm/test/wave.fbx`
+- `motion.lastError=motion_file_missing_or_failed:wave:assets/motions/vrm/test/VRMA_02Greeting.vrma`
 
 ## Retarget Risks
 
@@ -78,6 +86,7 @@ Check these risks before enabling any motion broadly:
 - Feet can slide when source stride and VRM leg length do not match.
 - Neck and head tracks can fight lookAt if both write the same bones.
 - Procedural base fallback should not remain active on the same layer when a retargeted base action is active.
+- Hair and clothing can keep stretching after a large gesture when spring bones settle slowly. Treat `vrm.springBoneReset=true` as a capability signal for a later A/B test, not as proof that secondary motion quality is solved.
 
 ## Readiness Signal
 
@@ -90,5 +99,7 @@ The Debug Panel should expose:
 - `motion.retargetReady`
 - `motion.proceduralActive`
 - `motion.lastError`
+- `qa.mode`
+- `vrm.springBoneReset`
 
 For the girl VRM, `motion.retargetReady=true` only means the required humanoid bones are available. It does not mean an arbitrary FBX will look natural without rotation correction and visual QA.

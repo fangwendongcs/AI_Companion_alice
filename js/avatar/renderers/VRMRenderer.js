@@ -52,6 +52,7 @@ export class VRMRenderer extends DefaultAvatarRenderer {
     this.mouthGroups = [];
     this.lookAtTarget = null;
     this.lastMotionId = null;
+    this.lastSpringBoneResetAt = null;
     this.expressionController = new ExpressionController({ executor: this });
     this.lipSyncController = new LipSyncController({ executor: this });
   }
@@ -103,6 +104,8 @@ export class VRMRenderer extends DefaultAvatarRenderer {
       hasExpressionManager: Boolean(this.vrm?.expressionManager),
       hasLookAt: Boolean(this.vrm?.lookAt),
       hasSpringBoneManager: Boolean(this.vrm?.springBoneManager),
+      hasSpringBoneReset: typeof this.vrm?.springBoneManager?.reset === 'function',
+      lastSpringBoneResetAt: this.lastSpringBoneResetAt,
       retargetReady: retargetReadiness.ready,
       retargetMissingBones: retargetReadiness.missing,
       humanoidBones: retargetReadiness.bones,
@@ -122,6 +125,7 @@ export class VRMRenderer extends DefaultAvatarRenderer {
     this.mouthGroups = [];
     this.lookAtTarget = null;
     this.lastMotionId = null;
+    this.lastSpringBoneResetAt = null;
     this.detectedExpressions.clear();
     super.destroy();
   }
@@ -238,6 +242,26 @@ export class VRMRenderer extends DefaultAvatarRenderer {
       applied: false,
       reason: 'motion_manager_owns_body_motion',
       motionId: this.lastMotionId
+    };
+  }
+
+  resetSecondaryMotion(reason = 'manual') {
+    const reset = this.vrm?.springBoneManager?.reset;
+    if (typeof reset !== 'function') {
+      return {
+        ok: false,
+        applied: false,
+        reason: 'spring_bone_reset_unavailable'
+      };
+    }
+
+    reset.call(this.vrm.springBoneManager);
+    this.lastSpringBoneResetAt = Date.now();
+    return {
+      ok: true,
+      applied: true,
+      reason,
+      at: this.lastSpringBoneResetAt
     };
   }
 
