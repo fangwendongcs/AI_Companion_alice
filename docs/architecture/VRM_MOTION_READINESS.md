@@ -67,6 +67,28 @@ http://localhost:3001?debug=1&avatar=local_girl_vrm_test&motion=wave&qa=motion
 
 `qa=motion` is a debug-only layout mode. It hides the bottom input dock and interaction hint so the full body stays visible during motion QA. It does not change the animation pipeline.
 
+To A/B test the observed hair / clothing stretch after the VRMA gesture, enable the debug-only secondary motion reset:
+
+```text
+http://localhost:3001?debug=1&avatar=local_girl_vrm_test&motion=wave&qa=motion&springReset=gestureEnd
+```
+
+`springReset=gestureEnd` only applies with `qa=motion`. It triggers one `VRMRenderer.resetSecondaryMotion()` call after a `vrma` gesture action completes. Use `qa.springReset` and `vrm.springBoneResetAt` in the Debug Panel to confirm whether the reset path ran. This is a controlled QA experiment, not a default animation policy.
+
+`VRMA_02Greeting.vrma` contains full-body tracks, including hips, spine/chest, neck/head, arms, and legs. When using it as the `wave` gesture slot, the local girl VRM config filters the clip down to right upper-limb tracks only:
+
+```json
+"trackFilter": {
+  "mode": "include",
+  "groups": ["upperLimb", "fingers"],
+  "sides": ["right"]
+}
+```
+
+This keeps the test wave from driving head/chest/hips/legs and reduces secondary-motion distortion around hair and clothing. Debug should show `motion.tracks` as `filtered/original`, for example `19/53`.
+
+Because this is a masked gesture, the `wave` config keeps `baseWeightWhileActive=1`. The procedural idle layer must continue holding the non-wave body parts; otherwise untouched limbs can fall back toward the VRM default T-pose.
+
 Expected debug state while the file is absent:
 
 - `motion.current=idle`
@@ -87,6 +109,8 @@ Check these risks before enabling any motion broadly:
 - Neck and head tracks can fight lookAt if both write the same bones.
 - Procedural base fallback should not remain active on the same layer when a retargeted base action is active.
 - Hair and clothing can keep stretching after a large gesture when spring bones settle slowly. Treat `vrm.springBoneReset=true` as a capability signal for a later A/B test, not as proof that secondary motion quality is solved.
+- Full-body VRMA files should not be played directly as small gesture slots unless they are masked or filtered. Otherwise head/chest/hips/legs tracks can fight idle posture, lookAt, and spring-bone roots.
+- VRM procedural fallback should target normalized humanoid bones when three-vrm is available. Mixing raw-bone procedural clips with normalized VRMA clips can make untouched limbs or secondary-motion roots drift toward the default pose.
 
 ## Readiness Signal
 
@@ -96,10 +120,14 @@ The Debug Panel should expose:
 - `motion.mode`
 - `motion.source`
 - `motion.mixerActive`
+- `motion.mixerRoot`
+- `motion.tracks`
 - `motion.retargetReady`
 - `motion.proceduralActive`
 - `motion.lastError`
 - `qa.mode`
+- `qa.springReset`
 - `vrm.springBoneReset`
+- `vrm.springBoneResetAt`
 
 For the girl VRM, `motion.retargetReady=true` only means the required humanoid bones are available. It does not mean an arbitrary FBX will look natural without rotation correction and visual QA.

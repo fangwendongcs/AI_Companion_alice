@@ -57,6 +57,7 @@ export class AppController {
     this.lastMotionDebugSyncAt = 0;
     this.lastMotionDebugSignature = '';
     this.qaMode = this.getRequestedQAMode();
+    this.springResetMode = this.getRequestedSpringResetMode();
     this.destroyed = false;
 
     this.stateStore = new CompanionStateStore(this.createInitialState(), this.eventBus);
@@ -87,6 +88,7 @@ export class AppController {
         isReady: false,
         mode: APP_MODE,
         qaMode: this.qaMode || null,
+        springResetMode: this.springResetMode || null,
         error: null
       },
       avatar: {
@@ -229,11 +231,17 @@ export class AppController {
       this.eventBus.emit(EVENT_NAMES.ANIMATION_ACTION_START, request);
     };
     this.motionManager.onActionComplete = (request) => {
-      this.patchState({
+      const completionPatch = {
         isAnimating: false,
         currentAnimation: null
-      }, 'animation:action:complete');
+      };
+      const secondaryReset = this.applyDebugSecondaryMotionReset(request);
+      if (secondaryReset) {
+        completionPatch.avatarCapabilities = this.characterManager.getAvatarCapabilities();
+      }
+      this.patchState(completionPatch, 'animation:action:complete');
       this.eventBus.emit(EVENT_NAMES.ANIMATION_ACTION_COMPLETE, request);
+      if (secondaryReset) this.syncMotionDebugState({ force: true });
       this.scheduleInteractionStateSettle();
     };
 
@@ -413,6 +421,18 @@ export class AppController {
     }
   }
 
+  getRequestedSpringResetMode() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const debugEnabled = params.get('debug') === '1' || params.get('localVrm') === '1';
+      const springResetMode = String(params.get('springReset') || '').trim().toLowerCase();
+      if (!debugEnabled || this.qaMode !== 'motion' || springResetMode !== 'gestureend') return '';
+      return 'gestureEnd';
+    } catch {
+      return '';
+    }
+  }
+
   applyRequestedQAMode() {
     if (!this.qaMode) return;
     this.documentRef.body?.classList.add(`qa-${this.qaMode}`);
@@ -430,6 +450,16 @@ export class AppController {
     });
     if (!accepted) this.log.debug('Debug motion request was not accepted:', motionId);
     this.syncMotionDebugState({ force: true });
+  }
+
+  applyDebugSecondaryMotionReset(request = {}) {
+    if (this.springResetMode !== 'gestureEnd') return null;
+    if (request?.layer !== 'gesture') return null;
+    if (request?.meta?.mode !== 'vrma') return null;
+
+    const result = this.characterManager.resetAvatarSecondaryMotion('debug-gesture-end');
+    if (!result.ok) this.log.debug('Debug secondary motion reset was not applied:', result.reason);
+    return result;
   }
 
   patchState(patch, source = 'app') {
@@ -569,6 +599,9 @@ export class AppController {
       mode: motion.mode || 'none',
       source: motion.source || 'none',
       mixerActive: Boolean(motion.mixerActive),
+      mixerRoot: motion.mixerRoot || '',
+      trackCount: motion.trackCount ?? null,
+      originalTrackCount: motion.originalTrackCount ?? null,
       retargetReady: Boolean(capabilities.retargetReady),
       proceduralActive: Boolean(motion.proceduralActive),
       lastError: motion.lastError || '',

@@ -58,6 +58,7 @@ async function checkRendererModules() {
   const characterManager = await readText('js/avatar/CharacterManager.js');
   const avatarLoader = await readText('js/avatar/AvatarLoader.js');
   const animationController = await readText('js/animation/AnimationController.js');
+  const animationRegistry = await readText('js/animation/AnimationRegistry.js');
   const appController = await readText('js/app/AppController.js');
   const indexHtml = await readText('index.html');
   const styles = await readText('css/style.css');
@@ -77,6 +78,9 @@ async function checkRendererModules() {
   assert(appController.includes('getRequestedMotionId') && appController.includes("params.get('motion')"), 'AppController 应支持 debug-only motion query 触发。');
   assert(appController.includes('transitionState: false'), 'debug motion query 不应被业务状态机切换阻塞。');
   assert(appController.includes('getRequestedQAMode') && appController.includes("qaMode !== 'motion'"), 'AppController 应支持 debug-only qa=motion 视觉验收模式。');
+  assert(appController.includes('getRequestedSpringResetMode') && appController.includes("springResetMode !== 'gestureend'"), 'AppController 应支持 debug-only springReset=gestureEnd A/B 验证模式。');
+  assert(appController.includes('applyDebugSecondaryMotionReset') && appController.includes("request?.meta?.mode !== 'vrma'"), 'secondary motion reset 只能在 debug VRMA gesture 完成后触发。');
+  assert(characterManager.includes('resetAvatarSecondaryMotion'), 'CharacterManager 应代理 renderer secondary motion reset，避免 AppController 直接依赖具体 renderer。');
   assert(styles.includes('body.qa-motion .bottom-hud') && styles.includes('body.qa-motion .debug-panel'), 'qa=motion 应隐藏底部输入遮挡并调整 Debug 面板位置。');
   assert(indexHtml.includes('@pixiv/three-vrm-animation'), 'index.html import map 应声明 @pixiv/three-vrm-animation。');
   assert(avatarLoader.includes('VRMLoaderPlugin'), 'AvatarLoader 应使用 three-vrm VRMLoaderPlugin 加载 VRM。');
@@ -84,6 +88,10 @@ async function checkRendererModules() {
   assert(animationController.includes('VRMAnimationLoaderPlugin'), 'AnimationController 应使用 VRMAnimationLoaderPlugin 加载 VRMA。');
   assert(animationController.includes('createVRMAnimationClip'), 'AnimationController 应把 VRMA 转换为 AnimationClip。');
   assert(animationController.includes('loadVRMAClip'), 'AnimationController 应提供 VRMA clip 加载入口。');
+  assert(animationController.includes('this.avatar?.userData?.vrm ? this.avatar : this.skinnedMesh'), 'VRM AnimationMixer root 应使用 avatar root，避免绑定到某个 SkinnedMesh。');
+  assert(animationController.includes('applyTrackFilter') && animationController.includes('trackMatchesGroup'), 'AnimationController 应支持按配置过滤 VRMA gesture tracks。');
+  assert(animationController.includes('PROCEDURAL_TO_VRM_HUMANOID') && animationController.includes('resolveProceduralBone'), 'VRM procedural fallback 应优先写 normalized humanoid bones。');
+  assert(animationRegistry.includes('trackCount') && animationRegistry.includes('originalTrackCount'), 'AnimationRegistry 应保留 track filter 统计供 Debug 验证。');
   assert(orchestrator.includes('class PresentationOrchestrator'), '应存在 PresentationOrchestrator 表现编排骨架。');
   assert(orchestrator.includes('createNoopController'), 'PresentationOrchestrator 应预留后续 controller safe no-op 接口。');
   assert(orchestrator.includes('MotionController'), 'PresentationOrchestrator 应委托 MotionController 处理动作表现。');
@@ -366,6 +374,10 @@ async function checkLocalGirlWaveMotionConfig() {
   assert(wave.path === 'assets/motions/vrm/test/VRMA_02Greeting.vrma', 'wave 测试动作应使用人工放置的授权 VRMA 测试路径。');
   assert(wave.layer === 'gesture', 'wave 测试动作应运行在 gesture layer。');
   assert(wave.fallback === 'procedural', 'wave 测试动作缺文件时应回退 procedural。');
+  assert(wave.trackFilter?.mode === 'include', 'wave VRMA gesture 应配置 include trackFilter，避免全身轨道覆盖头胸髋腿。');
+  assert(wave.trackFilter?.groups?.includes('upperLimb'), 'wave trackFilter 应保留上肢轨道。');
+  assert(wave.trackFilter?.sides?.includes('right'), 'wave trackFilter 应限制为右侧 wave 验证。');
+  assert(wave.baseWeightWhileActive === 1, 'masked wave gesture 应保持 base idle 权重，避免未参与骨骼回到 T-pose。');
   assert(motions.proceduralFallbacks?.wave === true, 'wave 缺外部文件时应保留 procedural fallback。');
 }
 

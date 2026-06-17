@@ -11,8 +11,19 @@
       "loop": "once",
       "fadeIn": 0.25,
       "fadeOut": 0.35,
+      "baseWeightWhileActive": 1,
       "layer": "gesture",
       "fallback": "procedural",
+      "trackFilter": {
+        "mode": "include",
+        "groups": [
+          "upperLimb",
+          "fingers"
+        ],
+        "sides": [
+          "right"
+        ]
+      },
       "tags": [
         "test",
         "wave",

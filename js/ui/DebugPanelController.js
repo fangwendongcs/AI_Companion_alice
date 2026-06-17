@@ -26,6 +26,7 @@ const DISPLAY_ROWS = [
   ['app.ready', 'appReady'],
   ['app.mode', 'appMode'],
   ['qa.mode', 'qaMode'],
+  ['qa.springReset', 'qaSpringReset'],
   ['currentAvatarId', 'currentAvatarId'],
   ['avatar.loading', 'avatarLoading'],
   ['avatar.loaded', 'avatarLoaded'],
@@ -35,6 +36,7 @@ const DISPLAY_ROWS = [
   ['vrm.lookAt', 'vrmLookAt'],
   ['vrm.springBone', 'vrmSpringBone'],
   ['vrm.springBoneReset', 'vrmSpringBoneReset'],
+  ['vrm.springBoneResetAt', 'vrmSpringBoneResetAt'],
   ['currentState', 'currentState'],
   ['animation.state', 'animationState'],
   ['currentAnimation', 'currentAnimation'],
@@ -54,6 +56,8 @@ const DISPLAY_ROWS = [
   ['motion.mode', 'motionMode'],
   ['motion.source', 'motionSource'],
   ['motion.mixerActive', 'motionMixerActive'],
+  ['motion.mixerRoot', 'motionMixerRoot'],
+  ['motion.tracks', 'motionTracks'],
   ['motion.retargetReady', 'motionRetargetReady'],
   ['motion.proceduralActive', 'motionProceduralActive'],
   ['motion.lastError', 'motionLastError'],
@@ -163,6 +167,7 @@ export class DebugPanelController {
       appReady: state.app?.isReady ?? false,
       appMode: state.app?.mode || APP_MODE,
       qaMode: state.app?.qaMode || '-',
+      qaSpringReset: state.app?.springResetMode || '-',
       currentAvatarId: state.avatar?.currentAvatarId || state.currentAvatarId || '-',
       avatarLoading: state.avatar?.loading ?? false,
       avatarLoaded: state.avatar?.loaded ?? state.modelLoaded ?? false,
@@ -172,6 +177,7 @@ export class DebugPanelController {
       vrmLookAt: avatarCapabilities.hasLookAt ?? vrmRuntime.hasLookAt ?? false,
       vrmSpringBone: avatarCapabilities.hasSpringBoneManager ?? vrmRuntime.hasSpringBoneManager ?? false,
       vrmSpringBoneReset: avatarCapabilities.hasSpringBoneReset ?? false,
+      vrmSpringBoneResetAt: this.formatTimestamp(avatarCapabilities.lastSpringBoneResetAt),
       currentState: state.currentState || '-',
       animationState: state.animation?.state || state.animationState || '-',
       currentAnimation: state.animation?.currentAnimation || state.currentAnimation || '-',
@@ -191,6 +197,8 @@ export class DebugPanelController {
       motionMode: state.motion?.mode || '-',
       motionSource: state.motion?.source || '-',
       motionMixerActive: state.motion?.mixerActive ?? false,
+      motionMixerRoot: state.motion?.mixerRoot || '-',
+      motionTracks: this.formatMotionTracks(state.motion),
       motionRetargetReady: state.motion?.retargetReady ?? false,
       motionProceduralActive: state.motion?.proceduralActive ?? false,
       motionLastError: this.formatMotionError(state.motion),
@@ -251,6 +259,16 @@ export class DebugPanelController {
     const missing = motion?.retargetMissingBones || [];
     if (missing.length) return `missing:${this.truncate(missing.join(','), 28)}`;
     return '-';
+  }
+
+  formatMotionTracks(motion = {}) {
+    const trackCount = motion?.trackCount;
+    const originalTrackCount = motion?.originalTrackCount;
+    if (trackCount === null || trackCount === undefined) return '-';
+    if (originalTrackCount === null || originalTrackCount === undefined || originalTrackCount === trackCount) {
+      return String(trackCount);
+    }
+    return `${trackCount}/${originalTrackCount}`;
   }
 
   getErrorMessage(error) {

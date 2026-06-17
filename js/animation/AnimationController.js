@@ -16,6 +16,29 @@ export { AvatarState };
 
 const log = createLogger('AnimationController');
 
+const PROCEDURAL_TO_VRM_HUMANOID = {
+  mixamorigHips: 'hips',
+  mixamorigSpine: 'spine',
+  mixamorigSpine1: 'chest',
+  mixamorigSpine2: 'upperChest',
+  mixamorigNeck: 'neck',
+  mixamorigHead: 'head',
+  mixamorigLeftShoulder: 'leftShoulder',
+  mixamorigLeftArm: 'leftUpperArm',
+  mixamorigLeftForeArm: 'leftLowerArm',
+  mixamorigLeftHand: 'leftHand',
+  mixamorigRightShoulder: 'rightShoulder',
+  mixamorigRightArm: 'rightUpperArm',
+  mixamorigRightForeArm: 'rightLowerArm',
+  mixamorigRightHand: 'rightHand',
+  mixamorigLeftUpLeg: 'leftUpperLeg',
+  mixamorigLeftLeg: 'leftLowerLeg',
+  mixamorigLeftFoot: 'leftFoot',
+  mixamorigRightUpLeg: 'rightUpperLeg',
+  mixamorigRightLeg: 'rightLowerLeg',
+  mixamorigRightFoot: 'rightFoot'
+};
+
 export class AnimationController {
   constructor() {
     this.fbxLoader = new FBXLoader();
@@ -36,7 +59,7 @@ export class AnimationController {
     this.retargetAdapter = retargetAdapter;
     this.retargeter.setAvatar(avatar);
     this.factory = new AnimationFactory({
-      resolveBone: (name) => this.retargeter.findBoneByNameOrCandidates(name)
+      resolveBone: (name) => this.resolveProceduralBone(name)
     });
 
     this.initMixer();
@@ -50,6 +73,7 @@ export class AnimationController {
   initRuntimeState() {
     this.avatar = null;
     this.skinnedMesh = null;
+    this.mixerRoot = null;
     this.mixer = null;
     this.registry = new AnimationRegistry();
     this.stateMachine = new AnimationStateMachine();
@@ -67,7 +91,8 @@ export class AnimationController {
     if (this.mixer) {
       this.mixer.removeEventListener('finished', this.handleMixerFinished);
       this.stopAll();
-      if (this.avatar) this.mixer.uncacheRoot(this.avatar);
+      if (this.mixerRoot) this.mixer.uncacheRoot(this.mixerRoot);
+      else if (this.avatar) this.mixer.uncacheRoot(this.avatar);
     }
     this.initRuntimeState();
   }
@@ -88,8 +113,23 @@ export class AnimationController {
     });
     if (!this.skinnedMesh) return;
 
-    this.mixer = new THREE.AnimationMixer(this.skinnedMesh);
+    this.mixerRoot = this.avatar?.userData?.vrm ? this.avatar : this.skinnedMesh;
+    this.mixer = new THREE.AnimationMixer(this.mixerRoot);
     this.mixer.addEventListener('finished', this.handleMixerFinished);
+  }
+
+  resolveProceduralBone(name) {
+    const humanoidName = PROCEDURAL_TO_VRM_HUMANOID[name];
+    const humanoid = this.avatar?.userData?.vrm?.humanoid;
+    if (humanoidName && humanoid) {
+      try {
+        const normalized = humanoid.getNormalizedBoneNode?.(humanoidName);
+        if (normalized) return normalized;
+      } catch {
+        // Fall through to the legacy resolver.
+      }
+    }
+    return this.retargeter.findBoneByNameOrCandidates(name);
   }
 
   async registerFileActions(entries, skeletonMap) {
@@ -113,17 +153,20 @@ export class AnimationController {
       const playableClip = needsRetarget
         ? this.retargeter.retargetClipToAvatar(clip, skeletonMap, this.retargetAdapter)
         : clip;
-      if (playableClip) {
+      const filteredClip = playableClip ? this.applyTrackFilter(playableClip, entry) : null;
+      if (filteredClip) {
         this.registry.register({
           mixer: this.mixer,
           avatar: this.avatar,
           name: entry.name,
-          clip: playableClip,
+          clip: filteredClip,
           meta: {
             source: AnimationSource.FILE,
             ...entry,
             mode: entry.mode || mode || (needsRetarget ? 'retargeted' : 'external'),
-            path: entry.path || entry.file || path
+            path: entry.path || entry.file || path,
+            trackCount: filteredClip.tracks?.length || 0,
+            originalTrackCount: playableClip.tracks?.length || 0
           }
         });
       } else {
@@ -192,6 +235,65 @@ export class AnimationController {
       throw new Error(`VRMA produced an empty AnimationClip: ${path}`);
     }
     return clip;
+  }
+
+  applyTrackFilter(clip, entry = {}) {
+    const filter = entry.trackFilter || entry.mask || null;
+    if (!filter || filter.enabled === false) return clip;
+
+    const mode = String(filter.mode || 'include').toLowerCase();
+    const tracks = clip.tracks.filter((track) => {
+      const matched = this.matchesTrackFilter(track.name, filter);
+      return mode === 'exclude' ? !matched : matched;
+    });
+
+    if (!tracks.length) {
+      this.lastError = `motion_track_filter_empty:${entry.name || entry.id || entry.path || 'unknown'}`;
+      return null;
+    }
+
+    return new THREE.AnimationClip(clip.name, clip.duration, tracks.map((track) => track.clone()));
+  }
+
+  matchesTrackFilter(trackName = '', filter = {}) {
+    const groups = filter.groups || filter.includeGroups || [];
+    const sides = filter.sides || filter.includeSides || [];
+    const patterns = filter.patterns || filter.includePatterns || [];
+
+    const groupMatched = groups.length
+      ? groups.some((group) => this.trackMatchesGroup(trackName, group))
+      : true;
+    const sideMatched = sides.length
+      ? sides.some((side) => this.trackMatchesSide(trackName, side))
+      : true;
+    const patternMatched = patterns.length
+      ? patterns.some((pattern) => new RegExp(pattern, 'i').test(trackName))
+      : true;
+
+    return groupMatched && sideMatched && patternMatched;
+  }
+
+  trackMatchesGroup(trackName, group) {
+    const normalized = String(group || '').toLowerCase();
+    const patterns = {
+      upperlimb: /shoulder|upperarm|lowerarm|forearm|arm|hand|thumb|index|middle|ring|little/i,
+      arms: /shoulder|upperarm|lowerarm|forearm|arm/i,
+      hands: /hand|thumb|index|middle|ring|little/i,
+      fingers: /thumb|index|middle|ring|little/i,
+      torso: /spine|chest|upperchest/i,
+      head: /neck|head/i,
+      legs: /upperleg|lowerleg|foot|toe|leg/i,
+      hips: /hips/i
+    };
+    return (patterns[normalized] || new RegExp(normalized, 'i')).test(trackName);
+  }
+
+  trackMatchesSide(trackName, side) {
+    const normalized = String(side || '').toLowerCase();
+    if (normalized === 'left') return /(^|[_:.\-])l([_:.\-]|$)|left/i.test(trackName);
+    if (normalized === 'right') return /(^|[_:.\-])r([_:.\-]|$)|right/i.test(trackName);
+    if (normalized === 'center') return !this.trackMatchesSide(trackName, 'left') && !this.trackMatchesSide(trackName, 'right');
+    return new RegExp(normalized, 'i').test(trackName);
   }
 
   registerProceduralFallbacks(fallbacks) {
@@ -458,6 +560,9 @@ export class AnimationController {
       mode: this.resolveMotionMode(meta),
       source: meta?.source || 'none',
       mixerActive: Boolean(this.mixer),
+      mixerRoot: this.mixerRoot?.name || 'avatar-root',
+      trackCount: meta?.trackCount ?? null,
+      originalTrackCount: meta?.originalTrackCount ?? null,
       proceduralActive: primary?.active?.meta?.source === AnimationSource.PROCEDURAL,
       activeLayers: activeLayers.map(({ layerName, active }) => ({
         layer: layerName,

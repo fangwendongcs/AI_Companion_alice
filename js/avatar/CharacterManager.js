@@ -179,6 +179,13 @@ export class CharacterManager {
     return this.renderer?.getCapabilities?.() || this.current?.meta?.capabilities || {};
   }
 
+  resetAvatarSecondaryMotion(reason = 'manual') {
+    if (!this.renderer?.resetSecondaryMotion) {
+      return { ok: false, applied: false, reason: 'secondary_motion_reset_unavailable' };
+    }
+    return this.renderer.resetSecondaryMotion(reason);
+  }
+
   normalizeMeta(meta, registryEntry = null) {
     const id = meta.id || registryEntry?.id;
     const motionManifest = meta.motionManifest || meta.animations?.manifest || meta.actionManifest;
