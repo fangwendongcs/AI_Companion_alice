@@ -596,6 +596,7 @@ export class AppController {
       || {};
     const nextMotion = {
       current: motion.current || null,
+      layer: motion.layer || '',
       mode: motion.mode || 'none',
       source: motion.source || 'none',
       mixerActive: Boolean(motion.mixerActive),

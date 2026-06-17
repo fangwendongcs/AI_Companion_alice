@@ -11,22 +11,13 @@
       "loop": "once",
       "fadeIn": 0.25,
       "fadeOut": 0.35,
-      "baseWeightWhileActive": 1,
-      "layer": "gesture",
+      "baseWeightWhileActive": 0,
+      "layer": "fullBody",
       "fallback": "procedural",
-      "trackFilter": {
-        "mode": "include",
-        "groups": [
-          "upperLimb",
-          "fingers"
-        ],
-        "sides": [
-          "right"
-        ]
-      },
       "tags": [
         "test",
         "wave",
+        "full-body",
         "manual-placement"
       ]
     }

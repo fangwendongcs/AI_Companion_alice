@@ -59,6 +59,7 @@ async function checkRendererModules() {
   const avatarLoader = await readText('js/avatar/AvatarLoader.js');
   const animationController = await readText('js/animation/AnimationController.js');
   const animationRegistry = await readText('js/animation/AnimationRegistry.js');
+  const motionManager = await readText('js/animation/MotionManager.js');
   const appController = await readText('js/app/AppController.js');
   const indexHtml = await readText('index.html');
   const styles = await readText('css/style.css');
@@ -91,7 +92,9 @@ async function checkRendererModules() {
   assert(animationController.includes('this.avatar?.userData?.vrm ? this.avatar : this.skinnedMesh'), 'VRM AnimationMixer root 应使用 avatar root，避免绑定到某个 SkinnedMesh。');
   assert(animationController.includes('applyTrackFilter') && animationController.includes('trackMatchesGroup'), 'AnimationController 应支持按配置过滤 VRMA gesture tracks。');
   assert(animationController.includes('PROCEDURAL_TO_VRM_HUMANOID') && animationController.includes('resolveProceduralBone'), 'VRM procedural fallback 应优先写 normalized humanoid bones。');
+  assert(animationController.includes("request.layer === 'fullBody'"), 'AnimationController 应支持 fullBody one-shot 动作层。');
   assert(animationRegistry.includes('trackCount') && animationRegistry.includes('originalTrackCount'), 'AnimationRegistry 应保留 track filter 统计供 Debug 验证。');
+  assert(motionManager.includes('const { layer: _defaultLayer') && motionManager.includes('delete request.layer'), 'MotionManager 不应让 slot 默认 layer 覆盖 motions.json 的原始动作 layer。');
   assert(orchestrator.includes('class PresentationOrchestrator'), '应存在 PresentationOrchestrator 表现编排骨架。');
   assert(orchestrator.includes('createNoopController'), 'PresentationOrchestrator 应预留后续 controller safe no-op 接口。');
   assert(orchestrator.includes('MotionController'), 'PresentationOrchestrator 应委托 MotionController 处理动作表现。');
@@ -372,12 +375,10 @@ async function checkLocalGirlWaveMotionConfig() {
   assert(wave.source === 'file', 'wave 测试动作应声明 source=file。');
   assert(wave.format === 'vrma', 'wave 测试动作应声明 format=vrma。');
   assert(wave.path === 'assets/motions/vrm/test/VRMA_02Greeting.vrma', 'wave 测试动作应使用人工放置的授权 VRMA 测试路径。');
-  assert(wave.layer === 'gesture', 'wave 测试动作应运行在 gesture layer。');
+  assert(wave.layer === 'fullBody', '原始 VRMA greeting 应运行在 fullBody layer，而不是 gesture overlay。');
   assert(wave.fallback === 'procedural', 'wave 测试动作缺文件时应回退 procedural。');
-  assert(wave.trackFilter?.mode === 'include', 'wave VRMA gesture 应配置 include trackFilter，避免全身轨道覆盖头胸髋腿。');
-  assert(wave.trackFilter?.groups?.includes('upperLimb'), 'wave trackFilter 应保留上肢轨道。');
-  assert(wave.trackFilter?.sides?.includes('right'), 'wave trackFilter 应限制为右侧 wave 验证。');
-  assert(wave.baseWeightWhileActive === 1, 'masked wave gesture 应保持 base idle 权重，避免未参与骨骼回到 T-pose。');
+  assert(!wave.trackFilter, '原始 VRMA greeting 不应被 trackFilter 截成局部动作。');
+  assert(wave.baseWeightWhileActive === 0, 'fullBody VRMA 播放时应让 procedural base idle 让出权重。');
   assert(motions.proceduralFallbacks?.wave === true, 'wave 缺外部文件时应保留 procedural fallback。');
 }
 

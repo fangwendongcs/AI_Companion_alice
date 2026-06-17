@@ -80,6 +80,7 @@ async function checkDebugPanelAffectFields() {
     'voice.style',
     'motion.slot',
     'motion.current',
+    'motion.layer',
     'motion.mode',
     'motion.source',
     'motion.mixerActive',

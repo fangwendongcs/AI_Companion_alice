@@ -88,12 +88,17 @@ export class MotionManager {
   }
 
   requestSlot(slot, options = {}) {
-    return this.controller.requestAction(slot, {
+    const defaults = this.slotRegistry.getDefaults(slot) || {};
+    const { layer: _defaultLayer, ...requestDefaults } = defaults;
+    const request = {
       state: this.getStateForSlot(slot),
-      ...this.slotRegistry.getDefaults(slot),
+      ...requestDefaults,
       replacePending: options.replacePending ?? this.slotRegistry.isGestureSlot(slot),
       ...options
-    });
+    };
+
+    if (!options.layer) delete request.layer;
+    return this.controller.requestAction(slot, request);
   }
 
   getStateForSlot(slot) {

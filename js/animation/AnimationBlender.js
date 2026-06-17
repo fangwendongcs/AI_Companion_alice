@@ -8,6 +8,7 @@ export const loopModes = {
 export function createAnimationLayers() {
   return {
     base: { active: null, weight: 1 },
+    fullBody: { active: null, weight: 1 },
     gesture: { active: null, weight: 1 },
     expression: { active: null, weight: 1 },
     lipsync: { active: null, weight: 1 }

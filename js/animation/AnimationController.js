@@ -448,7 +448,7 @@ export class AnimationController {
     if (!played) return false;
 
     this.activeRequests.set(action, request);
-    if (request.layer === 'gesture') {
+    if (request.layer === 'gesture' || request.layer === 'fullBody') {
       this.setLayerWeight('base', meta.baseWeightWhileActive, meta.fadeIn);
     }
 
@@ -492,7 +492,7 @@ export class AnimationController {
       layer.active = null;
     }
 
-    if (request.layer === 'gesture') {
+    if (request.layer === 'gesture' || request.layer === 'fullBody') {
       this.setLayerWeight('base', 1, meta?.fadeOut ?? 0.2);
     }
 
@@ -549,7 +549,8 @@ export class AnimationController {
     const activeLayers = Object.entries(this.layers)
       .map(([layerName, layer]) => ({ layerName, active: layer.active }))
       .filter(({ active }) => Boolean(active?.action));
-    const primary = activeLayers.find(({ layerName }) => layerName === 'gesture')
+    const primary = activeLayers.find(({ layerName }) => layerName === 'fullBody')
+      || activeLayers.find(({ layerName }) => layerName === 'gesture')
       || activeLayers.find(({ layerName }) => layerName === 'base')
       || activeLayers[0]
       || null;
@@ -557,6 +558,7 @@ export class AnimationController {
 
     return {
       current: primary?.active?.name || null,
+      layer: primary?.layerName || null,
       mode: this.resolveMotionMode(meta),
       source: meta?.source || 'none',
       mixerActive: Boolean(this.mixer),
