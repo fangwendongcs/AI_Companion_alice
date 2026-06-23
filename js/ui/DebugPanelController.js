@@ -35,6 +35,7 @@ const DISPLAY_ROWS = [
   ['vrm.expressionManager', 'vrmExpressionManager'],
   ['vrm.lookAt', 'vrmLookAt'],
   ['vrm.springBone', 'vrmSpringBone'],
+  ['vrm.secondaryMotion', 'vrmSecondaryMotion'],
   ['vrm.springBoneReset', 'vrmSpringBoneReset'],
   ['vrm.springBoneResetAt', 'vrmSpringBoneResetAt'],
   ['currentState', 'currentState'],
@@ -59,6 +60,7 @@ const DISPLAY_ROWS = [
   ['motion.mixerActive', 'motionMixerActive'],
   ['motion.mixerRoot', 'motionMixerRoot'],
   ['motion.tracks', 'motionTracks'],
+  ['motion.actions', 'motionActions'],
   ['motion.retargetReady', 'motionRetargetReady'],
   ['motion.proceduralActive', 'motionProceduralActive'],
   ['motion.lastError', 'motionLastError'],
@@ -177,6 +179,7 @@ export class DebugPanelController {
       vrmExpressionManager: avatarCapabilities.hasExpressionManager ?? vrmRuntime.hasExpressionManager ?? false,
       vrmLookAt: avatarCapabilities.hasLookAt ?? vrmRuntime.hasLookAt ?? false,
       vrmSpringBone: avatarCapabilities.hasSpringBoneManager ?? vrmRuntime.hasSpringBoneManager ?? false,
+      vrmSecondaryMotion: state.motion?.secondaryMotionEnabled ?? avatarCapabilities.secondaryMotionEnabled ?? true,
       vrmSpringBoneReset: avatarCapabilities.hasSpringBoneReset ?? false,
       vrmSpringBoneResetAt: this.formatTimestamp(avatarCapabilities.lastSpringBoneResetAt),
       currentState: state.currentState || '-',
@@ -201,6 +204,7 @@ export class DebugPanelController {
       motionMixerActive: state.motion?.mixerActive ?? false,
       motionMixerRoot: state.motion?.mixerRoot || '-',
       motionTracks: this.formatMotionTracks(state.motion),
+      motionActions: this.formatMotionActions(state.motion?.activeActions),
       motionRetargetReady: state.motion?.retargetReady ?? false,
       motionProceduralActive: state.motion?.proceduralActive ?? false,
       motionLastError: this.formatMotionError(state.motion),
@@ -271,6 +275,17 @@ export class DebugPanelController {
       return String(trackCount);
     }
     return `${trackCount}/${originalTrackCount}`;
+  }
+
+  formatMotionActions(actions = []) {
+    if (!Array.isArray(actions) || actions.length === 0) return '-';
+    return actions
+      .map((action) => {
+        const weight = this.formatMetric(action.weight);
+        const running = action.running ? 'run' : 'stop';
+        return `${action.layer || '?'}:${action.name}@${weight}/${running}`;
+      })
+      .join(' | ');
   }
 
   getErrorMessage(error) {

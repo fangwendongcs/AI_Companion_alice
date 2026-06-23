@@ -52,6 +52,12 @@ export class AnimationQueue {
     return layerQueue.active;
   }
 
+  cancel(id, layerName = 'gesture') {
+    const layerQueue = this.getLayerQueue(layerName);
+    if (layerQueue.active?.id === id) layerQueue.active = null;
+    layerQueue.items = layerQueue.items.filter((item) => item.id !== id);
+  }
+
   clearLayer(layerName) {
     this.layers.set(layerName, { active: null, items: [] });
   }

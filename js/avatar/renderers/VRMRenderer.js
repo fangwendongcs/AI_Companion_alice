@@ -53,6 +53,7 @@ export class VRMRenderer extends DefaultAvatarRenderer {
     this.lookAtTarget = null;
     this.lastMotionId = null;
     this.lastSpringBoneResetAt = null;
+    this.secondaryMotionEnabled = true;
     this.expressionController = new ExpressionController({ executor: this });
     this.lipSyncController = new LipSyncController({ executor: this });
   }
@@ -86,7 +87,7 @@ export class VRMRenderer extends DefaultAvatarRenderer {
     const safeDelta = Number.isFinite(delta) ? Math.max(0, Math.min(delta, 0.1)) : 0;
     this.lipSyncController.update(safeDelta);
     this.expressionController.update(safeDelta);
-    this.vrm?.update?.(safeDelta);
+    this.updateVrmRuntime(safeDelta);
     return {
       type: this.type,
       state: this.lastDirective?.state || 'idle',
@@ -105,6 +106,7 @@ export class VRMRenderer extends DefaultAvatarRenderer {
       hasLookAt: Boolean(this.vrm?.lookAt),
       hasSpringBoneManager: Boolean(this.vrm?.springBoneManager),
       hasSpringBoneReset: typeof this.vrm?.springBoneManager?.reset === 'function',
+      secondaryMotionEnabled: this.secondaryMotionEnabled,
       lastSpringBoneResetAt: this.lastSpringBoneResetAt,
       retargetReady: retargetReadiness.ready,
       retargetMissingBones: retargetReadiness.missing,
@@ -126,8 +128,28 @@ export class VRMRenderer extends DefaultAvatarRenderer {
     this.lookAtTarget = null;
     this.lastMotionId = null;
     this.lastSpringBoneResetAt = null;
+    this.secondaryMotionEnabled = true;
     this.detectedExpressions.clear();
     super.destroy();
+  }
+
+  updateVrmRuntime(delta) {
+    const springBoneManager = this.vrm?.springBoneManager;
+    if (this.secondaryMotionEnabled || !springBoneManager) {
+      this.vrm?.update?.(delta);
+      return;
+    }
+
+    const originalUpdate = springBoneManager.update;
+    const originalLateUpdate = springBoneManager.lateUpdate;
+    try {
+      if (typeof originalUpdate === 'function') springBoneManager.update = () => {};
+      if (typeof originalLateUpdate === 'function') springBoneManager.lateUpdate = () => {};
+      this.vrm?.update?.(delta);
+    } finally {
+      if (typeof originalUpdate === 'function') springBoneManager.update = originalUpdate;
+      if (typeof originalLateUpdate === 'function') springBoneManager.lateUpdate = originalLateUpdate;
+    }
   }
 
   collectMorphTargets() {
@@ -262,6 +284,28 @@ export class VRMRenderer extends DefaultAvatarRenderer {
       applied: true,
       reason,
       at: this.lastSpringBoneResetAt
+    };
+  }
+
+  setSecondaryMotionEnabled(enabled, reason = 'manual') {
+    const nextEnabled = Boolean(enabled);
+    if (this.secondaryMotionEnabled === nextEnabled) {
+      return {
+        ok: true,
+        applied: false,
+        enabled: this.secondaryMotionEnabled,
+        reason
+      };
+    }
+
+    const resetResult = this.resetSecondaryMotion(reason);
+    this.secondaryMotionEnabled = nextEnabled;
+    return {
+      ok: true,
+      applied: true,
+      enabled: this.secondaryMotionEnabled,
+      reason,
+      reset: resetResult
     };
   }
 

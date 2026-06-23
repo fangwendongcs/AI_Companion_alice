@@ -58,6 +58,7 @@ Expected debug state after a valid authorized file is placed and the `wave` slot
 - `motion.mode=vrma`
 - `motion.source=file`
 - `motion.mixerActive=true`
+- `vrm.secondaryMotion=false` while `wave` is running
 
 Use this debug URL when visually checking body shape, feet, hips, shoulders, hair, and clothing deformation:
 
@@ -75,14 +76,23 @@ http://localhost:3001?debug=1&avatar=local_girl_vrm_test&motion=wave&qa=motion&s
 
 `springReset=gestureEnd` only applies with `qa=motion`. It triggers one `VRMRenderer.resetSecondaryMotion()` call after a `vrma` gesture action completes. Use `qa.springReset` and `vrm.springBoneResetAt` in the Debug Panel to confirm whether the reset path ran. This is a controlled QA experiment, not a default animation policy.
 
-`VRMA_02Greeting.vrma` contains full-body tracks, including hips, spine/chest, neck/head, arms, and legs. It should be applied as a full-body one-shot action rather than as a small overlaid gesture. The local girl VRM config therefore uses:
+`VRMA_02Greeting.vrma` contains full-body tracks, including hips, spine/chest, neck/head, arms, and legs. It should be applied as a full-body one-shot action rather than as a small overlaid gesture. Browser A/B testing showed that this file can over-drive the girl VRM secondary motion, causing hair and chest clothing to stretch upward during the crouch/greeting pose. The local girl VRM config therefore uses:
 
 ```json
 "layer": "fullBody",
-"baseWeightWhileActive": 0
+"baseWeightWhileActive": 0,
+"secondaryMotion": "suppress"
 ```
 
-This lets the original VRMA file drive the complete humanoid pose while the procedural idle layer fades out during playback. Debug should show `motion.layer=fullBody` and `motion.tracks=53`.
+This lets the original VRMA file drive the complete humanoid pose while the procedural idle layer fades out during playback. `secondaryMotion` is an explicit per-motion policy, not an automatic `fullBody + vrma` rule.
+
+Supported secondary motion policies:
+
+- `keep`: leave VRM secondary motion running.
+- `reset`: reset secondary motion at action boundaries without disabling it.
+- `suppress`: disable secondary motion while the action is active, then restore it on completion, interruption, avatar switch, or app destroy.
+
+Debug should show `motion.layer=fullBody`, `motion.tracks=53`, `motion.actions`, and `vrm.secondaryMotion`.
 
 Expected debug state while the file is absent:
 
@@ -119,6 +129,7 @@ The Debug Panel should expose:
 - `motion.mixerActive`
 - `motion.mixerRoot`
 - `motion.tracks`
+- `motion.actions`
 - `motion.retargetReady`
 - `motion.proceduralActive`
 - `motion.lastError`

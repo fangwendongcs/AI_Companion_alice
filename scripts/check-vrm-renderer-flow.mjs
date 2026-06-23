@@ -57,6 +57,7 @@ console.log('[check-vrm-renderer-flow] ok');
 async function checkRendererModules() {
   const characterManager = await readText('js/avatar/CharacterManager.js');
   const avatarLoader = await readText('js/avatar/AvatarLoader.js');
+  const animationBlender = await readText('js/animation/AnimationBlender.js');
   const animationController = await readText('js/animation/AnimationController.js');
   const animationRegistry = await readText('js/animation/AnimationRegistry.js');
   const motionManager = await readText('js/animation/MotionManager.js');
@@ -93,8 +94,17 @@ async function checkRendererModules() {
   assert(animationController.includes('applyTrackFilter') && animationController.includes('trackMatchesGroup'), 'AnimationController 应支持按配置过滤 VRMA gesture tracks。');
   assert(animationController.includes('PROCEDURAL_TO_VRM_HUMANOID') && animationController.includes('resolveProceduralBone'), 'VRM procedural fallback 应优先写 normalized humanoid bones。');
   assert(animationController.includes("request.layer === 'fullBody'"), 'AnimationController 应支持 fullBody one-shot 动作层。');
+  assert(animationController.includes("stopLayerAction('gesture', true") && animationController.includes('!this.layers.fullBody?.active'), 'fullBody 动作播放时不应被 gesture/base procedural 完成回调重新覆盖。');
+  assert(animationController.includes('finalizeAction') && animationController.includes('this.onActionComplete?.'), 'AnimationController 中断/停止 action 时应复用 completion 清理路径。');
+  assert(animationController.includes("actionPlan.mode === 'base'") && animationController.includes("clearLayer('fullBody')"), '切回 base state 时应停止 fullBody action 并清理 pending fullBody。');
+  assert(animationController.includes('activeActions') && animationController.includes('getEffectiveWeight'), 'AnimationController Debug 应暴露 active action/layer/weight。');
+  assert(animationBlender.includes('setLoop(THREE.LoopRepeat, Infinity)') && animationBlender.includes('THREE.LoopOnce ? 1 : Infinity'), 'AnimationBlender 应为 one-shot action 设置明确的 LoopOnce repetitions=1。');
   assert(animationRegistry.includes('trackCount') && animationRegistry.includes('originalTrackCount'), 'AnimationRegistry 应保留 track filter 统计供 Debug 验证。');
+  assert(animationRegistry.includes('normalizeSecondaryMotionPolicy'), 'AnimationRegistry 应从 motion config 读取 secondaryMotion 策略。');
   assert(motionManager.includes('const { layer: _defaultLayer') && motionManager.includes('delete request.layer'), 'MotionManager 不应让 slot 默认 layer 覆盖 motions.json 的原始动作 layer。');
+  assert(appController.includes('getActionSecondaryMotionPolicy') && appController.includes("request?.meta?.secondaryMotion"), 'AppController 应按 motion config 的 secondaryMotion 策略控制 secondary motion。');
+  assert(appController.includes('releaseSecondaryMotionSuppression'), 'AppController 应在切换/销毁等非自然结束路径释放 secondary motion suppress 状态。');
+  assert(!appController.includes("request?.layer === 'fullBody' && request?.meta?.mode === 'vrma'"), 'secondary motion suppress 不应继续按 fullBody+vrma 硬编码。');
   assert(orchestrator.includes('class PresentationOrchestrator'), '应存在 PresentationOrchestrator 表现编排骨架。');
   assert(orchestrator.includes('createNoopController'), 'PresentationOrchestrator 应预留后续 controller safe no-op 接口。');
   assert(orchestrator.includes('MotionController'), 'PresentationOrchestrator 应委托 MotionController 处理动作表现。');
@@ -113,6 +123,7 @@ async function checkRendererModules() {
   assert(vrmRenderer.includes('setLookAt'), 'VRMRenderer 应暴露 setLookAt 执行入口。');
   assert(vrmRenderer.includes('hasSpringBoneManager'), 'VRMRenderer capability 应暴露 springBone runtime 状态。');
   assert(vrmRenderer.includes('hasSpringBoneReset'), 'VRMRenderer capability 应暴露 springBone reset 可用性。');
+  assert(vrmRenderer.includes('setSecondaryMotionEnabled') && vrmRenderer.includes('updateVrmRuntime'), 'VRMRenderer 应提供 secondary motion 开关并在 update 中执行。');
   assert(vrmRenderer.includes('resetSecondaryMotion'), 'VRMRenderer 应提供 secondary motion reset 执行入口供后续 QA 验证。');
   assert(vrmRenderer.includes('inspectRetargetReadiness'), 'VRMRenderer capability 应暴露 retarget readiness。');
   assert(!vrmRenderer.includes('applyEmotion('), 'VRMRenderer 不应继续持有 emotion 表现决策。');
@@ -376,6 +387,7 @@ async function checkLocalGirlWaveMotionConfig() {
   assert(wave.format === 'vrma', 'wave 测试动作应声明 format=vrma。');
   assert(wave.path === 'assets/motions/vrm/test/VRMA_02Greeting.vrma', 'wave 测试动作应使用人工放置的授权 VRMA 测试路径。');
   assert(wave.layer === 'fullBody', '原始 VRMA greeting 应运行在 fullBody layer，而不是 gesture overlay。');
+  assert(wave.secondaryMotion === 'suppress', 'wave 应显式声明 secondaryMotion=suppress，避免按格式/层级自动猜测。');
   assert(wave.fallback === 'procedural', 'wave 测试动作缺文件时应回退 procedural。');
   assert(!wave.trackFilter, '原始 VRMA greeting 不应被 trackFilter 截成局部动作。');
   assert(wave.baseWeightWhileActive === 0, 'fullBody VRMA 播放时应让 procedural base idle 让出权重。');
@@ -470,12 +482,16 @@ async function checkDirectiveApplication() {
       }
     },
     springBoneManager: {
+      update() {
+        this.wasUpdated = true;
+      },
       reset() {
         this.wasReset = true;
       }
     },
     update(delta) {
       this.lastDelta = delta;
+      this.springBoneManager.update?.(delta);
     }
   };
   const fakeAvatar = {
@@ -517,6 +533,7 @@ async function checkDirectiveApplication() {
   assert(initResult.capabilities.hasLookAt === true, 'VRMRenderer capability 应暴露 lookAt。');
   assert(initResult.capabilities.hasSpringBoneManager === true, 'VRMRenderer capability 应暴露 springBoneManager。');
   assert(initResult.capabilities.hasSpringBoneReset === true, 'VRMRenderer capability 应暴露 springBone reset 可用性。');
+  assert(initResult.capabilities.secondaryMotionEnabled === true, 'VRMRenderer capability 应暴露 secondary motion 当前开关状态。');
   assert(initResult.capabilities.retargetReady === true, 'VRMRenderer capability 应能确认 humanoid retarget readiness。');
   assert(initResult.capabilities.retargetMissingBones.length === 0, 'VRMRenderer retarget readiness 不应误报关键骨骼缺失。');
   assert(initResult.capabilities.hasMorphTargets === true, 'VRMRenderer 应能发现 morph target。');
@@ -553,6 +570,14 @@ async function checkDirectiveApplication() {
 
   const resetResult = renderer.resetSecondaryMotion('qa-test');
   assert(resetResult.ok === true && fakeVrm.springBoneManager.wasReset === true, 'VRMRenderer resetSecondaryMotion 应调用 springBoneManager.reset。');
+  fakeVrm.springBoneManager.wasUpdated = false;
+  const disableSecondary = renderer.setSecondaryMotionEnabled(false, 'qa-disable');
+  renderer.update(0.05);
+  assert(disableSecondary.ok === true && renderer.getCapabilities().secondaryMotionEnabled === false, 'VRMRenderer 应支持临时关闭 secondary motion。');
+  assert(fakeVrm.springBoneManager.wasUpdated === false, 'secondary motion 关闭时 VRMRenderer.update 不应推进 springBoneManager.update。');
+  const enableSecondary = renderer.setSecondaryMotionEnabled(true, 'qa-enable');
+  renderer.update(0.05);
+  assert(enableSecondary.ok === true && fakeVrm.springBoneManager.wasUpdated === true, 'secondary motion 恢复后 VRMRenderer.update 应继续推进 springBoneManager.update。');
 
   renderer.applyDirective({
     state: 'idle',

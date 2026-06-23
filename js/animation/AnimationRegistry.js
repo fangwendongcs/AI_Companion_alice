@@ -52,6 +52,7 @@ export class AnimationRegistry {
       format: meta.format || '',
       path: meta.path || meta.file || '',
       trackFilter: meta.trackFilter || meta.mask || null,
+      secondaryMotion: this.normalizeSecondaryMotionPolicy(meta.secondaryMotion),
       trackCount: meta.trackCount ?? clip.tracks?.length ?? 0,
       originalTrackCount: meta.originalTrackCount ?? meta.trackCount ?? clip.tracks?.length ?? 0,
       factory: meta.factory || null,
@@ -69,5 +70,11 @@ export class AnimationRegistry {
       clipDuration: clip.duration || 0,
       tags: meta.tags || []
     };
+  }
+
+  normalizeSecondaryMotionPolicy(policy) {
+    const normalized = String(policy || 'keep').trim().toLowerCase();
+    if (['keep', 'reset', 'suppress'].includes(normalized)) return normalized;
+    return 'keep';
   }
 }

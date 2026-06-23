@@ -186,6 +186,13 @@ export class CharacterManager {
     return this.renderer.resetSecondaryMotion(reason);
   }
 
+  setAvatarSecondaryMotionEnabled(enabled, reason = 'manual') {
+    if (!this.renderer?.setSecondaryMotionEnabled) {
+      return { ok: false, applied: false, reason: 'secondary_motion_toggle_unavailable' };
+    }
+    return this.renderer.setSecondaryMotionEnabled(enabled, reason);
+  }
+
   normalizeMeta(meta, registryEntry = null) {
     const id = meta.id || registryEntry?.id;
     const motionManifest = meta.motionManifest || meta.animations?.manifest || meta.actionManifest;

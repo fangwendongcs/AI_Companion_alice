@@ -26,7 +26,7 @@ export class AnimationBlender {
     action.reset();
     action.enabled = true;
     action.setEffectiveWeight(layer.weight);
-    action.setLoop(THREE.LoopRepeat);
+    action.setLoop(THREE.LoopRepeat, Infinity);
     action.clampWhenFinished = false;
     action.fadeIn(meta.fadeIn);
     action.play();
@@ -43,7 +43,8 @@ export class AnimationBlender {
     action.reset();
     action.enabled = true;
     action.setEffectiveWeight(layer.weight);
-    action.setLoop(loopModes[meta.loop] || THREE.LoopOnce);
+    const loopMode = loopModes[meta.loop] || THREE.LoopOnce;
+    action.setLoop(loopMode, loopMode === THREE.LoopOnce ? 1 : Infinity);
     action.clampWhenFinished = meta.loop !== 'repeat';
     action.fadeIn(meta.fadeIn);
     action.play();

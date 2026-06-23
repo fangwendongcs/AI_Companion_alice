@@ -13,6 +13,7 @@
       "fadeOut": 0.35,
       "baseWeightWhileActive": 0,
       "layer": "fullBody",
+      "secondaryMotion": "suppress",
       "fallback": "procedural",
       "tags": [
         "test",

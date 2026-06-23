@@ -58,6 +58,7 @@ export class AppController {
     this.lastMotionDebugSignature = '';
     this.qaMode = this.getRequestedQAMode();
     this.springResetMode = this.getRequestedSpringResetMode();
+    this.secondaryMotionSuppressedActionId = null;
     this.destroyed = false;
 
     this.stateStore = new CompanionStateStore(this.createInitialState(), this.eventBus);
@@ -145,6 +146,7 @@ export class AppController {
         source: 'none',
         mixerActive: false,
         retargetReady: false,
+        secondaryMotionEnabled: true,
         proceduralActive: false,
         lastError: ''
       },
@@ -224,24 +226,31 @@ export class AppController {
     };
     this.motionManager.onStateComplete = (nextState) => this.setAvatarState(nextState);
     this.motionManager.onActionStart = (request) => {
-      this.patchState({
+      const secondaryMotionPolicy = this.applyActionSecondaryMotionPolicy(request, 'start');
+      const startPatch = {
         isAnimating: true,
         currentAnimation: request.name
-      }, 'animation:action:start');
+      };
+      if (secondaryMotionPolicy) {
+        startPatch.avatarCapabilities = this.characterManager.getAvatarCapabilities();
+      }
+      this.patchState(startPatch, 'animation:action:start');
       this.eventBus.emit(EVENT_NAMES.ANIMATION_ACTION_START, request);
+      if (secondaryMotionPolicy) this.syncMotionDebugState({ force: true });
     };
     this.motionManager.onActionComplete = (request) => {
       const completionPatch = {
         isAnimating: false,
         currentAnimation: null
       };
+      const secondaryMotionPolicy = this.applyActionSecondaryMotionPolicy(request, 'complete');
       const secondaryReset = this.applyDebugSecondaryMotionReset(request);
-      if (secondaryReset) {
+      if (secondaryMotionPolicy || secondaryReset) {
         completionPatch.avatarCapabilities = this.characterManager.getAvatarCapabilities();
       }
       this.patchState(completionPatch, 'animation:action:complete');
       this.eventBus.emit(EVENT_NAMES.ANIMATION_ACTION_COMPLETE, request);
-      if (secondaryReset) this.syncMotionDebugState({ force: true });
+      if (secondaryMotionPolicy || secondaryReset) this.syncMotionDebugState({ force: true });
       this.scheduleInteractionStateSettle();
     };
 
@@ -462,6 +471,60 @@ export class AppController {
     return result;
   }
 
+  applyActionSecondaryMotionPolicy(request = {}, phase = 'start') {
+    const policy = this.getActionSecondaryMotionPolicy(request);
+    if (policy === 'keep') return null;
+
+    if (phase === 'start') {
+      if (policy === 'reset') {
+        const result = this.characterManager.resetAvatarSecondaryMotion(`motion:${request.name}:start`);
+        if (!result.ok) this.log.debug('Secondary motion reset was not applied:', result.reason);
+        return result;
+      }
+      if (policy === 'suppress') {
+        this.secondaryMotionSuppressedActionId = request.id;
+        const result = this.characterManager.setAvatarSecondaryMotionEnabled(false, `motion:${request.name}:start`);
+        if (!result.ok) this.log.debug('Secondary motion disable was not applied:', result.reason);
+        return result;
+      }
+    }
+
+    if (phase === 'complete' && policy === 'reset') {
+      const result = this.characterManager.resetAvatarSecondaryMotion(`motion:${request.name}:complete`);
+      if (!result.ok) this.log.debug('Secondary motion reset was not applied:', result.reason);
+      return result;
+    }
+
+    if (phase === 'complete' && policy === 'suppress' && this.secondaryMotionSuppressedActionId === request.id) {
+      this.secondaryMotionSuppressedActionId = null;
+      const result = this.characterManager.setAvatarSecondaryMotionEnabled(true, `motion:${request.name}:complete`);
+      if (!result.ok) this.log.debug('Secondary motion enable was not applied:', result.reason);
+      return result;
+    }
+
+    return null;
+  }
+
+  getActionSecondaryMotionPolicy(request = {}) {
+    const policy = String(request?.meta?.secondaryMotion || 'keep').trim().toLowerCase();
+    if (['keep', 'reset', 'suppress'].includes(policy)) return policy;
+    return 'keep';
+  }
+
+  releaseSecondaryMotionSuppression(reason = 'manual', { sync = true } = {}) {
+    if (!this.secondaryMotionSuppressedActionId) return null;
+    this.secondaryMotionSuppressedActionId = null;
+    const result = this.characterManager.setAvatarSecondaryMotionEnabled(true, reason);
+    if (!result.ok) this.log.debug('Secondary motion release was not applied:', result.reason);
+    if (sync) {
+      this.patchState({
+        avatarCapabilities: this.characterManager.getAvatarCapabilities()
+      }, reason);
+      this.syncMotionDebugState({ force: true });
+    }
+    return result;
+  }
+
   patchState(patch, source = 'app') {
     return this.stateStore.patch(this.withLayeredStatePatch(patch), source);
   }
@@ -604,7 +667,9 @@ export class AppController {
       trackCount: motion.trackCount ?? null,
       originalTrackCount: motion.originalTrackCount ?? null,
       retargetReady: Boolean(capabilities.retargetReady),
+      secondaryMotionEnabled: capabilities.secondaryMotionEnabled ?? true,
       proceduralActive: Boolean(motion.proceduralActive),
+      activeActions: motion.activeActions || [],
       lastError: motion.lastError || '',
       retargetMissingBones: capabilities.retargetMissingBones || []
     };
@@ -631,6 +696,7 @@ export class AppController {
     const previousAvatar = this.characterManager.current;
     try {
       this.eventBus.emit(EVENT_NAMES.AVATAR_SWITCH_START, { avatarId });
+      this.releaseSecondaryMotionSuppression('avatar:switch:start');
       this.audioManager.stop();
       this.resetSpeakingState('avatar:switch');
       this.patchState({
@@ -937,6 +1003,7 @@ export class AppController {
   destroy() {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.releaseSecondaryMotionSuppression('app:destroy', { sync: false });
     this.ui.destroy();
     this.presentation.destroy?.();
     this.motionManager.destroy?.();

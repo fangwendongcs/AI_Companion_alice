@@ -342,6 +342,14 @@ export class AnimationController {
   executeStateAction(actionPlan, context = {}) {
     if (!actionPlan?.action) return;
 
+    if (actionPlan.mode === 'base') {
+      this.stopLayerAction('fullBody', false, {
+        reason: `state:${context.state || actionPlan.action}`,
+        returnToIdle: false
+      });
+      this.queue.clearLayer('fullBody');
+    }
+
     this.requestAction(actionPlan.action, {
       layer: actionPlan.layer,
       state: context.state,
@@ -429,10 +437,20 @@ export class AnimationController {
     });
 
     if (decision.type === 'play') {
-      this.playQueuedAction(decision.request);
+      if (!this.playQueuedAction(decision.request)) {
+        this.queue.cancel(decision.request.id, decision.request.layer);
+        return false;
+      }
     } else if (decision.type === 'interrupt') {
-      this.stopLayerAction(decision.interrupted.layer, true);
-      this.playQueuedAction(decision.request);
+      this.stopLayerAction(decision.interrupted.layer, true, {
+        reason: 'interrupted',
+        restoreBase: decision.request.layer !== decision.interrupted.layer,
+        returnToIdle: false
+      });
+      if (!this.playQueuedAction(decision.request)) {
+        this.queue.cancel(decision.request.id, decision.request.layer);
+        return false;
+      }
     }
 
     return decision.type !== 'ignored';
@@ -447,6 +465,14 @@ export class AnimationController {
     const played = this.blender.playLayerAction({ action, meta, layer, request });
     if (!played) return false;
 
+    if (request.layer === 'fullBody') {
+      this.stopLayerAction('gesture', true, {
+        reason: 'superseded-by-fullBody',
+        restoreBase: false,
+        returnToIdle: false
+      });
+      this.queue.clearLayer('gesture');
+    }
     this.activeRequests.set(action, request);
     if (request.layer === 'gesture' || request.layer === 'fullBody') {
       this.setLayerWeight('base', meta.baseWeightWhileActive, meta.fadeIn);
@@ -479,7 +505,18 @@ export class AnimationController {
   }
 
   handleActionFinished(action) {
-    const request = this.activeRequests.get(action);
+    this.finalizeAction(action, { reason: 'finished' });
+  }
+
+  finalizeAction(action, {
+    reason = 'finished',
+    fadeOut = true,
+    restoreBase = true,
+    advanceQueue = true,
+    returnToIdle = true,
+    emitComplete = true
+  } = {}) {
+    const request = this.activeRequests.get(action) || this.findLayerRequest(action);
     if (!request) return;
 
     const meta = this.registry.getMeta(request.name);
@@ -488,47 +525,70 @@ export class AnimationController {
 
     const layer = this.layers[request.layer];
     if (layer?.active?.request?.id === request.id) {
-      action.fadeOut(meta?.fadeOut ?? 0.2);
+      if (fadeOut) action.fadeOut(meta?.fadeOut ?? 0.2);
       layer.active = null;
     }
 
-    if (request.layer === 'gesture' || request.layer === 'fullBody') {
-      this.setLayerWeight('base', 1, meta?.fadeOut ?? 0.2);
+    if (request.layer === 'fullBody' || (request.layer === 'gesture' && !this.layers.fullBody?.active)) {
+      if (restoreBase) this.setLayerWeight('base', 1, meta?.fadeOut ?? 0.2);
     }
 
-    this.onActionComplete?.({
-      ...request,
-      meta
-    });
-    const next = this.queue.complete(request.id, request.layer);
+    if (emitComplete) {
+      this.onActionComplete?.({
+        ...request,
+        meta,
+        reason
+      });
+    }
+    const next = advanceQueue
+      ? this.queue.complete(request.id, request.layer)
+      : (this.queue.cancel(request.id, request.layer), null);
     if (next) {
       next.wasQueued = true;
       this.playQueuedAction(next);
       return;
     }
 
-    if ((request.returnToIdle ?? meta?.returnToIdle ?? true) && isTransientAnimationState(this.currentState)) {
+    if (returnToIdle && (request.returnToIdle ?? meta?.returnToIdle ?? true) && isTransientAnimationState(this.currentState)) {
       this.requestState(AvatarState.IDLE);
       this.onStateComplete?.(AvatarState.IDLE);
     }
+  }
+
+  findLayerRequest(action) {
+    const activeLayer = Object.values(this.layers).find((layer) => layer?.active?.action === action);
+    return activeLayer?.active?.request || null;
   }
 
   setLayerWeight(layerName, weight, _fadeDuration = 0.2) {
     this.blender.setLayerWeight(this.layers, layerName, weight);
   }
 
-  stopLayerAction(layerName, immediate = false) {
+  stopLayerAction(layerName, immediate = false, options = {}) {
     const layer = this.layers[layerName];
     if (!layer?.active) return;
-    const { action, meta, request } = layer.active;
-    if (request?.completionTimer) window.clearTimeout(request.completionTimer);
-    this.activeRequests.delete(action);
+    const { action, meta } = layer.active;
     if (immediate) action.stop();
     else action.fadeOut(meta.fadeOut);
-    layer.active = null;
+    this.finalizeAction(action, {
+      reason: options.reason || (immediate ? 'stopped' : 'fadeout'),
+      fadeOut: false,
+      restoreBase: options.restoreBase ?? true,
+      advanceQueue: options.advanceQueue ?? false,
+      returnToIdle: options.returnToIdle ?? false,
+      emitComplete: options.emitComplete ?? true
+    });
   }
 
   stopAll() {
+    Object.keys(this.layers).forEach((layerName) => {
+      this.stopLayerAction(layerName, true, {
+        reason: 'stopAll',
+        restoreBase: false,
+        advanceQueue: false,
+        returnToIdle: false
+      });
+    });
     this.registry.stopAll();
     Object.values(this.layers).forEach((layer) => {
       layer.active = null;
@@ -549,6 +609,28 @@ export class AnimationController {
     const activeLayers = Object.entries(this.layers)
       .map(([layerName, layer]) => ({ layerName, active: layer.active }))
       .filter(({ active }) => Boolean(active?.action));
+    const actionLayerNames = new Map(
+      activeLayers.map(({ layerName, active }) => [active.action, layerName])
+    );
+    const actionStates = Object.entries(this.registry.actions)
+      .filter(([, action]) => Boolean(action))
+      .map(([name, action]) => {
+        const meta = this.registry.getMeta(name) || {};
+        const layer = actionLayerNames.get(action) || meta.layer || null;
+        const weight = Number(action.getEffectiveWeight?.() || 0);
+        return {
+          name,
+          layer,
+          source: meta.source || 'none',
+          mode: this.resolveMotionMode(meta),
+          weight,
+          running: Boolean(action.isRunning?.()),
+          enabled: Boolean(action.enabled),
+          time: Number(action.time || 0),
+          active: actionLayerNames.has(action)
+        };
+      })
+      .filter((action) => action.active || action.running);
     const primary = activeLayers.find(({ layerName }) => layerName === 'fullBody')
       || activeLayers.find(({ layerName }) => layerName === 'gesture')
       || activeLayers.find(({ layerName }) => layerName === 'base')
@@ -565,13 +647,21 @@ export class AnimationController {
       mixerRoot: this.mixerRoot?.name || 'avatar-root',
       trackCount: meta?.trackCount ?? null,
       originalTrackCount: meta?.originalTrackCount ?? null,
-      proceduralActive: primary?.active?.meta?.source === AnimationSource.PROCEDURAL,
+      proceduralActive: actionStates.some((action) => (
+        action.source === AnimationSource.PROCEDURAL
+        && action.running
+        && action.weight > 0.001
+      )),
       activeLayers: activeLayers.map(({ layerName, active }) => ({
         layer: layerName,
         motion: active.name,
         source: active.meta?.source || 'none',
-        mode: this.resolveMotionMode(active.meta)
+        mode: this.resolveMotionMode(active.meta),
+        weight: Number(active.action?.getEffectiveWeight?.() || 0),
+        running: Boolean(active.action?.isRunning?.()),
+        time: Number(active.action?.time || 0)
       })),
+      activeActions: actionStates,
       lastError: this.lastError
     };
   }
