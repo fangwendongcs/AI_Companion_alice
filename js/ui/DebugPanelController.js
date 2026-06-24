@@ -54,6 +54,9 @@ const DISPLAY_ROWS = [
   ['voice.style', 'voiceStyle'],
   ['motion.slot', 'motionSlot'],
   ['motion.current', 'motionCurrent'],
+  ['motion.asset', 'motionAsset'],
+  ['motion.quality', 'motionQuality'],
+  ['motion.secondary', 'motionSecondary'],
   ['motion.layer', 'motionLayer'],
   ['motion.mode', 'motionMode'],
   ['motion.source', 'motionSource'],
@@ -79,15 +82,18 @@ const DISPLAY_ROWS = [
 ];
 
 export class DebugPanelController {
-  constructor({ eventBus, registry, getState, getTTSConfig, documentRef = document }) {
+  constructor({ eventBus, registry, getState, getTTSConfig, motionManager = null, documentRef = document }) {
     this.eventBus = eventBus;
     this.registry = registry;
     this.getState = getState;
     this.getTTSConfig = getTTSConfig;
+    this.motionManager = motionManager;
     this.documentRef = documentRef;
     this.panel = null;
     this.body = null;
     this.toggleButton = null;
+    this.motionSelect = null;
+    this.motionPlayButton = null;
     this.valueNodes = new Map();
     this.lastEvent = null;
   }
@@ -130,6 +136,8 @@ export class DebugPanelController {
       this.valueNodes.set(key, valueNode);
     });
 
+    this.createMotionControls(body);
+
     panel.append(header, body);
     this.documentRef.body.append(panel);
 
@@ -138,7 +146,37 @@ export class DebugPanelController {
     this.toggleButton = header;
 
     this.registry.addEventListener(header, 'click', () => this.toggle());
+    if (this.motionPlayButton) {
+      this.registry.addEventListener(this.motionPlayButton, 'click', () => this.playSelectedMotion());
+    }
     this.registry.add(() => panel.remove());
+  }
+
+  createMotionControls(body) {
+    const state = this.getState();
+    if (state.app?.qaMode !== 'motion') return;
+
+    const controls = this.documentRef.createElement('div');
+    controls.className = 'debug-panel__motion-controls';
+
+    const label = this.documentRef.createElement('label');
+    label.className = 'debug-panel__key';
+    label.textContent = 'qa.motion';
+
+    const select = this.documentRef.createElement('select');
+    select.className = 'debug-panel__select';
+    select.setAttribute('aria-label', 'QA motion');
+
+    const button = this.documentRef.createElement('button');
+    button.type = 'button';
+    button.className = 'debug-panel__play';
+    button.textContent = 'Play';
+
+    controls.append(label, select, button);
+    body.append(controls);
+
+    this.motionSelect = select;
+    this.motionPlayButton = button;
   }
 
   bindEvents() {
@@ -198,6 +236,9 @@ export class DebugPanelController {
       voiceStyle: state.affect?.voiceStyle || '-',
       motionSlot: state.affect?.motionSlot || '-',
       motionCurrent: state.motion?.current || '-',
+      motionAsset: this.formatMotionAsset(state.motion),
+      motionQuality: this.formatMotionQuality(state.motion),
+      motionSecondary: state.motion?.secondaryMotion || '-',
       motionLayer: state.motion?.layer || '-',
       motionMode: state.motion?.mode || '-',
       motionSource: state.motion?.source || '-',
@@ -231,6 +272,37 @@ export class DebugPanelController {
       const node = this.valueNodes.get(key);
       if (node) node.textContent = this.formatValue(value);
     });
+    this.renderMotionControls(state.motion?.availableMotions || []);
+  }
+
+  renderMotionControls(motions = []) {
+    if (!this.motionSelect) return;
+
+    const selected = this.motionSelect.value;
+    const nextValue = motions.some((motion) => motion.id === selected)
+      ? selected
+      : motions[0]?.id || '';
+    this.motionSelect.replaceChildren();
+
+    motions.forEach((motion) => {
+      const option = this.documentRef.createElement('option');
+      option.value = motion.id;
+      option.textContent = this.formatMotionOption(motion);
+      this.motionSelect.append(option);
+    });
+
+    this.motionSelect.value = nextValue;
+    if (this.motionPlayButton) this.motionPlayButton.disabled = !nextValue;
+  }
+
+  playSelectedMotion() {
+    const motionId = this.motionSelect?.value || '';
+    if (!motionId || !this.motionManager?.requestSlot) return;
+    this.motionManager.requestSlot(motionId, {
+      replacePending: true,
+      transitionState: false
+    });
+    this.render();
   }
 
   formatValue(value) {
@@ -267,6 +339,24 @@ export class DebugPanelController {
     return '-';
   }
 
+  formatMotionAsset(motion = {}) {
+    const asset = motion?.assetId || '';
+    if (!asset) return '-';
+    return `${asset}${motion.qaOnly ? '/qa' : ''}`;
+  }
+
+  formatMotionQuality(motion = {}) {
+    const quality = motion?.qualityStatus || '';
+    if (!quality) return '-';
+    return `${quality}${motion.qaOnly ? '/qa' : ''}`;
+  }
+
+  formatMotionOption(motion = {}) {
+    const scope = motion.scope === 'qaSlot' ? 'qa' : 'slot';
+    const status = motion.qualityStatus || 'approved';
+    return `${motion.id} · ${scope} · ${status}`;
+  }
+
   formatMotionTracks(motion = {}) {
     const trackCount = motion?.trackCount;
     const originalTrackCount = motion?.originalTrackCount;
@@ -283,7 +373,8 @@ export class DebugPanelController {
       .map((action) => {
         const weight = this.formatMetric(action.weight);
         const running = action.running ? 'run' : 'stop';
-        return `${action.layer || '?'}:${action.name}@${weight}/${running}`;
+        const policy = action.secondaryMotion || 'keep';
+        return `${action.layer || '?'}:${action.name}@${weight}/${running}/${policy}`;
       })
       .join(' | ');
   }
@@ -304,6 +395,8 @@ export class DebugPanelController {
     this.panel = null;
     this.body = null;
     this.toggleButton = null;
+    this.motionSelect = null;
+    this.motionPlayButton = null;
     this.valueNodes.clear();
   }
 }

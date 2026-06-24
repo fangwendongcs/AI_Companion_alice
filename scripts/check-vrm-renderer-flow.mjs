@@ -62,6 +62,7 @@ async function checkRendererModules() {
   const animationRegistry = await readText('js/animation/AnimationRegistry.js');
   const motionManager = await readText('js/animation/MotionManager.js');
   const appController = await readText('js/app/AppController.js');
+  const debugPanel = await readText('js/ui/DebugPanelController.js');
   const indexHtml = await readText('index.html');
   const styles = await readText('css/style.css');
   const orchestrator = await readText('js/avatar/presentation/PresentationOrchestrator.js');
@@ -90,6 +91,8 @@ async function checkRendererModules() {
   assert(animationController.includes('VRMAnimationLoaderPlugin'), 'AnimationController 应使用 VRMAnimationLoaderPlugin 加载 VRMA。');
   assert(animationController.includes('createVRMAnimationClip'), 'AnimationController 应把 VRMA 转换为 AnimationClip。');
   assert(animationController.includes('loadVRMAClip'), 'AnimationController 应提供 VRMA clip 加载入口。');
+  assert(animationController.includes('fileClipCache') && animationController.includes('getFileClipCacheKey'), 'AnimationController 应缓存同一 avatar/path 的外部 clip 加载。');
+  assert(animationController.includes('clip.clone?.() || clip'), '共享缓存 clip 在注册为不同 motion id 前必须 clone，避免 AnimationAction 状态互相污染。');
   assert(animationController.includes('this.avatar?.userData?.vrm ? this.avatar : this.skinnedMesh'), 'VRM AnimationMixer root 应使用 avatar root，避免绑定到某个 SkinnedMesh。');
   assert(animationController.includes('applyTrackFilter') && animationController.includes('trackMatchesGroup'), 'AnimationController 应支持按配置过滤 VRMA gesture tracks。');
   assert(animationController.includes('PROCEDURAL_TO_VRM_HUMANOID') && animationController.includes('resolveProceduralBone'), 'VRM procedural fallback 应优先写 normalized humanoid bones。');
@@ -101,9 +104,14 @@ async function checkRendererModules() {
   assert(animationBlender.includes('setLoop(THREE.LoopRepeat, Infinity)') && animationBlender.includes('THREE.LoopOnce ? 1 : Infinity'), 'AnimationBlender 应为 one-shot action 设置明确的 LoopOnce repetitions=1。');
   assert(animationRegistry.includes('trackCount') && animationRegistry.includes('originalTrackCount'), 'AnimationRegistry 应保留 track filter 统计供 Debug 验证。');
   assert(animationRegistry.includes('normalizeSecondaryMotionPolicy'), 'AnimationRegistry 应从 motion config 读取 secondaryMotion 策略。');
+  assert(animationRegistry.includes('secondaryMotionRestoreDelayMs'), 'AnimationRegistry 应保留 secondary motion 恢复延迟配置。');
   assert(motionManager.includes('const { layer: _defaultLayer') && motionManager.includes('delete request.layer'), 'MotionManager 不应让 slot 默认 layer 覆盖 motions.json 的原始动作 layer。');
+  assert(motionManager.includes('availableMotions') && motionManager.includes('listDebugMotions'), 'MotionManager Debug 应暴露配置化动作资产清单。');
+  assert(motionManager.includes('qaSlots') || (await readText('js/animation/MotionSlotRegistry.js')).includes('qaSlots'), 'Motion 管线应注册 qaSlots 供 debug-only 验证。');
   assert(appController.includes('getActionSecondaryMotionPolicy') && appController.includes("request?.meta?.secondaryMotion"), 'AppController 应按 motion config 的 secondaryMotion 策略控制 secondary motion。');
+  assert(appController.includes('secondaryMotionRestoreDelayMs') && appController.includes('complete:delayed'), 'AppController 应在配置延迟后恢复 secondary motion，避免在 fullBody 结束姿态上 reset。');
   assert(appController.includes('releaseSecondaryMotionSuppression'), 'AppController 应在切换/销毁等非自然结束路径释放 secondary motion suppress 状态。');
+  assert(debugPanel.includes('QA motion') && debugPanel.includes('motion.quality') && debugPanel.includes('motion.secondary'), 'Debug Panel 应提供 QA 动作选择与质量/secondary 策略可观测。');
   assert(!appController.includes("request?.layer === 'fullBody' && request?.meta?.mode === 'vrma'"), 'secondary motion suppress 不应继续按 fullBody+vrma 硬编码。');
   assert(orchestrator.includes('class PresentationOrchestrator'), '应存在 PresentationOrchestrator 表现编排骨架。');
   assert(orchestrator.includes('createNoopController'), 'PresentationOrchestrator 应预留后续 controller safe no-op 接口。');
@@ -388,6 +396,7 @@ async function checkLocalGirlWaveMotionConfig() {
   assert(wave.path === 'assets/motions/vrm/test/VRMA_02Greeting.vrma', 'wave 测试动作应使用人工放置的授权 VRMA 测试路径。');
   assert(wave.layer === 'fullBody', '原始 VRMA greeting 应运行在 fullBody layer，而不是 gesture overlay。');
   assert(wave.secondaryMotion === 'suppress', 'wave 应显式声明 secondaryMotion=suppress，避免按格式/层级自动猜测。');
+  assert(wave.secondaryMotionRestoreDelayMs === 450, 'wave 应等待 idle transition 完成后再恢复 secondary motion。');
   assert(wave.fallback === 'procedural', 'wave 测试动作缺文件时应回退 procedural。');
   assert(!wave.trackFilter, '原始 VRMA greeting 不应被 trackFilter 截成局部动作。');
   assert(wave.baseWeightWhileActive === 0, 'fullBody VRMA 播放时应让 procedural base idle 让出权重。');

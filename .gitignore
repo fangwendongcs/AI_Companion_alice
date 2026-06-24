@@ -19,6 +19,7 @@ coverage/
 logs/
 *.log
 .playwright-cli/
+output/playwright/
 data/uploads/
 data/sqlite/
 data/exports/

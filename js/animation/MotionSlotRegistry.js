@@ -82,9 +82,15 @@ export class MotionSlotRegistry {
     const actions = this.getSlots()
       .map((slot) => this.toActionEntry(slot, slots))
       .filter(Boolean);
+    const qaActions = Object.entries(motionManifest.qaSlots || {})
+      .map(([slot, entry]) => this.toCustomActionEntry(slot, entry))
+      .filter(Boolean);
 
     return {
-      actions,
+      actions: [
+        ...actions,
+        ...qaActions
+      ],
       proceduralFallbacks: {
         ...DEFAULT_PROCEDURAL_FALLBACKS,
         ...(motionManifest.proceduralFallbacks || {})
@@ -101,6 +107,21 @@ export class MotionSlotRegistry {
       ...this.getDefaults(slot),
       ...resolved,
       file: resolved.file || resolved.path,
+      fallbackSlot: undefined
+    };
+  }
+
+  toCustomActionEntry(slot, entry = {}) {
+    if (entry.enabled === false) return null;
+    if (!entry.file && !entry.path) return null;
+
+    return {
+      name: slot,
+      ...this.getDefaults(slot),
+      ...entry,
+      file: entry.file || entry.path,
+      qaOnly: entry.qaOnly ?? true,
+      productMapping: entry.productMapping ?? false,
       fallbackSlot: undefined
     };
   }

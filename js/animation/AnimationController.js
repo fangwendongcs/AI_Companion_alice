@@ -43,6 +43,7 @@ export class AnimationController {
   constructor() {
     this.fbxLoader = new FBXLoader();
     this.staticAssetLoader = new StaticAssetLoader();
+    this.fileClipCache = new Map();
     this.blender = new AnimationBlender();
     this.handleMixerFinished = (event) => this.handleActionFinished(event.action);
     this.onStateChange = null;
@@ -88,6 +89,7 @@ export class AnimationController {
   }
 
   reset() {
+    this.fileClipCache.clear();
     if (this.mixer) {
       this.mixer.removeEventListener('finished', this.handleMixerFinished);
       this.stopAll();
@@ -152,7 +154,7 @@ export class AnimationController {
       if (!clip) return;
       const playableClip = needsRetarget
         ? this.retargeter.retargetClipToAvatar(clip, skeletonMap, this.retargetAdapter)
-        : clip;
+        : clip.clone?.() || clip;
       const filteredClip = playableClip ? this.applyTrackFilter(playableClip, entry) : null;
       if (filteredClip) {
         this.registry.register({
@@ -178,6 +180,20 @@ export class AnimationController {
   async loadFileClip(entry) {
     const path = entry.file || entry.path;
     const format = this.getMotionFormat(entry);
+    const cacheKey = this.getFileClipCacheKey(path, format);
+    if (this.fileClipCache.has(cacheKey)) return this.fileClipCache.get(cacheKey);
+
+    const loadPromise = this.loadFileClipUncached(entry, path, format);
+    this.fileClipCache.set(cacheKey, loadPromise);
+    try {
+      return await loadPromise;
+    } catch (error) {
+      this.fileClipCache.delete(cacheKey);
+      throw error;
+    }
+  }
+
+  async loadFileClipUncached(entry, path, format) {
     if (format === 'vrma') {
       return {
         clip: await this.loadVRMAClip(path),
@@ -195,6 +211,14 @@ export class AnimationController {
     }
 
     throw new Error(`Unsupported motion format: ${format}`);
+  }
+
+  getFileClipCacheKey(path, format) {
+    return [
+      this.avatar?.uuid || this.avatar?.id || 'avatar',
+      format || 'unknown',
+      path || 'unknown'
+    ].join(':');
   }
 
   getMotionFormat(entry = {}) {
@@ -623,6 +647,10 @@ export class AnimationController {
           layer,
           source: meta.source || 'none',
           mode: this.resolveMotionMode(meta),
+          assetId: meta.assetId || '',
+          qualityStatus: meta.qualityStatus || 'approved',
+          qaOnly: Boolean(meta.qaOnly),
+          secondaryMotion: meta.secondaryMotion || 'keep',
           weight,
           running: Boolean(action.isRunning?.()),
           enabled: Boolean(action.enabled),
@@ -643,6 +671,10 @@ export class AnimationController {
       layer: primary?.layerName || null,
       mode: this.resolveMotionMode(meta),
       source: meta?.source || 'none',
+      assetId: meta?.assetId || '',
+      qualityStatus: meta?.qualityStatus || null,
+      qaOnly: Boolean(meta?.qaOnly),
+      secondaryMotion: meta?.secondaryMotion || null,
       mixerActive: Boolean(this.mixer),
       mixerRoot: this.mixerRoot?.name || 'avatar-root',
       trackCount: meta?.trackCount ?? null,

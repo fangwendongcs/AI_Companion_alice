@@ -75,7 +75,36 @@ export class MotionManager {
     return {
       ...debug,
       motionManifest: this.characterMeta?.motionManifest || null,
-      avatarType: this.characterMeta?.type || null
+      avatarType: this.characterMeta?.type || null,
+      availableMotions: this.listDebugMotions()
+    };
+  }
+
+  listDebugMotions() {
+    const manifest = this.motionManifest || {};
+    return [
+      ...Object.entries(manifest.slots || {}).map(([slot, entry]) => this.toDebugMotionEntry(slot, entry, 'slot')),
+      ...Object.entries(manifest.qaSlots || {}).map(([slot, entry]) => this.toDebugMotionEntry(slot, entry, 'qaSlot'))
+    ].filter(Boolean);
+  }
+
+  toDebugMotionEntry(slot, entry = {}, scope = 'slot') {
+    const asset = entry.assetId && this.motionManifest?.assets
+      ? this.motionManifest.assets[entry.assetId] || null
+      : null;
+    return {
+      id: slot,
+      label: asset?.label || entry.label || slot,
+      scope,
+      assetId: entry.assetId || '',
+      qualityStatus: entry.qualityStatus || asset?.qualityStatus || 'approved',
+      qaOnly: Boolean(entry.qaOnly || scope === 'qaSlot'),
+      productMapping: entry.productMapping ?? scope === 'slot',
+      mode: entry.mode || '',
+      source: entry.source || '',
+      layer: entry.layer || '',
+      secondaryMotion: entry.secondaryMotion || '',
+      path: entry.path || entry.file || asset?.path || ''
     };
   }
 

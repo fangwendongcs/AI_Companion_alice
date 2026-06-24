@@ -8,6 +8,7 @@ This note records the minimum contract before Alice adds external humanoid motio
 - Body motion is still owned by `MotionManager` / `AnimationController`.
 - `VRMRenderer` reports renderer capabilities and runs `vrm.update(delta)`, but it does not choose motion resources.
 - The local girl VRM `motions.json` has one authorized test entry for the `wave` slot; other routine body motion still relies on procedural fallbacks unless explicitly configured.
+- The 7 local VRMA test files are now registered and classified in `assets/avatars/test-vrm/motions.json`. See `docs/architecture/VRM_MOTION_QUALITY_V1.md` for the asset status gate, QA-only slots, and rejected-action boundaries.
 
 ## Recommended Motion Config Fields
 
@@ -91,6 +92,8 @@ Supported secondary motion policies:
 - `keep`: leave VRM secondary motion running.
 - `reset`: reset secondary motion at action boundaries without disabling it.
 - `suppress`: disable secondary motion while the action is active, then restore it on completion, interruption, avatar switch, or app destroy.
+
+`qa=motion` also exposes QA-only motion slots for visual review. These slots are not product mappings and must keep `qaOnly=true` plus `productMapping=false`. `Shoot`, `Spin`, and `Squat` are stress-test/rejected assets and must not enter formal companion behavior.
 
 Debug should show `motion.layer=fullBody`, `motion.tracks=53`, `motion.actions`, and `vrm.secondaryMotion`.
 

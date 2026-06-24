@@ -142,13 +142,18 @@ export class AppController {
       },
       motion: {
         current: null,
+        assetId: '',
+        qualityStatus: null,
+        qaOnly: false,
         mode: 'none',
         source: 'none',
         mixerActive: false,
         retargetReady: false,
         secondaryMotionEnabled: true,
+        secondaryMotion: null,
         proceduralActive: false,
-        lastError: ''
+        lastError: '',
+        availableMotions: []
       },
       presentation: {
         lipSync: {
@@ -496,6 +501,21 @@ export class AppController {
     }
 
     if (phase === 'complete' && policy === 'suppress' && this.secondaryMotionSuppressedActionId === request.id) {
+      const delayMs = Math.max(0, Number(request?.meta?.secondaryMotionRestoreDelayMs) || 0);
+      if (delayMs > 0) {
+        this.registry.addTimeout(() => {
+          if (this.secondaryMotionSuppressedActionId !== request.id) return;
+          this.releaseSecondaryMotionSuppression(`motion:${request.name}:complete:delayed`);
+        }, delayMs);
+        return {
+          ok: true,
+          applied: false,
+          pending: true,
+          delayMs,
+          reason: `motion:${request.name}:complete`
+        };
+      }
+
       this.secondaryMotionSuppressedActionId = null;
       const result = this.characterManager.setAvatarSecondaryMotionEnabled(true, `motion:${request.name}:complete`);
       if (!result.ok) this.log.debug('Secondary motion enable was not applied:', result.reason);
@@ -659,6 +679,9 @@ export class AppController {
       || {};
     const nextMotion = {
       current: motion.current || null,
+      assetId: motion.assetId || '',
+      qualityStatus: motion.qualityStatus || null,
+      qaOnly: Boolean(motion.qaOnly),
       layer: motion.layer || '',
       mode: motion.mode || 'none',
       source: motion.source || 'none',
@@ -668,8 +691,10 @@ export class AppController {
       originalTrackCount: motion.originalTrackCount ?? null,
       retargetReady: Boolean(capabilities.retargetReady),
       secondaryMotionEnabled: capabilities.secondaryMotionEnabled ?? true,
+      secondaryMotion: motion.secondaryMotion || null,
       proceduralActive: Boolean(motion.proceduralActive),
       activeActions: motion.activeActions || [],
+      availableMotions: motion.availableMotions || [],
       lastError: motion.lastError || '',
       retargetMissingBones: capabilities.retargetMissingBones || []
     };

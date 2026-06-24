@@ -51,8 +51,14 @@ export class AnimationRegistry {
       mode: meta.mode || null,
       format: meta.format || '',
       path: meta.path || meta.file || '',
+      assetId: meta.assetId || '',
+      qualityStatus: this.normalizeQualityStatus(meta.qualityStatus),
+      productUse: meta.productUse || '',
+      qaOnly: Boolean(meta.qaOnly),
+      productMapping: meta.productMapping ?? true,
       trackFilter: meta.trackFilter || meta.mask || null,
       secondaryMotion: this.normalizeSecondaryMotionPolicy(meta.secondaryMotion),
+      secondaryMotionRestoreDelayMs: Math.max(0, Number(meta.secondaryMotionRestoreDelayMs) || 0),
       trackCount: meta.trackCount ?? clip.tracks?.length ?? 0,
       originalTrackCount: meta.originalTrackCount ?? meta.trackCount ?? clip.tracks?.length ?? 0,
       factory: meta.factory || null,
@@ -76,5 +82,11 @@ export class AnimationRegistry {
     const normalized = String(policy || 'keep').trim().toLowerCase();
     if (['keep', 'reset', 'suppress'].includes(normalized)) return normalized;
     return 'keep';
+  }
+
+  normalizeQualityStatus(status) {
+    const normalized = String(status || 'approved').trim();
+    if (['approved', 'debugOnly', 'rejected'].includes(normalized)) return normalized;
+    return 'approved';
   }
 }
