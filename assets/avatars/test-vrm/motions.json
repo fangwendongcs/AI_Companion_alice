@@ -2,6 +2,7 @@
   "version": 2,
   "qualityStatusValues": [
     "approved",
+    "qa",
     "debugOnly",
     "rejected"
   ],
@@ -131,6 +132,174 @@
       "sourceBindingProfile": "normalized-humanoid-nodes",
       "productUse": "qaOnlyRejectedForCompanion",
       "notes": "Useful for stress-testing hips, knees, feet, and secondary motion only. Must not enter formal business motion mapping."
+    },
+    "fbxStandingIdle": {
+      "id": "fbxStandingIdle",
+      "label": "Standing Idle",
+      "path": "assets/motions/fbx/Standing Idle.fbx",
+      "format": "fbx",
+      "source": "file",
+      "provider": "mixamo",
+      "qualityStatus": "debugOnly",
+      "semantic": "standingIdle",
+      "intendedLayer": "base",
+      "intendedLoop": "repeat",
+      "durationSec": 6,
+      "fbxVersion": 7700,
+      "staticAnimatedModelCount": 52,
+      "staticBoneTrackCount": 52,
+      "staticProperties": [
+        "Lcl Rotation",
+        "Lcl Translation"
+      ],
+      "rootMotion": {
+        "translationXDelta": 1.1049,
+        "translationYDelta": 0.0525,
+        "translationZDelta": 0.9178
+      },
+      "productUse": "debugOnlyRetargetCalibration",
+      "licenseStatus": "pending verification",
+      "notes": "Mixamo idle-loop candidate, but current browser retarget QA shows shoulder/arm T-pose distortion. Kept debug-only until Mixamo-to-VRM rest-pose and axis correction are implemented."
+    },
+    "fbxTalking": {
+      "id": "fbxTalking",
+      "label": "Talking",
+      "path": "assets/motions/fbx/Talking.fbx",
+      "format": "fbx",
+      "source": "file",
+      "provider": "mixamo",
+      "qualityStatus": "debugOnly",
+      "semantic": "talkingSoft",
+      "intendedLayer": "upperBody",
+      "intendedLoop": "repeat",
+      "durationSec": 3.933,
+      "fbxVersion": 7700,
+      "staticAnimatedModelCount": 52,
+      "staticBoneTrackCount": 52,
+      "staticProperties": [
+        "Lcl Rotation",
+        "Lcl Translation"
+      ],
+      "rootMotion": {
+        "translationXDelta": 12.8155,
+        "translationYDelta": 1.0437,
+        "translationZDelta": 2.2619
+      },
+      "productUse": "debugOnlyRetargetCalibration",
+      "licenseStatus": "pending verification",
+      "notes": "Talking-loop candidate with notable hips/root translation in source FBX, but current browser retarget QA shows shoulder/arm T-pose distortion. Kept debug-only until retarget correction passes."
+    },
+    "fbxTalking1": {
+      "id": "fbxTalking1",
+      "label": "Talking 1",
+      "path": "assets/motions/fbx/Talking (1).fbx",
+      "format": "fbx",
+      "source": "file",
+      "provider": "mixamo",
+      "qualityStatus": "debugOnly",
+      "semantic": "talkingSoftVariant",
+      "intendedLayer": "upperBody",
+      "intendedLoop": "repeat",
+      "durationSec": 3.767,
+      "fbxVersion": 7700,
+      "staticAnimatedModelCount": 52,
+      "staticBoneTrackCount": 52,
+      "staticProperties": [
+        "Lcl Rotation",
+        "Lcl Translation"
+      ],
+      "rootMotion": {
+        "translationXDelta": 2.9102,
+        "translationYDelta": 0.6524,
+        "translationZDelta": 4.0163
+      },
+      "productUse": "debugOnlyRetargetCalibration",
+      "licenseStatus": "pending verification",
+      "notes": "Talking variant candidate, but current browser retarget QA shows shoulder/arm T-pose distortion. Kept debug-only until retarget shoulders/root motion are corrected."
+    },
+    "fbxTalking2": {
+      "id": "fbxTalking2",
+      "label": "Talking 2",
+      "path": "assets/motions/fbx/Talking (2).fbx",
+      "format": "fbx",
+      "source": "file",
+      "provider": "mixamo",
+      "qualityStatus": "debugOnly",
+      "semantic": "talkingSoftVariant",
+      "intendedLayer": "upperBody",
+      "intendedLoop": "repeat",
+      "durationSec": 5.167,
+      "fbxVersion": 7700,
+      "staticAnimatedModelCount": 52,
+      "staticBoneTrackCount": 52,
+      "staticProperties": [
+        "Lcl Rotation",
+        "Lcl Translation"
+      ],
+      "rootMotion": {
+        "translationXDelta": 0.7933,
+        "translationYDelta": 0.2251,
+        "translationZDelta": 1.0426
+      },
+      "productUse": "debugOnlyRetargetCalibration",
+      "licenseStatus": "pending verification",
+      "notes": "Talking variant with lower source root translation than the other talking files, but browser retarget QA still shows shoulder/arm T-pose distortion. Kept debug-only until correction passes."
+    },
+    "fbxThinking": {
+      "id": "fbxThinking",
+      "label": "Thinking",
+      "path": "assets/motions/fbx/Thinking.fbx",
+      "format": "fbx",
+      "source": "file",
+      "provider": "mixamo",
+      "qualityStatus": "debugOnly",
+      "semantic": "thinking",
+      "intendedLayer": "gesture",
+      "intendedLoop": "once",
+      "durationSec": 4.233,
+      "fbxVersion": 7700,
+      "staticAnimatedModelCount": 52,
+      "staticBoneTrackCount": 52,
+      "staticProperties": [
+        "Lcl Rotation",
+        "Lcl Translation"
+      ],
+      "rootMotion": {
+        "translationXDelta": 16.6014,
+        "translationYDelta": 2.289,
+        "translationZDelta": 4.8063
+      },
+      "productUse": "debugOnlyRetargetCalibration",
+      "licenseStatus": "pending verification",
+      "notes": "Thinking candidate with large source root motion, but current browser retarget QA shows shoulder/arm T-pose distortion. Kept debug-only for retarget calibration."
+    },
+    "fbxWaving": {
+      "id": "fbxWaving",
+      "label": "Waving",
+      "path": "assets/motions/fbx/Waving.fbx",
+      "format": "fbx",
+      "source": "file",
+      "provider": "mixamo",
+      "qualityStatus": "debugOnly",
+      "semantic": "standingWave",
+      "intendedLayer": "gesture",
+      "intendedLoop": "once",
+      "durationSec": 0.533,
+      "fbxVersion": 7700,
+      "staticAnimatedModelCount": 52,
+      "staticBoneTrackCount": 52,
+      "staticProperties": [
+        "Lcl Rotation",
+        "Lcl Translation"
+      ],
+      "rootMotion": {
+        "translationXDelta": 0.6659,
+        "translationYDelta": 0.4525,
+        "translationZDelta": 0.6858
+      },
+      "productUse": "debugOnlyRetargetCalibration",
+      "licenseStatus": "pending verification",
+      "notes": "Standing wave candidate, but current browser retarget QA shows shoulder/arm T-pose distortion. Kept debug-only until Mixamo-to-VRM rest-pose and axis correction are implemented."
     }
   },
   "slots": {
@@ -338,6 +507,168 @@
         "rejected",
         "squat",
         "hips-feet-stress"
+      ]
+    },
+    "qaFbxStandingIdle": {
+      "id": "qaFbxStandingIdle",
+      "assetId": "fbxStandingIdle",
+      "renderer": "vrm",
+      "mode": "retargeted",
+      "source": "file",
+      "format": "fbx",
+      "path": "assets/motions/fbx/Standing Idle.fbx",
+      "loop": "once",
+      "fadeIn": 0.25,
+      "fadeOut": 0.35,
+      "baseWeightWhileActive": 0,
+      "layer": "fullBody",
+      "secondaryMotion": "suppress",
+      "secondaryMotionRestoreDelayMs": 450,
+      "qualityStatus": "debugOnly",
+      "qaOnly": true,
+      "productMapping": false,
+      "fallback": "procedural",
+      "tags": [
+        "qa",
+        "fbx",
+        "mixamo",
+        "idle-candidate",
+        "retarget-validation"
+      ]
+    },
+    "qaFbxTalking": {
+      "id": "qaFbxTalking",
+      "assetId": "fbxTalking",
+      "renderer": "vrm",
+      "mode": "retargeted",
+      "source": "file",
+      "format": "fbx",
+      "path": "assets/motions/fbx/Talking.fbx",
+      "loop": "once",
+      "fadeIn": 0.25,
+      "fadeOut": 0.35,
+      "baseWeightWhileActive": 0,
+      "layer": "fullBody",
+      "secondaryMotion": "suppress",
+      "secondaryMotionRestoreDelayMs": 450,
+      "qualityStatus": "debugOnly",
+      "qaOnly": true,
+      "productMapping": false,
+      "fallback": "procedural",
+      "tags": [
+        "qa",
+        "fbx",
+        "mixamo",
+        "talking-candidate",
+        "retarget-validation"
+      ]
+    },
+    "qaFbxTalking1": {
+      "id": "qaFbxTalking1",
+      "assetId": "fbxTalking1",
+      "renderer": "vrm",
+      "mode": "retargeted",
+      "source": "file",
+      "format": "fbx",
+      "path": "assets/motions/fbx/Talking (1).fbx",
+      "loop": "once",
+      "fadeIn": 0.25,
+      "fadeOut": 0.35,
+      "baseWeightWhileActive": 0,
+      "layer": "fullBody",
+      "secondaryMotion": "suppress",
+      "secondaryMotionRestoreDelayMs": 450,
+      "qualityStatus": "debugOnly",
+      "qaOnly": true,
+      "productMapping": false,
+      "fallback": "procedural",
+      "tags": [
+        "qa",
+        "fbx",
+        "mixamo",
+        "talking-candidate",
+        "retarget-validation"
+      ]
+    },
+    "qaFbxTalking2": {
+      "id": "qaFbxTalking2",
+      "assetId": "fbxTalking2",
+      "renderer": "vrm",
+      "mode": "retargeted",
+      "source": "file",
+      "format": "fbx",
+      "path": "assets/motions/fbx/Talking (2).fbx",
+      "loop": "once",
+      "fadeIn": 0.25,
+      "fadeOut": 0.35,
+      "baseWeightWhileActive": 0,
+      "layer": "fullBody",
+      "secondaryMotion": "suppress",
+      "secondaryMotionRestoreDelayMs": 450,
+      "qualityStatus": "debugOnly",
+      "qaOnly": true,
+      "productMapping": false,
+      "fallback": "procedural",
+      "tags": [
+        "qa",
+        "fbx",
+        "mixamo",
+        "talking-candidate",
+        "retarget-validation"
+      ]
+    },
+    "qaFbxThinking": {
+      "id": "qaFbxThinking",
+      "assetId": "fbxThinking",
+      "renderer": "vrm",
+      "mode": "retargeted",
+      "source": "file",
+      "format": "fbx",
+      "path": "assets/motions/fbx/Thinking.fbx",
+      "loop": "once",
+      "fadeIn": 0.25,
+      "fadeOut": 0.35,
+      "baseWeightWhileActive": 0,
+      "layer": "fullBody",
+      "secondaryMotion": "suppress",
+      "secondaryMotionRestoreDelayMs": 450,
+      "qualityStatus": "debugOnly",
+      "qaOnly": true,
+      "productMapping": false,
+      "fallback": "procedural",
+      "tags": [
+        "qa",
+        "fbx",
+        "mixamo",
+        "thinking-candidate",
+        "retarget-validation"
+      ]
+    },
+    "qaFbxWaving": {
+      "id": "qaFbxWaving",
+      "assetId": "fbxWaving",
+      "renderer": "vrm",
+      "mode": "retargeted",
+      "source": "file",
+      "format": "fbx",
+      "path": "assets/motions/fbx/Waving.fbx",
+      "loop": "once",
+      "fadeIn": 0.2,
+      "fadeOut": 0.35,
+      "baseWeightWhileActive": 0,
+      "layer": "fullBody",
+      "secondaryMotion": "suppress",
+      "secondaryMotionRestoreDelayMs": 450,
+      "qualityStatus": "debugOnly",
+      "qaOnly": true,
+      "productMapping": false,
+      "fallback": "procedural",
+      "tags": [
+        "qa",
+        "fbx",
+        "mixamo",
+        "wave-candidate",
+        "retarget-validation"
       ]
     }
   },

@@ -1,11 +1,23 @@
 import { access, readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
+import zlib from 'node:zlib';
 
 const MOTIONS_PATH = 'assets/avatars/test-vrm/motions.json';
 const VRMA_DIR = 'assets/motions/vrm/test';
-const VALID_STATUSES = new Set(['approved', 'debugOnly', 'rejected']);
+const FBX_DIR = 'assets/motions/fbx';
+const FBX_TICKS_PER_SECOND = 46186158000;
+const VALID_STATUSES = new Set(['approved', 'qa', 'debugOnly', 'rejected']);
 const VALID_SECONDARY_MOTION = new Set(['keep', 'reset', 'suppress']);
 const VALID_MODES = new Set(['vrma', 'retargeted', 'external', 'procedural']);
+const VALID_FORMATS = new Set(['vrma', 'fbx']);
+const CURRENT_DEBUG_ONLY_FBX_ASSETS = new Set([
+  'fbxStandingIdle',
+  'fbxTalking',
+  'fbxTalking1',
+  'fbxTalking2',
+  'fbxThinking',
+  'fbxWaving'
+]);
 const VALID_BINDING_PROFILES = new Set([
   'raw-vrm-nodes-with-secondary-channels',
   'normalized-humanoid-nodes'
@@ -13,9 +25,8 @@ const VALID_BINDING_PROFILES = new Set([
 const failures = [];
 
 const motions = await readJson(MOTIONS_PATH);
-const vrmaFiles = (await readdir(VRMA_DIR))
-  .filter((file) => file.toLowerCase().endsWith('.vrma'))
-  .sort();
+const vrmaFiles = await listFiles(VRMA_DIR, '.vrma');
+const fbxFiles = await listFiles(FBX_DIR, '.fbx');
 const assets = motions.assets || {};
 const slots = motions.slots || {};
 const qaSlots = motions.qaSlots || {};
@@ -34,34 +45,68 @@ if (failures.length) {
 console.log('[check-vrm-motion-assets] ok');
 
 async function checkAssetCatalog() {
-  assert(Object.keys(assets).length === 7, 'assets 必须登记当前 7 个 VRMA 测试动作。');
+  assert(Object.keys(assets).length === 13, 'assets 必须登记当前 7 个 VRMA 与 6 个 FBX 测试动作。');
 
-  const catalogPaths = new Set(Object.values(assets).map((asset) => normalizePath(asset.path)));
-  const actualPaths = new Set(vrmaFiles.map((file) => path.posix.join(VRMA_DIR, file)));
-  actualPaths.forEach((filePath) => {
-    assert(catalogPaths.has(filePath), `VRMA 文件未登记到 assets：${filePath}`);
-  });
-  catalogPaths.forEach((filePath) => {
-    assert(actualPaths.has(filePath), `assets 登记了不存在的 VRMA 文件：${filePath}`);
-  });
+  const assetsByFormat = groupAssetsByFormat();
+  checkCatalogPaths(assetsByFormat.vrma, vrmaFiles, VRMA_DIR, 'VRMA');
+  checkCatalogPaths(assetsByFormat.fbx, fbxFiles, FBX_DIR, 'FBX');
 
   for (const [assetId, asset] of Object.entries(assets)) {
     assert(asset.id === assetId, `${assetId} 的 id 必须与 catalog key 一致。`);
     assert(VALID_STATUSES.has(asset.qualityStatus), `${assetId} qualityStatus 非法：${asset.qualityStatus}`);
-    assert(asset.format === 'vrma', `${assetId} format 必须为 vrma。`);
+    assert(VALID_FORMATS.has(asset.format), `${assetId} format 非法：${asset.format}`);
     await assertLocalFile(asset.path, `${assetId}.path`);
 
-    const audit = await auditVrma(asset.path);
-    assert(audit.hasVrmAnimationExtension, `${assetId} 必须包含 VRMC_vrm_animation 扩展。`);
-    assert(audit.animationCount > 0, `${assetId} 必须包含 animation。`);
-    assert(audit.channelCount === asset.staticChannelCount, `${assetId} staticChannelCount 应为 ${audit.channelCount}。`);
-    assert(audit.nodeCount === asset.staticNodeCount, `${assetId} staticNodeCount 应为 ${audit.nodeCount}。`);
-    assert(Math.abs(audit.durationSec - Number(asset.durationSec)) < 0.02, `${assetId} durationSec 应接近 ${audit.durationSec}。`);
-    assert(audit.specVersion === asset.vrmaSpecVersion, `${assetId} vrmaSpecVersion 应为 ${audit.specVersion}。`);
-    assert(audit.humanoidBoneCount === asset.humanoidBoneCount, `${assetId} humanoidBoneCount 应为 ${audit.humanoidBoneCount}。`);
-    assert(asset.runtimeTrackCount === 53, `${assetId} 浏览器 QA 已确认 runtimeTrackCount 应为 53。`);
-    assert(VALID_BINDING_PROFILES.has(asset.sourceBindingProfile), `${assetId} sourceBindingProfile 非法。`);
+    if (asset.format === 'vrma') await checkVrmaAsset(assetId, asset);
+    if (asset.format === 'fbx') await checkFbxAsset(assetId, asset);
   }
+}
+
+function groupAssetsByFormat() {
+  return Object.values(assets).reduce((result, asset) => {
+    if (!result[asset.format]) result[asset.format] = [];
+    result[asset.format].push(asset);
+    return result;
+  }, { vrma: [], fbx: [] });
+}
+
+function checkCatalogPaths(assetList, files, dir, label) {
+  const catalogPaths = new Set(assetList.map((asset) => normalizePath(asset.path)));
+  const actualPaths = new Set(files.map((file) => path.posix.join(dir, file)));
+  actualPaths.forEach((filePath) => {
+    assert(catalogPaths.has(filePath), `${label} 文件未登记到 assets：${filePath}`);
+  });
+  catalogPaths.forEach((filePath) => {
+    assert(actualPaths.has(filePath), `assets 登记了不存在的 ${label} 文件：${filePath}`);
+  });
+}
+
+async function checkVrmaAsset(assetId, asset) {
+  const audit = await auditVrma(asset.path);
+  assert(audit.hasVrmAnimationExtension, `${assetId} 必须包含 VRMC_vrm_animation 扩展。`);
+  assert(audit.animationCount > 0, `${assetId} 必须包含 animation。`);
+  assert(audit.channelCount === asset.staticChannelCount, `${assetId} staticChannelCount 应为 ${audit.channelCount}。`);
+  assert(audit.nodeCount === asset.staticNodeCount, `${assetId} staticNodeCount 应为 ${audit.nodeCount}。`);
+  assert(Math.abs(audit.durationSec - Number(asset.durationSec)) < 0.02, `${assetId} durationSec 应接近 ${audit.durationSec}。`);
+  assert(audit.specVersion === asset.vrmaSpecVersion, `${assetId} vrmaSpecVersion 应为 ${audit.specVersion}。`);
+  assert(audit.humanoidBoneCount === asset.humanoidBoneCount, `${assetId} humanoidBoneCount 应为 ${audit.humanoidBoneCount}。`);
+  assert(asset.runtimeTrackCount === 53, `${assetId} 浏览器 QA 已确认 runtimeTrackCount 应为 53。`);
+  assert(VALID_BINDING_PROFILES.has(asset.sourceBindingProfile), `${assetId} sourceBindingProfile 非法。`);
+}
+
+async function checkFbxAsset(assetId, asset) {
+  const audit = await auditFbx(asset.path);
+  assert(audit.version === asset.fbxVersion, `${assetId} fbxVersion 应为 ${audit.version}。`);
+  assert(audit.animatedModelCount === asset.staticAnimatedModelCount, `${assetId} staticAnimatedModelCount 应为 ${audit.animatedModelCount}。`);
+  assert(audit.boneTrackCount === asset.staticBoneTrackCount, `${assetId} staticBoneTrackCount 应为 ${audit.boneTrackCount}。`);
+  assert(Math.abs(audit.durationSec - Number(asset.durationSec)) < 0.02, `${assetId} durationSec 应接近 ${audit.durationSec}。`);
+  assert(asset.provider === 'mixamo', `${assetId} provider 应标记为 mixamo。`);
+  assert(asset.licenseStatus === 'pending verification', `${assetId} licenseStatus 应保持 pending verification，不能编造授权结论。`);
+  assert(
+    !CURRENT_DEBUG_ONLY_FBX_ASSETS.has(assetId) || asset.qualityStatus === 'debugOnly',
+    `${assetId} 当前浏览器 retarget QA 未通过，必须保持 debugOnly。`
+  );
+  assert(audit.rootMotion, `${assetId} 应包含 hips/root motion 审计信息。`);
 }
 
 async function checkFormalSlots() {
@@ -92,7 +137,13 @@ async function checkQaSlots() {
     'qaShoot',
     'qaSpin',
     'qaModelPose',
-    'qaSquat'
+    'qaSquat',
+    'qaFbxStandingIdle',
+    'qaFbxTalking',
+    'qaFbxTalking1',
+    'qaFbxTalking2',
+    'qaFbxThinking',
+    'qaFbxWaving'
   ];
   requiredQaSlots.forEach((slot) => {
     assert(Boolean(qaSlots[slot]), `qaSlots 缺少 ${slot}。`);
@@ -105,6 +156,9 @@ async function checkQaSlots() {
     if (entry.secondaryMotion === 'suppress') {
       assert(entry.secondaryMotionRestoreDelayMs === 450, `${slot} suppress 恢复延迟必须保持 450ms。`);
     }
+    if (entry.format === 'fbx') {
+      assert(entry.qualityStatus === 'debugOnly', `${slot} 当前 FBX retarget QA 未通过，必须保持 debugOnly。`);
+    }
     checkMotionEntry(entry, `qaSlots.${slot}`);
   }
 }
@@ -115,12 +169,18 @@ function checkRejectedAssetBoundaries() {
     assert(assets[assetId]?.qualityStatus === 'rejected', `${assetId} 必须标记为 rejected。`);
     assert(!formalAssetIds.has(assetId), `${assetId} 不得进入正式 slots。`);
   });
+  Object.values(assets).forEach((asset) => {
+    if (asset.qualityStatus !== 'approved') {
+      assert(!formalAssetIds.has(asset.id), `${asset.id} 尚未 approved，不得进入正式 slots。`);
+    }
+  });
 }
 
 function checkMotionEntry(entry, label) {
   assert(entry.renderer === 'vrm', `${label}.renderer 必须为 vrm。`);
   assert(VALID_MODES.has(entry.mode), `${label}.mode 非法：${entry.mode}`);
-  assert(entry.format === 'vrma', `${label}.format 必须为 vrma。`);
+  assert(VALID_FORMATS.has(entry.format), `${label}.format 非法：${entry.format}`);
+  assert(entry.format !== 'fbx' || entry.mode === 'retargeted', `${label} FBX 必须声明 mode=retargeted。`);
   assert(entry.source === 'file', `${label}.source 必须为 file。`);
   assert(Boolean(entry.path || entry.file), `${label} 缺少 path/file。`);
   assert(VALID_SECONDARY_MOTION.has(entry.secondaryMotion), `${label}.secondaryMotion 非法：${entry.secondaryMotion}`);
@@ -178,6 +238,213 @@ async function auditVrma(filePath) {
       json?.extensions?.VRMC_vrm_animation?.humanoid?.humanBones || {}
     ).length
   };
+}
+
+async function auditFbx(filePath) {
+  const buffer = await readFile(normalizePath(filePath));
+  const version = buffer.readUInt32LE(23);
+  const wideRecords = version >= 7500;
+  const roots = readFbxNodes(buffer, wideRecords);
+  const nodes = [];
+  roots.forEach((root) => walk(root, (node) => nodes.push(node)));
+
+  const models = new Map();
+  const curveNodes = new Map();
+  const curves = new Map();
+  const connections = [];
+  nodes.forEach((node) => {
+    if (node.name === 'Model') models.set(node.props[0], { id: node.props[0], name: cleanFbxName(node.props[1]) });
+    if (node.name === 'AnimationCurveNode') curveNodes.set(node.props[0], { id: node.props[0], name: cleanFbxName(node.props[1]) });
+    if (node.name === 'AnimationCurve') curves.set(node.props[0], { id: node.props[0], times: [], values: [] });
+    if (node.name === 'C') connections.push(node.props);
+  });
+
+  nodes.forEach((node) => {
+    if (node.name !== 'AnimationCurve') return;
+    const curve = curves.get(node.props[0]);
+    node.children.forEach((child) => {
+      if (child.name === 'KeyTime') curve.times = child.props[0]?.values || [];
+      if (child.name === 'KeyValueFloat') curve.values = child.props[0]?.values || [];
+    });
+  });
+
+  const curveNodeToModel = new Map();
+  const curveToCurveNode = [];
+  connections.forEach((connection) => {
+    const from = connection[1];
+    const to = connection[2];
+    const prop = connection[3] || '';
+    if (curveNodes.has(from) && models.has(to)) curveNodeToModel.set(from, { modelId: to, prop });
+    if (curves.has(from) && curveNodes.has(to)) {
+      curveToCurveNode.push({ curveId: from, curveNodeId: to, axis: String(prop).replace(/^d\|/, '') });
+    }
+  });
+
+  const tracksByModel = new Map();
+  let maxTick = 0;
+  curveToCurveNode.forEach((link) => {
+    const curveNode = curveNodes.get(link.curveNodeId);
+    const curveModel = curveNodeToModel.get(link.curveNodeId);
+    const curve = curves.get(link.curveId);
+    if (!curveNode || !curveModel || !curve) return;
+
+    const model = models.get(curveModel.modelId);
+    const prop = String(curveModel.prop || curveNode.name || '').replace(/^d\|/, '');
+    curve.times.forEach((time) => {
+      if (time > maxTick) maxTick = time;
+    });
+
+    const modelName = model?.name || String(curveModel.modelId);
+    if (!tracksByModel.has(modelName)) {
+      tracksByModel.set(modelName, { model: modelName, props: new Set(), ranges: {} });
+    }
+    const track = tracksByModel.get(modelName);
+    track.props.add(prop);
+    if (curve.values.length) {
+      const min = Math.min(...curve.values);
+      const max = Math.max(...curve.values);
+      track.ranges[`${prop}.${link.axis}`] = {
+        min: Number(min.toFixed(4)),
+        max: Number(max.toFixed(4)),
+        delta: Number((max - min).toFixed(4))
+      };
+    }
+  });
+
+  const tracks = Array.from(tracksByModel.values());
+  const boneTracks = tracks.filter((track) => /mixamorig|hips|spine|arm|leg|foot|hand|head|neck|shoulder/i.test(track.model));
+  const hips = tracks.find((track) => /hips/i.test(track.model));
+
+  return {
+    version,
+    durationSec: Number((maxTick / FBX_TICKS_PER_SECOND).toFixed(3)),
+    animatedModelCount: tracks.length,
+    boneTrackCount: boneTracks.length,
+    rootMotion: hips?.ranges || null
+  };
+}
+
+function readFbxNodes(buffer, wideRecords) {
+  let offset = 27;
+  const roots = [];
+
+  const readUInt = () => {
+    if (wideRecords) {
+      const value = Number(buffer.readBigUInt64LE(offset));
+      offset += 8;
+      return value;
+    }
+    const value = buffer.readUInt32LE(offset);
+    offset += 4;
+    return value;
+  };
+
+  const readNode = () => {
+    const endOffset = readUInt();
+    const numProps = readUInt();
+    readUInt();
+    const nameLength = buffer[offset++];
+    if (endOffset === 0 && numProps === 0 && nameLength === 0) return null;
+
+    const name = buffer.subarray(offset, offset + nameLength).toString('utf8');
+    offset += nameLength;
+    const props = [];
+    for (let index = 0; index < numProps; index++) props.push(readFbxProperty(buffer, () => offset, (next) => { offset = next; }));
+
+    const children = [];
+    const nullRecordSize = wideRecords ? 25 : 13;
+    while (offset < endOffset - nullRecordSize) {
+      const child = readNode();
+      if (!child) break;
+      children.push(child);
+    }
+    offset = endOffset;
+    return { name, props, children };
+  };
+
+  while (offset < buffer.length) {
+    const node = readNode();
+    if (!node) break;
+    roots.push(node);
+  }
+  return roots;
+}
+
+function readFbxProperty(buffer, getOffset, setOffset) {
+  let offset = getOffset();
+  const type = String.fromCharCode(buffer[offset++]);
+  const readString = () => {
+    const length = buffer.readUInt32LE(offset);
+    offset += 4;
+    const value = buffer.subarray(offset, offset + length).toString('utf8');
+    offset += length;
+    return value;
+  };
+
+  let value;
+  if (type === 'Y') { value = buffer.readInt16LE(offset); offset += 2; }
+  else if (type === 'C') { value = buffer[offset++] !== 0; }
+  else if (type === 'I') { value = buffer.readInt32LE(offset); offset += 4; }
+  else if (type === 'F') { value = buffer.readFloatLE(offset); offset += 4; }
+  else if (type === 'D') { value = buffer.readDoubleLE(offset); offset += 8; }
+  else if (type === 'L') { value = Number(buffer.readBigInt64LE(offset)); offset += 8; }
+  else if (type === 'S') { value = readString(); }
+  else if (type === 'R') {
+    const length = buffer.readUInt32LE(offset);
+    offset += 4 + length;
+    value = { rawBytes: length };
+  } else if ('fdilbc'.includes(type)) {
+    const length = buffer.readUInt32LE(offset); offset += 4;
+    const encoding = buffer.readUInt32LE(offset); offset += 4;
+    const byteLength = buffer.readUInt32LE(offset); offset += 4;
+    const raw = buffer.subarray(offset, offset + byteLength);
+    offset += byteLength;
+    value = { values: decodeFbxArray(type, length, encoding, raw) };
+  } else {
+    throw new Error(`Unsupported FBX property type ${type}`);
+  }
+
+  setOffset(offset);
+  return value;
+}
+
+function decodeFbxArray(type, length, encoding, raw) {
+  const data = encoding ? zlib.inflateSync(raw) : raw;
+  const values = [];
+  let offset = 0;
+  for (let index = 0; index < length; index++) {
+    if (type === 'f') { values.push(data.readFloatLE(offset)); offset += 4; }
+    else if (type === 'd') { values.push(data.readDoubleLE(offset)); offset += 8; }
+    else if (type === 'i') { values.push(data.readInt32LE(offset)); offset += 4; }
+    else if (type === 'l') { values.push(Number(data.readBigInt64LE(offset))); offset += 8; }
+    else { values.push(data[offset]); offset += 1; }
+  }
+  return values;
+}
+
+function walk(node, visit) {
+  visit(node);
+  node.children.forEach((child) => walk(child, visit));
+}
+
+function cleanFbxName(value) {
+  return String(value || '')
+    .split('\u0000')[0]
+    .replace(/^Model::/, '')
+    .replace(/^AnimStack::/, '')
+    .replace(/^AnimLayer::/, '')
+    .replace(/^AnimCurveNode::/, '')
+    .replace(/^AnimCurve::/, '');
+}
+
+async function listFiles(dir, extension) {
+  try {
+    return (await readdir(dir))
+      .filter((file) => file.toLowerCase().endsWith(extension))
+      .sort();
+  } catch {
+    return [];
+  }
 }
 
 async function readJson(filePath) {

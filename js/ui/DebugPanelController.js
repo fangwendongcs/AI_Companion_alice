@@ -59,12 +59,14 @@ const DISPLAY_ROWS = [
   ['motion.secondary', 'motionSecondary'],
   ['motion.layer', 'motionLayer'],
   ['motion.mode', 'motionMode'],
+  ['motion.format', 'motionFormat'],
   ['motion.source', 'motionSource'],
   ['motion.mixerActive', 'motionMixerActive'],
   ['motion.mixerRoot', 'motionMixerRoot'],
   ['motion.tracks', 'motionTracks'],
   ['motion.actions', 'motionActions'],
   ['motion.retargetReady', 'motionRetargetReady'],
+  ['motion.retarget', 'motionRetarget'],
   ['motion.proceduralActive', 'motionProceduralActive'],
   ['motion.lastError', 'motionLastError'],
   ['lipSync.mode', 'lipSyncMode'],
@@ -241,12 +243,14 @@ export class DebugPanelController {
       motionSecondary: state.motion?.secondaryMotion || '-',
       motionLayer: state.motion?.layer || '-',
       motionMode: state.motion?.mode || '-',
+      motionFormat: state.motion?.format || '-',
       motionSource: state.motion?.source || '-',
       motionMixerActive: state.motion?.mixerActive ?? false,
       motionMixerRoot: state.motion?.mixerRoot || '-',
       motionTracks: this.formatMotionTracks(state.motion),
       motionActions: this.formatMotionActions(state.motion?.activeActions),
       motionRetargetReady: state.motion?.retargetReady ?? false,
+      motionRetarget: this.formatRetargetState(state.motion),
       motionProceduralActive: state.motion?.proceduralActive ?? false,
       motionLastError: this.formatMotionError(state.motion),
       lipSyncMode: state.presentation?.lipSync?.mode || '-',
@@ -354,7 +358,16 @@ export class DebugPanelController {
   formatMotionOption(motion = {}) {
     const scope = motion.scope === 'qaSlot' ? 'qa' : 'slot';
     const status = motion.qualityStatus || 'approved';
-    return `${motion.id} · ${scope} · ${status}`;
+    const format = motion.format || 'motion';
+    return `${motion.id} · ${format} · ${scope} · ${status}`;
+  }
+
+  formatRetargetState(motion = {}) {
+    const status = motion?.retargetStatus || '-';
+    const bones = motion?.retargetMatchedBoneCount;
+    const skippedScale = motion?.retargetSkippedScaleTrackCount;
+    if (bones === null || bones === undefined) return status;
+    return `${status} bones:${bones} scale:${skippedScale ?? 0}`;
   }
 
   formatMotionTracks(motion = {}) {

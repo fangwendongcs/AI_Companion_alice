@@ -157,6 +157,7 @@ export class AnimationController {
         : clip.clone?.() || clip;
       const filteredClip = playableClip ? this.applyTrackFilter(playableClip, entry) : null;
       if (filteredClip) {
+        const retarget = playableClip.userData?.retarget || null;
         this.registry.register({
           mixer: this.mixer,
           avatar: this.avatar,
@@ -168,7 +169,13 @@ export class AnimationController {
             mode: entry.mode || mode || (needsRetarget ? 'retargeted' : 'external'),
             path: entry.path || entry.file || path,
             trackCount: filteredClip.tracks?.length || 0,
-            originalTrackCount: playableClip.tracks?.length || 0
+            originalTrackCount: playableClip.tracks?.length || 0,
+            sourceTrackCount: retarget?.sourceTrackCount ?? clip.tracks?.length ?? 0,
+            retargetMatchedTrackCount: retarget?.matchedTrackCount ?? null,
+            retargetUnmatchedTrackCount: retarget?.unmatchedTrackCount ?? null,
+            retargetSkippedScaleTrackCount: retarget?.skippedScaleTrackCount ?? null,
+            retargetMatchedBoneCount: retarget?.matchedTargetBones?.length ?? null,
+            retargetMissingSourceBones: retarget?.unmatchedSourceBones || []
           }
         });
       } else {
@@ -236,7 +243,14 @@ export class AnimationController {
     if (!fbx.animations || fbx.animations.length === 0) {
       throw new Error(`FBX has no animations: ${path}`);
     }
-    return fbx.animations[0];
+    const clip = fbx.animations[0];
+    clip.userData = {
+      ...(clip.userData || {}),
+      format: 'fbx',
+      sourcePath: path,
+      sourceRoot: fbx
+    };
+    return clip;
   }
 
   async loadVRMAClip(path) {
@@ -647,10 +661,12 @@ export class AnimationController {
           layer,
           source: meta.source || 'none',
           mode: this.resolveMotionMode(meta),
+          format: meta.format || '',
           assetId: meta.assetId || '',
           qualityStatus: meta.qualityStatus || 'approved',
           qaOnly: Boolean(meta.qaOnly),
           secondaryMotion: meta.secondaryMotion || 'keep',
+          retargetStatus: this.formatRetargetStatus(meta),
           weight,
           running: Boolean(action.isRunning?.()),
           enabled: Boolean(action.enabled),
@@ -671,10 +687,17 @@ export class AnimationController {
       layer: primary?.layerName || null,
       mode: this.resolveMotionMode(meta),
       source: meta?.source || 'none',
+      format: meta?.format || '',
       assetId: meta?.assetId || '',
       qualityStatus: meta?.qualityStatus || null,
       qaOnly: Boolean(meta?.qaOnly),
       secondaryMotion: meta?.secondaryMotion || null,
+      retargetStatus: this.formatRetargetStatus(meta),
+      sourceTrackCount: meta?.sourceTrackCount ?? null,
+      retargetMatchedTrackCount: meta?.retargetMatchedTrackCount ?? null,
+      retargetUnmatchedTrackCount: meta?.retargetUnmatchedTrackCount ?? null,
+      retargetSkippedScaleTrackCount: meta?.retargetSkippedScaleTrackCount ?? null,
+      retargetMatchedBoneCount: meta?.retargetMatchedBoneCount ?? null,
       mixerActive: Boolean(this.mixer),
       mixerRoot: this.mixerRoot?.name || 'avatar-root',
       trackCount: meta?.trackCount ?? null,
@@ -704,5 +727,16 @@ export class AnimationController {
     if (meta.source === AnimationSource.PROCEDURAL) return 'procedural';
     if (meta.source === AnimationSource.FILE) return 'retargeted';
     return 'unknown';
+  }
+
+  formatRetargetStatus(meta = null) {
+    if (!meta) return 'none';
+    if (meta.format === 'fbx' || meta.mode === 'retargeted') {
+      const matched = meta.retargetMatchedTrackCount;
+      const source = meta.sourceTrackCount;
+      if (matched === null || matched === undefined || !source) return 'pending';
+      return `${matched}/${source}`;
+    }
+    return meta.mode === 'vrma' ? 'native-vrma' : 'not-required';
   }
 }

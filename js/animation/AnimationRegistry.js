@@ -61,6 +61,12 @@ export class AnimationRegistry {
       secondaryMotionRestoreDelayMs: Math.max(0, Number(meta.secondaryMotionRestoreDelayMs) || 0),
       trackCount: meta.trackCount ?? clip.tracks?.length ?? 0,
       originalTrackCount: meta.originalTrackCount ?? meta.trackCount ?? clip.tracks?.length ?? 0,
+      sourceTrackCount: meta.sourceTrackCount ?? clip.tracks?.length ?? 0,
+      retargetMatchedTrackCount: meta.retargetMatchedTrackCount ?? null,
+      retargetUnmatchedTrackCount: meta.retargetUnmatchedTrackCount ?? null,
+      retargetSkippedScaleTrackCount: meta.retargetSkippedScaleTrackCount ?? null,
+      retargetMatchedBoneCount: meta.retargetMatchedBoneCount ?? null,
+      retargetMissingSourceBones: meta.retargetMissingSourceBones || [],
       factory: meta.factory || null,
       loop,
       layer: meta.layer || (loop === AnimationLoop.REPEAT ? AnimationLayer.BASE : AnimationLayer.GESTURE),
@@ -86,7 +92,7 @@ export class AnimationRegistry {
 
   normalizeQualityStatus(status) {
     const normalized = String(status || 'approved').trim();
-    if (['approved', 'debugOnly', 'rejected'].includes(normalized)) return normalized;
+    if (['approved', 'qa', 'debugOnly', 'rejected'].includes(normalized)) return normalized;
     return 'approved';
   }
 }

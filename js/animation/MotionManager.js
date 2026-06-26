@@ -101,6 +101,7 @@ export class MotionManager {
       qaOnly: Boolean(entry.qaOnly || scope === 'qaSlot'),
       productMapping: entry.productMapping ?? scope === 'slot',
       mode: entry.mode || '',
+      format: entry.format || asset?.format || '',
       source: entry.source || '',
       layer: entry.layer || '',
       secondaryMotion: entry.secondaryMotion || '',

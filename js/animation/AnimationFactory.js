@@ -14,6 +14,20 @@ export const PROCEDURAL_ACTION_DEFS = {
   chat: { loop: AnimationLoop.ONCE, priority: 8, layer: AnimationLayer.GESTURE, interrupt: true, fadeIn: 0.12, fadeOut: 0.18, baseWeightWhileActive: 0.12, returnToIdle: true, cooldown: 240 }
 };
 
+export const RELAXED_POSE_DEFS = [
+  { boneName: 'mixamorigLeftArm', rotation: { z: 1.12 } },
+  { boneName: 'mixamorigRightArm', rotation: { z: -1.12 } },
+  { boneName: 'mixamorigLeftForeArm', rotation: { z: 0.16, y: -0.08 } },
+  { boneName: 'mixamorigRightForeArm', rotation: { z: -0.16, y: 0.08 } },
+  { boneName: 'mixamorigLeftHand', rotation: { z: 0.05 } },
+  { boneName: 'mixamorigRightHand', rotation: { z: -0.05 } },
+  { boneName: 'mixamorigSpine', rotation: { x: -0.015 } },
+  { boneName: 'mixamorigSpine1', rotation: { x: -0.018 } },
+  { boneName: 'mixamorigSpine2', rotation: { x: -0.02 } },
+  { boneName: 'mixamorigNeck', rotation: { x: 0.015 } },
+  { boneName: 'mixamorigHead', rotation: { x: 0.01 } }
+];
+
 export class AnimationFactory {
   constructor({ resolveBone }) {
     this.resolveBone = resolveBone;
@@ -180,19 +194,10 @@ export class AnimationFactory {
   }
 
   getRelaxedPoseDefs() {
-    return [
-      { boneName: 'mixamorigLeftArm', rotation: { z: 1.12 } },
-      { boneName: 'mixamorigRightArm', rotation: { z: -1.12 } },
-      { boneName: 'mixamorigLeftForeArm', rotation: { z: 0.16, y: -0.08 } },
-      { boneName: 'mixamorigRightForeArm', rotation: { z: -0.16, y: 0.08 } },
-      { boneName: 'mixamorigLeftHand', rotation: { z: 0.05 } },
-      { boneName: 'mixamorigRightHand', rotation: { z: -0.05 } },
-      { boneName: 'mixamorigSpine', rotation: { x: -0.015 } },
-      { boneName: 'mixamorigSpine1', rotation: { x: -0.018 } },
-      { boneName: 'mixamorigSpine2', rotation: { x: -0.02 } },
-      { boneName: 'mixamorigNeck', rotation: { x: 0.015 } },
-      { boneName: 'mixamorigHead', rotation: { x: 0.01 } }
-    ];
+    return RELAXED_POSE_DEFS.map((def) => ({
+      ...def,
+      rotation: { ...(def.rotation || {}) }
+    }));
   }
 
   mergeProceduralDefs(defs) {
