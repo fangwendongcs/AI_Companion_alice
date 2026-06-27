@@ -27,6 +27,29 @@ export const humanoidBoneCandidates = {
   mixamorigRightFoot: ['RightFoot_63', 'mixamorigRightFoot', 'mixamorig:RightFoot', 'RightFoot', 'rightFoot', 'J_Bip_R_Foot']
 };
 
+const MIXAMO_TO_VRM_HUMANOID = {
+  mixamorigHips: 'hips',
+  mixamorigSpine: 'spine',
+  mixamorigSpine1: 'chest',
+  mixamorigSpine2: 'upperChest',
+  mixamorigNeck: 'neck',
+  mixamorigHead: 'head',
+  mixamorigLeftShoulder: 'leftShoulder',
+  mixamorigLeftArm: 'leftUpperArm',
+  mixamorigLeftForeArm: 'leftLowerArm',
+  mixamorigLeftHand: 'leftHand',
+  mixamorigRightShoulder: 'rightShoulder',
+  mixamorigRightArm: 'rightUpperArm',
+  mixamorigRightForeArm: 'rightLowerArm',
+  mixamorigRightHand: 'rightHand',
+  mixamorigLeftUpLeg: 'leftUpperLeg',
+  mixamorigLeftLeg: 'leftLowerLeg',
+  mixamorigLeftFoot: 'leftFoot',
+  mixamorigRightUpLeg: 'rightUpperLeg',
+  mixamorigRightLeg: 'rightLowerLeg',
+  mixamorigRightFoot: 'rightFoot'
+};
+
 export class AnimationRetargeter {
   constructor(avatar = null) {
     this.avatar = avatar;
@@ -179,8 +202,8 @@ export class AnimationRetargeter {
       ...(sourceClip.userData || {}),
       sourceRoot: null,
       retarget: {
-        profile: 'mixamo-relaxed-rest-v1',
-        correction: 'local-rest-delta-to-relaxed-target',
+        profile: 'mixamo-vrm-normalized-humanoid-v2',
+        correction: 'local-rest-delta-to-normalized-relaxed-target',
         rootMotion: 'locked',
         sourceTrackCount: sourceClip.tracks.length,
         matchedTrackCount: matchedCount,
@@ -249,6 +272,9 @@ export class AnimationRetargeter {
   }
 
   resolveTargetBoneName(sourceBoneName, skeletonMap = {}) {
+    const normalizedHumanoidBone = this.findNormalizedHumanoidBone(sourceBoneName);
+    if (normalizedHumanoidBone) return normalizedHumanoidBone.name;
+
     const mapped = skeletonMap[sourceBoneName];
     const mappedCandidates = Array.isArray(mapped) ? mapped : [mapped].filter(Boolean);
     for (const candidate of mappedCandidates) {
@@ -258,6 +284,19 @@ export class AnimationRetargeter {
 
     const inferred = this.findBoneByNameOrCandidates(sourceBoneName);
     return inferred?.name || '';
+  }
+
+  findNormalizedHumanoidBone(sourceBoneName) {
+    const normalized = this.normalizeSourceTrackBoneName(sourceBoneName);
+    const humanoidName = MIXAMO_TO_VRM_HUMANOID[normalized];
+    const humanoid = this.avatar?.userData?.vrm?.humanoid;
+    if (!humanoidName || !humanoid) return null;
+
+    try {
+      return humanoid.getNormalizedBoneNode?.(humanoidName) || null;
+    } catch {
+      return null;
+    }
   }
 
   normalizeSourceTrackBoneName(rawNodeName) {
@@ -295,6 +334,9 @@ export class AnimationRetargeter {
   }
 
   findBoneByNameOrCandidates(name) {
+    const normalizedHumanoidBone = this.findNormalizedHumanoidBone(name);
+    if (normalizedHumanoidBone) return normalizedHumanoidBone;
+
     const exact = this.findBoneByName(name);
     if (exact) return exact;
 

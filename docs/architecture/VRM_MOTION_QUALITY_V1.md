@@ -22,6 +22,29 @@ Motion assets use `qualityStatus`:
 
 Formal `slots` may only reference `approved` assets. `qaSlots` must declare `qaOnly=true` and `productMapping=false`.
 
+V1.1 also separates the status dimensions that were previously easy to conflate:
+
+- `technicalStatus`: whether the file can load, enter the mixer, retarget if needed, and complete without lifecycle residue.
+- `productStatus`: whether the motion is suitable for Alice's daily companion behavior.
+- `licenseStatus`: whether commercial use, attribution, and redistribution have been verified.
+
+Current Mixamo FBX files are technically playable but visually incorrect after the minimal retarget pass, so they are registered as:
+
+```json
+{
+  "technicalStatus": "playableWithRetargetIssues",
+  "productStatus": "debugOnly",
+  "licenseStatus": "pending verification"
+}
+```
+
+A product interaction candidate must satisfy all of these before `MotionManager` allows it through `interactionIntents`:
+
+- `qualityStatus=approved`
+- `technicalStatus=playable`
+- `productStatus=approved`
+- `licenseStatus=verified`
+
 ## Unified Motion Call Path
 
 Upper layers use stable semantic ids and do not depend on raw filenames or motion formats:
@@ -58,14 +81,14 @@ All seven files declare `VRMC_vrm_animation` spec version `1.0` and map 52 human
 
 The FBX files are registered as QA-only `retargeted` motions. They must pass browser retarget QA before any product mapping is considered.
 
-| Asset | File | Duration | Animated Bones | Hips Translation Delta X/Y/Z | Status | Product Decision |
-| --- | --- | ---: | ---: | --- | --- | --- |
-| `fbxStandingIdle` | `Standing Idle.fbx` | 6.0s | 52 | `1.1049 / 0.0525 / 0.9178` | `debugOnly` | Retarget calibration only; browser QA shows T-pose arm distortion |
-| `fbxTalking` | `Talking.fbx` | 3.933s | 52 | `12.8155 / 1.0437 / 2.2619` | `debugOnly` | Retarget calibration only; browser QA shows T-pose arm distortion and root-drift risk |
-| `fbxTalking1` | `Talking (1).fbx` | 3.767s | 52 | `2.9102 / 0.6524 / 4.0163` | `debugOnly` | Retarget calibration only; browser QA shows T-pose arm distortion |
-| `fbxTalking2` | `Talking (2).fbx` | 5.167s | 52 | `0.7933 / 0.2251 / 1.0426` | `debugOnly` | Retarget calibration only; browser QA shows T-pose arm distortion |
-| `fbxThinking` | `Thinking.fbx` | 4.233s | 52 | `16.6014 / 2.289 / 4.8063` | `debugOnly` | Retarget calibration only; browser QA shows T-pose arm distortion and high root-drift risk |
-| `fbxWaving` | `Waving.fbx` | 0.533s | 52 | `0.6659 / 0.4525 / 0.6858` | `debugOnly` | Retarget calibration only; browser QA shows T-pose arm distortion |
+| Asset | File | Duration | Animated Bones | Hips Translation Delta X/Y/Z | Status | Technical Status | Product Decision |
+| --- | --- | ---: | ---: | --- | --- | --- | --- |
+| `fbxStandingIdle` | `Standing Idle.fbx` | 6.0s | 52 | `1.1049 / 0.0525 / 0.9178` | `debugOnly` | `playableWithRetargetIssues` | Normalized retarget removes T-pose, but visual QA shows crossed legs and pose-heavy idle |
+| `fbxTalking` | `Talking.fbx` | 3.933s | 52 | `12.8155 / 1.0437 / 2.2619` | `debugOnly` | `playableWithRetargetIssues` | Hand gesture is visible, but full-body turn, root motion, and crossed feet are too strong |
+| `fbxTalking1` | `Talking (1).fbx` | 3.767s | 52 | `2.9102 / 0.6524 / 4.0163` | `debugOnly` | `playableWithRetargetIssues` | Best talking reference so far, but still foot-crossed and pose-like |
+| `fbxTalking2` | `Talking (2).fbx` | 5.167s | 52 | `0.7933 / 0.2251 / 1.0426` | `debugOnly` | `playableWithRetargetIssues` | Side-facing posture and leg/root issues make it unsuitable as talking soft |
+| `fbxThinking` | `Thinking.fbx` | 4.233s | 52 | `16.6014 / 2.289 / 4.8063` | `debugOnly` | `playableWithRetargetIssues` | Thinking pose is readable, but hips/root and foot placement are not stable enough |
+| `fbxWaving` | `Waving.fbx` | 0.533s | 52 | `0.6659 / 0.4525 / 0.6858` | `debugOnly` | `playableWithRetargetIssues` | Gesture is visible after normalized retarget, but it is side-sweeping rather than a natural front-facing wave |
 
 All six FBX files are Binary FBX version `7700`, expose Mixamo-style animated bones, and include `Lcl Rotation` plus `Lcl Translation` curves. They are tested through `AnimationRetargeter`, not played directly against VRM bones.
 
@@ -95,6 +118,7 @@ Runtime evidence for all six FBX files:
 - `motion.format=fbx`
 - `motion.source=file`
 - `motion.retarget=21/53 bones:20 scale:0`
+- target bones are now three-vrm normalized humanoid nodes, for example `Normalized_J_Bip_L_UpperArm`, not raw `J_Bip_L_UpperArm`
 - active fullBody action weight `1`
 - base procedural idle weight `0` while the FBX action runs
 - `motion.proceduralActive=false` while the FBX action runs
@@ -103,31 +127,37 @@ Runtime evidence for all six FBX files:
 
 | MotionId | Visual Result | Retarget / Lifecycle Result | Final Status |
 | --- | --- | --- | --- |
-| `qaFbxStandingIdle` | Mid and late frames show both arms locked horizontally in a T-pose. This is not a usable standing idle. | Loads and plays as FBX, but current Mixamo-to-VRM retarget lacks rest-pose / shoulder-axis correction. Returns to idle cleanly. | `debugOnly` |
-| `qaFbxTalking` | Mid and late frames show T-pose arms; no usable talking gesture is visible. Source hips/root translation is high. | Loads and plays, no action residue. Retarget visual quality failed. | `debugOnly` |
-| `qaFbxTalking1` | Mid and late frames show T-pose arms; no usable talking gesture is visible. | Loads and plays, no action residue. Retarget visual quality failed. | `debugOnly` |
-| `qaFbxTalking2` | Mid frame shows T-pose arms; late frame adds head dip / face occlusion but arms remain locked horizontally. | Loads and plays, no action residue. Retarget visual quality failed. | `debugOnly` |
-| `qaFbxThinking` | Mid and late frames show T-pose arms; no usable thinking gesture is visible. Source hips/root translation is high. | Loads and plays, no action residue. Retarget visual quality failed. | `debugOnly` |
-| `qaFbxWaving` | Short clip can be captured mid-action, but the visible pose remains T-pose rather than wave. | Loads and plays, no action residue. Retarget visual quality failed. | `debugOnly` |
+| `qaFbxStandingIdle` | Arms no longer T-pose, but the motion reads as crossed-leg pose with hands held forward, not a stable idle. | Loads and plays, no action residue, returns to idle cleanly. Product visual quality failed. | `debugOnly` |
+| `qaFbxTalking` | Visible hand gesture, but the full-body turn, crossed feet, and root motion are too pronounced for talking soft. | Loads and plays, no action residue, returns to idle cleanly. | `debugOnly` |
+| `qaFbxTalking1` | Most readable talking gesture among the three variants, but foot crossing and pose-heavy stance remain. | Loads and plays, no action residue, returns to idle cleanly. | `debugOnly` |
+| `qaFbxTalking2` | Side-facing posture, crossed legs, and root/hips pose are unsuitable for a conversational loop. | Loads and plays, no action residue, returns to idle cleanly. | `debugOnly` |
+| `qaFbxThinking` | Thinking hand pose is readable, but hips/root and feet are not stable enough for product use. | Loads and plays, no action residue, returns to idle cleanly. | `debugOnly` |
+| `qaFbxWaving` | Right-arm greeting/wave is visible, but it reads as side-sweeping and not a natural front-facing standing wave. | Loads and plays, no action residue, returns to idle cleanly. | `debugOnly` |
 
 Screenshot evidence was captured under:
 
 ```text
-output/playwright/vrm-motion-quality-v1/qaFbx*-mid.png
-output/playwright/vrm-motion-quality-v1/qaFbx*-late.png
+output/playwright/vrm-motion-quality-v1-1/qaFbx*-mid.png
+output/playwright/vrm-motion-quality-v1-1/qaFbx*-late.png
 ```
 
-Conclusion: the FBX pipeline is connected far enough to load, retarget by name, enter `AnimationMixer`, suppress procedural overlap, and return to idle. It is not product-ready. The blocker is the minimal retarget layer: it maps Mixamo source bones to VRM humanoid targets but does not yet apply rest-pose normalization, shoulder/arm axis correction, hips/root normalization, or scale handling.
+Conclusion: the FBX pipeline is connected far enough to load, retarget by name, enter `AnimationMixer`, suppress procedural overlap, and return to idle. The V1.1 normalized humanoid retarget fix removes the previous T-pose blocker. It is still not product-ready because the assets and retarget layer need root/hips normalization, standing-foot stability, and motion-specific product QA. License status also remains `pending verification`.
 
-## Interaction Lifecycle QA
+## Repeatable QA Runners
 
-Browser QA on `2026-06-27` used:
+Browser QA uses:
 
 ```text
 http://localhost:3001?debug=1&avatar=local_girl_vrm_test&qa=motion
 ```
 
-The QA runner at `output/playwright/vrm-motion-quality-v1/lifecycle-qa-runner.js` verified:
+The lifecycle runner is tracked at:
+
+```text
+scripts/qa/vrm-motion-lifecycle-runner.js
+```
+
+It verifies:
 
 - initial idle has no gesture/fullBody action, no queued action, no secondary-motion suppression;
 - one model click routes through `interaction.greeting`, resolves to `armTap`, and records `qaFbxWaving:candidate_debugOnly_qa_only`;
@@ -138,16 +168,26 @@ The QA runner at `output/playwright/vrm-motion-quality-v1/lifecycle-qa-runner.js
 - switching to `local_boy_vrm_test` and back to `local_girl_vrm_test` settles with only base idle active;
 - a missing motion id fails safely with `motion_not_registered:*` and leaves the avatar in idle.
 
-Final assertion result:
+The FBX retarget visual sampling runner is tracked at:
 
 ```text
-ok=true
+scripts/qa/vrm-fbx-retarget-qa-runner.js
 ```
 
-Final screenshot evidence:
+It triggers all six registered FBX QA slots, samples mid/late browser frames, records active actions and retarget debug state, and writes screenshots under:
 
 ```text
-output/playwright/vrm-motion-quality-v1/lifecycle-qa-final.png
+output/playwright/vrm-motion-quality-v1-1/
+```
+
+Run with the Playwright wrapper from the Codex desktop environment:
+
+```bash
+mkdir -p output/playwright/vrm-motion-quality-v1-1
+PORT=3001 npm run dev
+/Users/fangwendong/.codex/skills/playwright/scripts/playwright_cli.sh --session alice-vrm-motion-v1-1 open 'http://localhost:3001?debug=1&avatar=local_girl_vrm_test&qa=motion' --headed
+/Users/fangwendong/.codex/skills/playwright/scripts/playwright_cli.sh --session alice-vrm-motion-v1-1 run-code --filename scripts/qa/vrm-motion-lifecycle-runner.js
+/Users/fangwendong/.codex/skills/playwright/scripts/playwright_cli.sh --session alice-vrm-motion-v1-1 run-code --filename scripts/qa/vrm-fbx-retarget-qa-runner.js
 ```
 
 ## Debug QA Triggering

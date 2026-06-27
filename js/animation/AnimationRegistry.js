@@ -52,7 +52,11 @@ export class AnimationRegistry {
       format: meta.format || '',
       path: meta.path || meta.file || '',
       assetId: meta.assetId || '',
+      assetQualityStatus: this.normalizeQualityStatus(meta.assetQualityStatus || meta.qualityStatus),
       qualityStatus: this.normalizeQualityStatus(meta.qualityStatus),
+      technicalStatus: this.normalizeTechnicalStatus(meta.technicalStatus, source),
+      productStatus: this.normalizeProductStatus(meta.productStatus, source),
+      licenseStatus: this.normalizeLicenseStatus(meta.licenseStatus, source),
       productUse: meta.productUse || '',
       qaOnly: Boolean(meta.qaOnly),
       productMapping: meta.productMapping ?? true,
@@ -67,6 +71,7 @@ export class AnimationRegistry {
       retargetSkippedScaleTrackCount: meta.retargetSkippedScaleTrackCount ?? null,
       retargetMatchedBoneCount: meta.retargetMatchedBoneCount ?? null,
       retargetMissingSourceBones: meta.retargetMissingSourceBones || [],
+      retargetProfile: meta.retargetProfile || '',
       factory: meta.factory || null,
       loop,
       layer: meta.layer || (loop === AnimationLoop.REPEAT ? AnimationLayer.BASE : AnimationLayer.GESTURE),
@@ -92,7 +97,28 @@ export class AnimationRegistry {
 
   normalizeQualityStatus(status) {
     const normalized = String(status || 'approved').trim();
-    if (['approved', 'qa', 'debugOnly', 'rejected'].includes(normalized)) return normalized;
+    if (['approved', 'qaApproved', 'qa', 'debugOnly', 'rejected'].includes(normalized)) return normalized;
     return 'approved';
+  }
+
+  normalizeTechnicalStatus(status, source) {
+    const fallback = source === AnimationSource.PROCEDURAL ? 'playable' : '';
+    const normalized = String(status || fallback).trim();
+    if (['playable', 'playableWithRetargetIssues', 'blocked'].includes(normalized)) return normalized;
+    return fallback;
+  }
+
+  normalizeProductStatus(status, source) {
+    const fallback = source === AnimationSource.PROCEDURAL ? 'approved' : '';
+    const normalized = String(status || fallback).trim();
+    if (['approved', 'candidate', 'debugOnly', 'rejected'].includes(normalized)) return normalized;
+    return fallback;
+  }
+
+  normalizeLicenseStatus(status, source) {
+    const fallback = source === AnimationSource.PROCEDURAL ? 'verified' : '';
+    const normalized = String(status || fallback).trim();
+    if (['verified', 'pending verification', 'restricted', 'unknown'].includes(normalized)) return normalized;
+    return fallback;
   }
 }

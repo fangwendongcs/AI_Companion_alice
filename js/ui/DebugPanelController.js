@@ -56,6 +56,9 @@ const DISPLAY_ROWS = [
   ['motion.current', 'motionCurrent'],
   ['motion.asset', 'motionAsset'],
   ['motion.quality', 'motionQuality'],
+  ['motion.technical', 'motionTechnical'],
+  ['motion.product', 'motionProduct'],
+  ['motion.license', 'motionLicense'],
   ['motion.secondary', 'motionSecondary'],
   ['motion.layer', 'motionLayer'],
   ['motion.mode', 'motionMode'],
@@ -67,6 +70,7 @@ const DISPLAY_ROWS = [
   ['motion.actions', 'motionActions'],
   ['motion.retargetReady', 'motionRetargetReady'],
   ['motion.retarget', 'motionRetarget'],
+  ['motion.retargetProfile', 'motionRetargetProfile'],
   ['motion.intent', 'motionIntent'],
   ['motion.status', 'motionIntentStatus'],
   ['motion.resolved', 'motionResolved'],
@@ -246,6 +250,9 @@ export class DebugPanelController {
       motionCurrent: state.motion?.current || '-',
       motionAsset: this.formatMotionAsset(state.motion),
       motionQuality: this.formatMotionQuality(state.motion),
+      motionTechnical: state.motion?.technicalStatus || '-',
+      motionProduct: state.motion?.productStatus || '-',
+      motionLicense: state.motion?.licenseStatus || '-',
       motionSecondary: state.motion?.secondaryMotion || '-',
       motionLayer: state.motion?.layer || '-',
       motionMode: state.motion?.mode || '-',
@@ -257,6 +264,7 @@ export class DebugPanelController {
       motionActions: this.formatMotionActions(state.motion?.activeActions),
       motionRetargetReady: state.motion?.retargetReady ?? false,
       motionRetarget: this.formatRetargetState(state.motion),
+      motionRetargetProfile: state.motion?.retargetProfile || '-',
       motionIntent: state.motion?.intent || '-',
       motionIntentStatus: state.motion?.intentStatus || '-',
       motionResolved: this.formatMotionResolved(state.motion),
@@ -386,7 +394,8 @@ export class DebugPanelController {
       : motion.scope === 'procedural' ? 'procedural' : 'slot';
     const status = motion.qualityStatus || 'approved';
     const format = motion.format || 'motion';
-    return `${motion.id} · ${format} · ${scope} · ${status}`;
+    const product = motion.productStatus || '';
+    return `${motion.id} · ${format} · ${scope} · ${status}${product ? `/${product}` : ''}`;
   }
 
   formatRetargetState(motion = {}) {
@@ -414,7 +423,8 @@ export class DebugPanelController {
         const weight = this.formatMetric(action.weight);
         const running = action.running ? 'run' : 'stop';
         const policy = action.secondaryMotion || 'keep';
-        return `${action.layer || '?'}:${action.name}@${weight}/${running}/${policy}`;
+        const product = action.productStatus || action.qualityStatus || '';
+        return `${action.layer || '?'}:${action.name}@${weight}/${running}/${policy}${product ? `/${product}` : ''}`;
       })
       .join(' | ');
   }

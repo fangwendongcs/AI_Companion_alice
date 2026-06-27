@@ -175,7 +175,8 @@ export class AnimationController {
             retargetUnmatchedTrackCount: retarget?.unmatchedTrackCount ?? null,
             retargetSkippedScaleTrackCount: retarget?.skippedScaleTrackCount ?? null,
             retargetMatchedBoneCount: retarget?.matchedTargetBones?.length ?? null,
-            retargetMissingSourceBones: retarget?.unmatchedSourceBones || []
+            retargetMissingSourceBones: retarget?.unmatchedSourceBones || [],
+            retargetProfile: retarget?.profile || ''
           }
         });
       } else {
@@ -677,9 +678,14 @@ export class AnimationController {
           format: meta.format || '',
           assetId: meta.assetId || '',
           qualityStatus: meta.qualityStatus || 'approved',
+          assetQualityStatus: meta.assetQualityStatus || '',
+          technicalStatus: meta.technicalStatus || '',
+          productStatus: meta.productStatus || '',
+          licenseStatus: meta.licenseStatus || '',
           qaOnly: Boolean(meta.qaOnly),
           secondaryMotion: meta.secondaryMotion || 'keep',
           retargetStatus: this.formatRetargetStatus(meta),
+          retargetProfile: meta.retargetProfile || '',
           weight,
           running: Boolean(action.isRunning?.()),
           enabled: Boolean(action.enabled),
@@ -703,9 +709,14 @@ export class AnimationController {
       format: meta?.format || '',
       assetId: meta?.assetId || '',
       qualityStatus: meta?.qualityStatus || null,
+      assetQualityStatus: meta?.assetQualityStatus || null,
+      technicalStatus: meta?.technicalStatus || null,
+      productStatus: meta?.productStatus || null,
+      licenseStatus: meta?.licenseStatus || null,
       qaOnly: Boolean(meta?.qaOnly),
       secondaryMotion: meta?.secondaryMotion || null,
       retargetStatus: this.formatRetargetStatus(meta),
+      retargetProfile: meta?.retargetProfile || '',
       sourceTrackCount: meta?.sourceTrackCount ?? null,
       retargetMatchedTrackCount: meta?.retargetMatchedTrackCount ?? null,
       retargetUnmatchedTrackCount: meta?.retargetUnmatchedTrackCount ?? null,

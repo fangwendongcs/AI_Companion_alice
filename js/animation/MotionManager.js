@@ -120,6 +120,9 @@ export class MotionManager {
           source: 'procedural',
           layer: defaults.layer || '',
           secondaryMotion: 'keep',
+          technicalStatus: 'playable',
+          productStatus: 'approved',
+          licenseStatus: 'verified',
           path: ''
         };
       });
@@ -135,6 +138,9 @@ export class MotionManager {
       scope,
       assetId: entry.assetId || '',
       qualityStatus: entry.qualityStatus || asset?.qualityStatus || 'approved',
+      technicalStatus: entry.technicalStatus || asset?.technicalStatus || '',
+      productStatus: entry.productStatus || asset?.productStatus || '',
+      licenseStatus: entry.licenseStatus || asset?.licenseStatus || '',
       qaOnly: Boolean(entry.qaOnly || scope === 'qaSlot'),
       productMapping: entry.productMapping ?? scope === 'slot',
       mode: entry.mode || '',
@@ -246,7 +252,14 @@ export class MotionManager {
     const asset = entry.assetId ? this.motionManifest?.assets?.[entry.assetId] : null;
     const entryStatus = entry.qualityStatus || asset?.qualityStatus || 'approved';
     const assetStatus = asset?.qualityStatus || 'approved';
-    return entryStatus === 'approved' && assetStatus === 'approved';
+    const technicalStatus = entry.technicalStatus || asset?.technicalStatus || 'playable';
+    const productStatus = entry.productStatus || asset?.productStatus || 'approved';
+    const licenseStatus = entry.licenseStatus || asset?.licenseStatus || 'verified';
+    return entryStatus === 'approved'
+      && assetStatus === 'approved'
+      && technicalStatus === 'playable'
+      && productStatus === 'approved'
+      && licenseStatus === 'verified';
   }
 
   getMotionFallbackReason(motionId) {
@@ -254,7 +267,17 @@ export class MotionManager {
     const qaEntry = this.motionManifest?.qaSlots?.[motionId];
     if (qaEntry) return `candidate_${qaEntry.qualityStatus || 'qa'}_qa_only`;
     const slotEntry = this.motionManifest?.slots?.[motionId];
-    if (slotEntry) return `candidate_${slotEntry.qualityStatus || 'not_approved'}`;
+    if (slotEntry) {
+      const asset = slotEntry.assetId ? this.motionManifest?.assets?.[slotEntry.assetId] : null;
+      const qualityStatus = slotEntry.qualityStatus || asset?.qualityStatus || 'not_approved';
+      const technicalStatus = slotEntry.technicalStatus || asset?.technicalStatus || 'playable';
+      const productStatus = slotEntry.productStatus || asset?.productStatus || 'approved';
+      const licenseStatus = slotEntry.licenseStatus || asset?.licenseStatus || 'verified';
+      if (technicalStatus !== 'playable') return `candidate_technical_${technicalStatus}`;
+      if (productStatus !== 'approved') return `candidate_product_${productStatus}`;
+      if (licenseStatus !== 'verified') return `candidate_license_${licenseStatus}`;
+      return `candidate_${qualityStatus}`;
+    }
     return 'candidate_not_formal_slot';
   }
 

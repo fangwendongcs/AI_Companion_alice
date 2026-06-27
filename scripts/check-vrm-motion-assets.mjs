@@ -11,8 +11,15 @@ const LICENSE_EVIDENCE_FILES = [
   'docs/assets/licenses/evidence/vroid-vrma/vrm动作.png',
   'docs/assets/licenses/evidence/vroid-vrma/vrm动作2.png'
 ];
+const QA_RUNNER_FILES = [
+  'scripts/qa/vrm-motion-lifecycle-runner.js',
+  'scripts/qa/vrm-fbx-retarget-qa-runner.js'
+];
 const FBX_TICKS_PER_SECOND = 46186158000;
-const VALID_STATUSES = new Set(['approved', 'qa', 'debugOnly', 'rejected']);
+const VALID_STATUSES = new Set(['approved', 'qaApproved', 'qa', 'debugOnly', 'rejected']);
+const VALID_TECHNICAL_STATUSES = new Set(['playable', 'playableWithRetargetIssues', 'blocked']);
+const VALID_PRODUCT_STATUSES = new Set(['approved', 'candidate', 'debugOnly', 'rejected']);
+const VALID_LICENSE_STATUSES = new Set(['verified', 'pending verification', 'restricted', 'unknown']);
 const VALID_SECONDARY_MOTION = new Set(['keep', 'reset', 'suppress']);
 const VALID_MODES = new Set(['vrma', 'retargeted', 'external', 'procedural']);
 const VALID_FORMATS = new Set(['vrma', 'fbx']);
@@ -45,6 +52,7 @@ await checkQaSlots();
 checkInteractionIntents();
 checkRejectedAssetBoundaries();
 await checkLicenseRegister();
+await checkQaRunnerFiles();
 
 if (failures.length) {
   console.error('[check-vrm-motion-assets] VRM 动作资产配置失败:');
@@ -64,6 +72,9 @@ async function checkAssetCatalog() {
   for (const [assetId, asset] of Object.entries(assets)) {
     assert(asset.id === assetId, `${assetId} 的 id 必须与 catalog key 一致。`);
     assert(VALID_STATUSES.has(asset.qualityStatus), `${assetId} qualityStatus 非法：${asset.qualityStatus}`);
+    assert(VALID_TECHNICAL_STATUSES.has(asset.technicalStatus), `${assetId} technicalStatus 非法：${asset.technicalStatus}`);
+    assert(VALID_PRODUCT_STATUSES.has(asset.productStatus), `${assetId} productStatus 非法：${asset.productStatus}`);
+    assert(VALID_LICENSE_STATUSES.has(asset.licenseStatus), `${assetId} licenseStatus 非法：${asset.licenseStatus}`);
     assert(VALID_FORMATS.has(asset.format), `${assetId} format 非法：${asset.format}`);
     await assertLocalFile(asset.path, `${assetId}.path`);
 
@@ -102,6 +113,8 @@ async function checkVrmaAsset(assetId, asset) {
   assert(audit.humanoidBoneCount === asset.humanoidBoneCount, `${assetId} humanoidBoneCount 应为 ${audit.humanoidBoneCount}。`);
   assert(asset.runtimeTrackCount === 53, `${assetId} 浏览器 QA 已确认 runtimeTrackCount 应为 53。`);
   assert(VALID_BINDING_PROFILES.has(asset.sourceBindingProfile), `${assetId} sourceBindingProfile 非法。`);
+  assert(asset.technicalStatus === 'playable', `${assetId} VRMA 技术状态应为 playable。`);
+  assert(asset.licenseStatus === 'pending verification', `${assetId} VRMA 授权状态必须保持 pending verification，不能编造授权结论。`);
 }
 
 async function checkFbxAsset(assetId, asset) {
@@ -111,6 +124,8 @@ async function checkFbxAsset(assetId, asset) {
   assert(audit.boneTrackCount === asset.staticBoneTrackCount, `${assetId} staticBoneTrackCount 应为 ${audit.boneTrackCount}。`);
   assert(Math.abs(audit.durationSec - Number(asset.durationSec)) < 0.02, `${assetId} durationSec 应接近 ${audit.durationSec}。`);
   assert(asset.provider === 'mixamo', `${assetId} provider 应标记为 mixamo。`);
+  assert(asset.technicalStatus === 'playableWithRetargetIssues', `${assetId} 当前 FBX 技术状态应标记 playableWithRetargetIssues。`);
+  assert(asset.productStatus === 'debugOnly', `${assetId} 当前 FBX 产品状态必须保持 debugOnly。`);
   assert(asset.licenseStatus === 'pending verification', `${assetId} licenseStatus 应保持 pending verification，不能编造授权结论。`);
   assert(
     !CURRENT_DEBUG_ONLY_FBX_ASSETS.has(assetId) || asset.qualityStatus === 'debugOnly',
@@ -220,9 +235,28 @@ function checkInteractionIntents() {
         assert(candidateSlot.qaOnly === true, `${intentId} 的 QA candidate 必须 qaOnly=true。`);
         assert(candidateSlot.productMapping === false, `${intentId} 的 QA candidate 必须 productMapping=false。`);
         assert(Boolean(intent.fallbackReason), `${intentId} 使用 QA/debug candidate 时必须记录 fallbackReason。`);
+      } else {
+        const asset = candidateSlot.assetId ? assets[candidateSlot.assetId] : null;
+        assert(
+          isProductUsable(candidateSlot, asset),
+          `${intentId} 的正式 candidate 必须同时满足 quality=approved、technical=playable、product=approved、license=verified。`
+        );
       }
     }
   }
+}
+
+function isProductUsable(entry = {}, asset = null) {
+  const entryStatus = entry.qualityStatus || asset?.qualityStatus || 'approved';
+  const assetStatus = asset?.qualityStatus || 'approved';
+  const technicalStatus = entry.technicalStatus || asset?.technicalStatus || 'playable';
+  const productStatus = entry.productStatus || asset?.productStatus || 'approved';
+  const licenseStatus = entry.licenseStatus || asset?.licenseStatus || 'verified';
+  return entryStatus === 'approved'
+    && assetStatus === 'approved'
+    && technicalStatus === 'playable'
+    && productStatus === 'approved'
+    && licenseStatus === 'verified';
 }
 
 function checkMotionEntry(entry, label) {
@@ -253,6 +287,16 @@ async function checkLicenseRegister() {
   });
   assert(licenseText.includes('Pending verification'), '许可登记必须保留 Pending verification 状态，不得编造授权结论。');
   assert(!licenseText.includes('docs/architecture/MOTION_ASSET_LICENSES.md'), '许可登记不得引用迁移前路径。');
+}
+
+async function checkQaRunnerFiles() {
+  for (const filePath of QA_RUNNER_FILES) {
+    await assertLocalFile(filePath, 'QA runner');
+  }
+  const doc = await readText('docs/architecture/VRM_MOTION_QUALITY_V1.md');
+  QA_RUNNER_FILES.forEach((filePath) => {
+    assert(doc.includes(filePath), `VRM Motion 文档必须记录可复跑 QA runner：${filePath}`);
+  });
 }
 
 async function auditVrma(filePath) {

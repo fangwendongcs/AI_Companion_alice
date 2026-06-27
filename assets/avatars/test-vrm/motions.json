@@ -2,9 +2,27 @@
   "version": 2,
   "qualityStatusValues": [
     "approved",
+    "qaApproved",
     "qa",
     "debugOnly",
     "rejected"
+  ],
+  "technicalStatusValues": [
+    "playable",
+    "playableWithRetargetIssues",
+    "blocked"
+  ],
+  "productStatusValues": [
+    "approved",
+    "candidate",
+    "debugOnly",
+    "rejected"
+  ],
+  "licenseStatusValues": [
+    "verified",
+    "pending verification",
+    "restricted",
+    "unknown"
   ],
   "assets": {
     "vrmaShowFullBody": {
@@ -14,6 +32,9 @@
       "format": "vrma",
       "source": "file",
       "qualityStatus": "debugOnly",
+      "technicalStatus": "playable",
+      "productStatus": "debugOnly",
+      "licenseStatus": "pending verification",
       "semantic": "fullBodyShowcase",
       "durationSec": 11.8,
       "staticChannelCount": 91,
@@ -32,6 +53,9 @@
       "format": "vrma",
       "source": "file",
       "qualityStatus": "approved",
+      "technicalStatus": "playable",
+      "productStatus": "candidate",
+      "licenseStatus": "pending verification",
       "semantic": "fullBodyGreetingCrouch",
       "durationSec": 7.267,
       "staticChannelCount": 91,
@@ -50,6 +74,9 @@
       "format": "vrma",
       "source": "file",
       "qualityStatus": "debugOnly",
+      "technicalStatus": "playable",
+      "productStatus": "debugOnly",
+      "licenseStatus": "pending verification",
       "semantic": "fullBodyPeacePose",
       "durationSec": 11.684,
       "staticChannelCount": 91,
@@ -68,6 +95,9 @@
       "format": "vrma",
       "source": "file",
       "qualityStatus": "rejected",
+      "technicalStatus": "playable",
+      "productStatus": "rejected",
+      "licenseStatus": "pending verification",
       "semantic": "shootPose",
       "durationSec": 9.6,
       "staticChannelCount": 91,
@@ -86,6 +116,9 @@
       "format": "vrma",
       "source": "file",
       "qualityStatus": "rejected",
+      "technicalStatus": "playable",
+      "productStatus": "rejected",
+      "licenseStatus": "pending verification",
       "semantic": "spin",
       "durationSec": 9.317,
       "staticChannelCount": 53,
@@ -104,6 +137,9 @@
       "format": "vrma",
       "source": "file",
       "qualityStatus": "debugOnly",
+      "technicalStatus": "playable",
+      "productStatus": "debugOnly",
+      "licenseStatus": "pending verification",
       "semantic": "modelPose",
       "durationSec": 7.517,
       "staticChannelCount": 53,
@@ -122,6 +158,9 @@
       "format": "vrma",
       "source": "file",
       "qualityStatus": "rejected",
+      "technicalStatus": "playable",
+      "productStatus": "rejected",
+      "licenseStatus": "pending verification",
       "semantic": "squat",
       "durationSec": 11.517,
       "staticChannelCount": 53,
@@ -141,6 +180,8 @@
       "source": "file",
       "provider": "mixamo",
       "qualityStatus": "debugOnly",
+      "technicalStatus": "playableWithRetargetIssues",
+      "productStatus": "debugOnly",
       "semantic": "standingIdle",
       "intendedLayer": "base",
       "intendedLoop": "repeat",
@@ -159,7 +200,7 @@
       },
       "productUse": "debugOnlyRetargetCalibration",
       "licenseStatus": "pending verification",
-      "notes": "Mixamo idle-loop candidate, but current browser retarget QA shows shoulder/arm T-pose distortion. Kept debug-only until Mixamo-to-VRM rest-pose and axis correction are implemented."
+      "notes": "Mixamo idle-loop candidate. Normalized humanoid retarget removes the T-pose failure, but browser QA shows crossed legs, forward hands, and pose-like weight shift rather than a stable base idle. Kept debug-only."
     },
     "fbxTalking": {
       "id": "fbxTalking",
@@ -169,6 +210,8 @@
       "source": "file",
       "provider": "mixamo",
       "qualityStatus": "debugOnly",
+      "technicalStatus": "playableWithRetargetIssues",
+      "productStatus": "debugOnly",
       "semantic": "talkingSoft",
       "intendedLayer": "upperBody",
       "intendedLoop": "repeat",
@@ -187,7 +230,7 @@
       },
       "productUse": "debugOnlyRetargetCalibration",
       "licenseStatus": "pending verification",
-      "notes": "Talking-loop candidate with notable hips/root translation in source FBX, but current browser retarget QA shows shoulder/arm T-pose distortion. Kept debug-only until retarget correction passes."
+      "notes": "Talking-loop candidate with notable hips/root translation in source FBX. Normalized humanoid retarget makes hand gestures visible, but browser QA shows strong full-body turn and crossed-foot/root issues. Kept debug-only."
     },
     "fbxTalking1": {
       "id": "fbxTalking1",
@@ -197,6 +240,8 @@
       "source": "file",
       "provider": "mixamo",
       "qualityStatus": "debugOnly",
+      "technicalStatus": "playableWithRetargetIssues",
+      "productStatus": "debugOnly",
       "semantic": "talkingSoftVariant",
       "intendedLayer": "upperBody",
       "intendedLoop": "repeat",
@@ -215,7 +260,7 @@
       },
       "productUse": "debugOnlyRetargetCalibration",
       "licenseStatus": "pending verification",
-      "notes": "Talking variant candidate, but current browser retarget QA shows shoulder/arm T-pose distortion. Kept debug-only until retarget shoulders/root motion are corrected."
+      "notes": "Talking variant candidate. Normalized humanoid retarget makes the gesture readable, but browser QA still shows foot crossing and pose-heavy movement. Kept debug-only."
     },
     "fbxTalking2": {
       "id": "fbxTalking2",
@@ -225,6 +270,8 @@
       "source": "file",
       "provider": "mixamo",
       "qualityStatus": "debugOnly",
+      "technicalStatus": "playableWithRetargetIssues",
+      "productStatus": "debugOnly",
       "semantic": "talkingSoftVariant",
       "intendedLayer": "upperBody",
       "intendedLoop": "repeat",
@@ -243,7 +290,7 @@
       },
       "productUse": "debugOnlyRetargetCalibration",
       "licenseStatus": "pending verification",
-      "notes": "Talking variant with lower source root translation than the other talking files, but browser retarget QA still shows shoulder/arm T-pose distortion. Kept debug-only until correction passes."
+      "notes": "Talking variant with lower source root translation than the other talking files. Browser QA after normalized humanoid retarget still shows side-facing posture and crossed-leg/root issues. Kept debug-only."
     },
     "fbxThinking": {
       "id": "fbxThinking",
@@ -253,6 +300,8 @@
       "source": "file",
       "provider": "mixamo",
       "qualityStatus": "debugOnly",
+      "technicalStatus": "playableWithRetargetIssues",
+      "productStatus": "debugOnly",
       "semantic": "thinking",
       "intendedLayer": "gesture",
       "intendedLoop": "once",
@@ -271,7 +320,7 @@
       },
       "productUse": "debugOnlyRetargetCalibration",
       "licenseStatus": "pending verification",
-      "notes": "Thinking candidate with large source root motion, but current browser retarget QA shows shoulder/arm T-pose distortion. Kept debug-only for retarget calibration."
+      "notes": "Thinking candidate with large source root motion. Browser QA after normalized humanoid retarget reads as thinking, but hips/root and foot placement are not stable enough for product use. Kept debug-only."
     },
     "fbxWaving": {
       "id": "fbxWaving",
@@ -281,6 +330,8 @@
       "source": "file",
       "provider": "mixamo",
       "qualityStatus": "debugOnly",
+      "technicalStatus": "playableWithRetargetIssues",
+      "productStatus": "debugOnly",
       "semantic": "standingWave",
       "intendedLayer": "gesture",
       "intendedLoop": "once",
@@ -299,7 +350,7 @@
       },
       "productUse": "debugOnlyRetargetCalibration",
       "licenseStatus": "pending verification",
-      "notes": "Standing wave candidate, but current browser retarget QA shows shoulder/arm T-pose distortion. Kept debug-only until Mixamo-to-VRM rest-pose and axis correction are implemented."
+      "notes": "Standing wave candidate. Normalized humanoid retarget removes the T-pose failure and makes the gesture visible, but the motion reads as side-sweeping rather than a natural front-facing standing wave. License remains pending verification, so it stays debug-only."
     }
   },
   "slots": {

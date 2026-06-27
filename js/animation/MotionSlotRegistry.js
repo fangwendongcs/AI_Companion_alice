@@ -79,11 +79,12 @@ export class MotionSlotRegistry {
 
   toActionManifest(motionManifest = {}) {
     const slots = motionManifest.slots || {};
+    const assets = motionManifest.assets || {};
     const actions = this.getSlots()
-      .map((slot) => this.toActionEntry(slot, slots))
+      .map((slot) => this.toActionEntry(slot, slots, assets))
       .filter(Boolean);
     const qaActions = Object.entries(motionManifest.qaSlots || {})
-      .map(([slot, entry]) => this.toCustomActionEntry(slot, entry))
+      .map(([slot, entry]) => this.toCustomActionEntry(slot, entry, assets))
       .filter(Boolean);
 
     return {
@@ -98,31 +99,46 @@ export class MotionSlotRegistry {
     };
   }
 
-  toActionEntry(slot, slots) {
+  toActionEntry(slot, slots, assets = {}) {
     const resolved = this.resolveSlot(slot, slots);
     if (!resolved?.file && !resolved?.path) return null;
+    const assetStatus = this.getAssetStatus(resolved, assets);
 
     return {
       name: slot,
       ...this.getDefaults(slot),
+      ...assetStatus,
       ...resolved,
       file: resolved.file || resolved.path,
       fallbackSlot: undefined
     };
   }
 
-  toCustomActionEntry(slot, entry = {}) {
+  toCustomActionEntry(slot, entry = {}, assets = {}) {
     if (entry.enabled === false) return null;
     if (!entry.file && !entry.path) return null;
+    const assetStatus = this.getAssetStatus(entry, assets);
 
     return {
       name: slot,
       ...this.getDefaults(slot),
+      ...assetStatus,
       ...entry,
       file: entry.file || entry.path,
       qaOnly: entry.qaOnly ?? true,
       productMapping: entry.productMapping ?? false,
       fallbackSlot: undefined
+    };
+  }
+
+  getAssetStatus(entry = {}, assets = {}) {
+    const asset = entry.assetId ? assets[entry.assetId] : null;
+    if (!asset) return {};
+    return {
+      assetQualityStatus: asset.qualityStatus || '',
+      technicalStatus: asset.technicalStatus || '',
+      productStatus: asset.productStatus || '',
+      licenseStatus: asset.licenseStatus || ''
     };
   }
 
