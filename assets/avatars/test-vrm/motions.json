@@ -331,6 +331,44 @@
       "notes": "Stable validation asset for the wave slot. Keep secondaryMotion=suppress until springBone group-level tuning is proven."
     }
   },
+  "interactionIntents": {
+    "interaction.headTap": {
+      "id": "interaction.headTap",
+      "part": "head",
+      "fallbackSlot": "headTap",
+      "fallbackReason": "procedural_fallback",
+      "notes": "Head click stays on procedural fallback until a licensed, visually approved head reaction exists."
+    },
+    "interaction.legTap": {
+      "id": "interaction.legTap",
+      "part": "leg",
+      "fallbackSlot": "legTap",
+      "fallbackReason": "procedural_fallback",
+      "notes": "Leg click stays on procedural fallback until a licensed, visually approved leg reaction exists."
+    },
+    "interaction.tap": {
+      "id": "interaction.tap",
+      "part": "body",
+      "fallbackSlot": "bodyTap",
+      "fallbackReason": "procedural_fallback",
+      "notes": "Generic body tap uses the reusable procedural reaction through MotionManager."
+    },
+    "interaction.chat": {
+      "id": "interaction.chat",
+      "part": "chat",
+      "fallbackSlot": "chat",
+      "fallbackReason": "procedural_fallback",
+      "notes": "Chat panel avatar reaction stays procedural and separate from file-backed QA motions."
+    },
+    "interaction.greeting": {
+      "id": "interaction.greeting",
+      "part": "arm",
+      "candidateMotionId": "qaFbxWaving",
+      "fallbackSlot": "armTap",
+      "fallbackReason": "candidate_debugOnly_qa_only",
+      "notes": "Do not map clicks to VRMA_02Greeting as a product gesture: it is a full-body crouch/greeting validation asset, not a final standing wave. qaFbxWaving remains debugOnly until browser retarget QA passes."
+    }
+  },
   "qaSlots": {
     "qaShowFullBody": {
       "id": "qaShowFullBody",

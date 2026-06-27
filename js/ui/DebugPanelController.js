@@ -67,6 +67,10 @@ const DISPLAY_ROWS = [
   ['motion.actions', 'motionActions'],
   ['motion.retargetReady', 'motionRetargetReady'],
   ['motion.retarget', 'motionRetarget'],
+  ['motion.intent', 'motionIntent'],
+  ['motion.status', 'motionIntentStatus'],
+  ['motion.resolved', 'motionResolved'],
+  ['motion.fallback', 'motionFallback'],
   ['motion.proceduralActive', 'motionProceduralActive'],
   ['motion.lastError', 'motionLastError'],
   ['lipSync.mode', 'lipSyncMode'],
@@ -96,6 +100,7 @@ export class DebugPanelController {
     this.toggleButton = null;
     this.motionSelect = null;
     this.motionPlayButton = null;
+    this.boundPlaySelectedMotion = () => this.playSelectedMotion();
     this.valueNodes = new Map();
     this.lastEvent = null;
   }
@@ -148,9 +153,6 @@ export class DebugPanelController {
     this.toggleButton = header;
 
     this.registry.addEventListener(header, 'click', () => this.toggle());
-    if (this.motionPlayButton) {
-      this.registry.addEventListener(this.motionPlayButton, 'click', () => this.playSelectedMotion());
-    }
     this.registry.add(() => panel.remove());
   }
 
@@ -173,6 +175,10 @@ export class DebugPanelController {
     button.type = 'button';
     button.className = 'debug-panel__play';
     button.textContent = 'Play';
+    button.onclick = this.boundPlaySelectedMotion;
+    this.registry.add(() => {
+      button.onclick = null;
+    });
 
     controls.append(label, select, button);
     body.append(controls);
@@ -251,6 +257,10 @@ export class DebugPanelController {
       motionActions: this.formatMotionActions(state.motion?.activeActions),
       motionRetargetReady: state.motion?.retargetReady ?? false,
       motionRetarget: this.formatRetargetState(state.motion),
+      motionIntent: state.motion?.intent || '-',
+      motionIntentStatus: state.motion?.intentStatus || '-',
+      motionResolved: this.formatMotionResolved(state.motion),
+      motionFallback: this.formatMotionFallback(state.motion),
       motionProceduralActive: state.motion?.proceduralActive ?? false,
       motionLastError: this.formatMotionError(state.motion),
       lipSyncMode: state.presentation?.lipSync?.mode || '-',
@@ -343,6 +353,21 @@ export class DebugPanelController {
     return '-';
   }
 
+  formatMotionResolved(motion = {}) {
+    const resolved = motion?.resolvedMotion || '';
+    if (!resolved) return '-';
+    const requested = motion?.requestedMotion || '';
+    if (requested && requested !== resolved) return `${requested}->${resolved}`;
+    return resolved;
+  }
+
+  formatMotionFallback(motion = {}) {
+    const reason = motion?.fallbackReason || '';
+    if (!reason) return '-';
+    const from = motion?.fallbackFrom || '';
+    return from ? `${from}:${reason}` : reason;
+  }
+
   formatMotionAsset(motion = {}) {
     const asset = motion?.assetId || '';
     if (!asset) return '-';
@@ -356,7 +381,9 @@ export class DebugPanelController {
   }
 
   formatMotionOption(motion = {}) {
-    const scope = motion.scope === 'qaSlot' ? 'qa' : 'slot';
+    const scope = motion.scope === 'qaSlot'
+      ? 'qa'
+      : motion.scope === 'procedural' ? 'procedural' : 'slot';
     const status = motion.qualityStatus || 'approved';
     const format = motion.format || 'motion';
     return `${motion.id} · ${format} · ${scope} · ${status}`;

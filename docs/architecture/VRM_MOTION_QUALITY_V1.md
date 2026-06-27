@@ -22,6 +22,22 @@ Motion assets use `qualityStatus`:
 
 Formal `slots` may only reference `approved` assets. `qaSlots` must declare `qaOnly=true` and `productMapping=false`.
 
+## Unified Motion Call Path
+
+Upper layers use stable semantic ids and do not depend on raw filenames or motion formats:
+
+```text
+InteractionManager
+  -> interaction intent (`interaction.greeting`, `interaction.headTap`, ...)
+  -> AppController.triggerReaction()
+  -> MotionManager.requestIntent()
+  -> MotionManager.requestSlot()
+  -> AnimationController / AnimationRegistry
+  -> VRMA loader, FBX retarget adapter, or procedural fallback
+```
+
+For the current local VRM test avatar, `interaction.greeting` deliberately does not trigger `wave`. `wave` still points to `VRMA_02Greeting.vrma`, which is a full-body crouch/greeting validation asset rather than a final standing click response. The configured candidate is `qaFbxWaving`, but it remains `debugOnly`; therefore the runtime resolves the click to the `armTap` procedural fallback and records `candidate_debugOnly_qa_only` in Debug.
+
 ## Current VRMA Asset Registry
 
 | Asset | File | Duration | Raw Channels | Runtime Tracks | Status | Product Decision |
@@ -102,6 +118,37 @@ output/playwright/vrm-motion-quality-v1/qaFbx*-late.png
 ```
 
 Conclusion: the FBX pipeline is connected far enough to load, retarget by name, enter `AnimationMixer`, suppress procedural overlap, and return to idle. It is not product-ready. The blocker is the minimal retarget layer: it maps Mixamo source bones to VRM humanoid targets but does not yet apply rest-pose normalization, shoulder/arm axis correction, hips/root normalization, or scale handling.
+
+## Interaction Lifecycle QA
+
+Browser QA on `2026-06-27` used:
+
+```text
+http://localhost:3001?debug=1&avatar=local_girl_vrm_test&qa=motion
+```
+
+The QA runner at `output/playwright/vrm-motion-quality-v1/lifecycle-qa-runner.js` verified:
+
+- initial idle has no gesture/fullBody action, no queued action, no secondary-motion suppression;
+- one model click routes through `interaction.greeting`, resolves to `armTap`, and records `qaFbxWaving:candidate_debugOnly_qa_only`;
+- repeated model clicks settle back to idle without active request, queued action, or secondary-motion residue;
+- `wave` starts as fullBody `vrma` with `secondaryMotion=suppress`;
+- a fullBody `wave` followed by `interaction.greeting` is interrupted by the procedural gesture fallback without fullBody/gesture overlap;
+- `qaFbxStandingIdle` enters the `retargeted` FBX debug-only path and cuts back to idle cleanly;
+- switching to `local_boy_vrm_test` and back to `local_girl_vrm_test` settles with only base idle active;
+- a missing motion id fails safely with `motion_not_registered:*` and leaves the avatar in idle.
+
+Final assertion result:
+
+```text
+ok=true
+```
+
+Final screenshot evidence:
+
+```text
+output/playwright/vrm-motion-quality-v1/lifecycle-qa-final.png
+```
 
 ## Debug QA Triggering
 
@@ -205,7 +252,7 @@ Do not ship a group-level `hair-suppress` policy by monkeypatching individual jo
 - `Shoot`, `Spin`, and `Squat` are blocked from formal slots;
 - QA slots are marked `qaOnly=true` and `productMapping=false`.
 
-License tracking is maintained in `docs/architecture/MOTION_ASSET_LICENSES.md`. Any unverified commercial use, attribution, or redistribution status remains `pending verification`.
+License tracking and raw evidence screenshots are maintained under `docs/assets/licenses/`. Any unverified commercial use, attribution, or redistribution status remains `pending verification`.
 
 This check is included in `npm run check`.
 

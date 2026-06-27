@@ -5,6 +5,12 @@ import zlib from 'node:zlib';
 const MOTIONS_PATH = 'assets/avatars/test-vrm/motions.json';
 const VRMA_DIR = 'assets/motions/vrm/test';
 const FBX_DIR = 'assets/motions/fbx';
+const LICENSE_REGISTER_PATH = 'docs/assets/licenses/MOTION_ASSET_LICENSES.md';
+const LICENSE_EVIDENCE_FILES = [
+  'docs/assets/licenses/evidence/mixamo/mixamo.png',
+  'docs/assets/licenses/evidence/vroid-vrma/vrm动作.png',
+  'docs/assets/licenses/evidence/vroid-vrma/vrm动作2.png'
+];
 const FBX_TICKS_PER_SECOND = 46186158000;
 const VALID_STATUSES = new Set(['approved', 'qa', 'debugOnly', 'rejected']);
 const VALID_SECONDARY_MOTION = new Set(['keep', 'reset', 'suppress']);
@@ -30,11 +36,15 @@ const fbxFiles = await listFiles(FBX_DIR, '.fbx');
 const assets = motions.assets || {};
 const slots = motions.slots || {};
 const qaSlots = motions.qaSlots || {};
+const interactionIntents = motions.interactionIntents || {};
+const proceduralFallbacks = motions.proceduralFallbacks || {};
 
 await checkAssetCatalog();
 await checkFormalSlots();
 await checkQaSlots();
+checkInteractionIntents();
 checkRejectedAssetBoundaries();
+await checkLicenseRegister();
 
 if (failures.length) {
   console.error('[check-vrm-motion-assets] VRM 动作资产配置失败:');
@@ -176,6 +186,45 @@ function checkRejectedAssetBoundaries() {
   });
 }
 
+function checkInteractionIntents() {
+  [
+    'interaction.headTap',
+    'interaction.legTap',
+    'interaction.tap',
+    'interaction.chat',
+    'interaction.greeting'
+  ].forEach((intentId) => {
+    assert(Boolean(interactionIntents[intentId]), `interactionIntents 缺少 ${intentId}。`);
+  });
+
+  const greeting = interactionIntents['interaction.greeting'] || {};
+  assert(greeting.candidateMotionId === 'qaFbxWaving', 'interaction.greeting 当前只能把 qaFbxWaving 作为 QA 候选。');
+  assert(greeting.candidateMotionId !== 'wave', 'interaction.greeting 不得把 VRMA Greeting/wave 强行作为正式点击动作。');
+  assert(greeting.fallbackSlot === 'armTap', 'interaction.greeting 必须 fallback 到 armTap procedural。');
+  assert(greeting.fallbackReason === 'candidate_debugOnly_qa_only', 'interaction.greeting 必须记录 debugOnly fallback 原因。');
+
+  for (const [intentId, intent] of Object.entries(interactionIntents)) {
+    assert(intent.id === intentId, `${intentId} 的 id 必须与 key 一致。`);
+    assert(Boolean(intent.fallbackSlot), `${intentId} 缺少 fallbackSlot。`);
+    assert(
+      Boolean(slots[intent.fallbackSlot] || proceduralFallbacks[intent.fallbackSlot]),
+      `${intentId}.fallbackSlot 必须指向正式 slot 或 procedural fallback：${intent.fallbackSlot}`
+    );
+    assert(!qaSlots[intent.fallbackSlot], `${intentId}.fallbackSlot 不得指向 QA slot：${intent.fallbackSlot}`);
+
+    const candidateId = intent.candidateMotionId || intent.motionId;
+    if (candidateId) {
+      const candidateSlot = slots[candidateId] || qaSlots[candidateId];
+      assert(Boolean(candidateSlot), `${intentId} candidateMotionId 未登记：${candidateId}`);
+      if (qaSlots[candidateId]) {
+        assert(candidateSlot.qaOnly === true, `${intentId} 的 QA candidate 必须 qaOnly=true。`);
+        assert(candidateSlot.productMapping === false, `${intentId} 的 QA candidate 必须 productMapping=false。`);
+        assert(Boolean(intent.fallbackReason), `${intentId} 使用 QA/debug candidate 时必须记录 fallbackReason。`);
+      }
+    }
+  }
+}
+
 function checkMotionEntry(entry, label) {
   assert(entry.renderer === 'vrm', `${label}.renderer 必须为 vrm。`);
   assert(VALID_MODES.has(entry.mode), `${label}.mode 非法：${entry.mode}`);
@@ -190,6 +239,20 @@ function checkMotionEntry(entry, label) {
     `${label}.secondaryMotionRestoreDelayMs 必须为非负数。`
   );
   assert(['fullBody', 'gesture', 'base', 'upperBody', 'face'].includes(entry.layer), `${label}.layer 非法：${entry.layer}`);
+}
+
+async function checkLicenseRegister() {
+  const licenseText = await readText(LICENSE_REGISTER_PATH);
+  assert(Boolean(licenseText), '缺少动作资产许可登记文档。');
+  for (const evidencePath of LICENSE_EVIDENCE_FILES) {
+    await assertLocalFile(evidencePath, 'license evidence');
+    assert(licenseText.includes(evidencePath), `许可登记文档缺少证据路径：${evidencePath}`);
+  }
+  Object.keys(assets).forEach((assetId) => {
+    assert(licenseText.includes(`\`${assetId}\``), `许可登记文档缺少资产：${assetId}`);
+  });
+  assert(licenseText.includes('Pending verification'), '许可登记必须保留 Pending verification 状态，不得编造授权结论。');
+  assert(!licenseText.includes('docs/architecture/MOTION_ASSET_LICENSES.md'), '许可登记不得引用迁移前路径。');
 }
 
 async function auditVrma(filePath) {
@@ -453,6 +516,15 @@ async function readJson(filePath) {
   } catch (error) {
     failures.push(`无法读取 JSON：${filePath} (${error.message})`);
     return {};
+  }
+}
+
+async function readText(filePath) {
+  try {
+    return await readFile(filePath, 'utf8');
+  } catch (error) {
+    failures.push(`无法读取文本：${filePath} (${error.message})`);
+    return '';
   }
 }
 

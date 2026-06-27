@@ -52,11 +52,11 @@
     "leg": ["leg", "foot", "toe", "upleg"]
   },
   "interactions": {
-    "head": { "motionSlot": "headTap" },
-    "leg": { "motionSlot": "legTap" },
-    "arm": { "motionSlot": "armTap" },
-    "body": { "motionSlot": "bodyTap" },
-    "chat": { "motionSlot": "chat" }
+    "head": { "motionIntent": "interaction.headTap", "motionSlot": "headTap" },
+    "leg": { "motionIntent": "interaction.legTap", "motionSlot": "legTap" },
+    "arm": { "motionIntent": "interaction.greeting", "motionSlot": "armTap" },
+    "body": { "motionIntent": "interaction.tap", "motionSlot": "bodyTap" },
+    "chat": { "motionIntent": "interaction.chat", "motionSlot": "chat" }
   },
   "voice": {
     "defaultEngine": "browser"

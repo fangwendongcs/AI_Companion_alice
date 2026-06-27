@@ -64,11 +64,12 @@ export class AppController {
     this.stateStore = new CompanionStateStore(this.createInitialState(), this.eventBus);
     this.state = this.stateStore.getState();
     this.interactionManager = new InteractionManager(this.runtime, {
-      onHit: ({ part, motionSlot }) => {
+      onHit: ({ part, motionSlot, motionIntent }) => {
         this.patchState({ lastInteractionAt: Date.now() }, 'interaction:hit');
         this.eventBus.emit(EVENT_NAMES.INTERACTION_HIT, {
           part,
           motionSlot,
+          motionIntent,
           avatarId: this.state.currentAvatarId
         });
       }
@@ -261,9 +262,9 @@ export class AppController {
       this.scheduleInteractionStateSettle();
     };
 
-    this.registry.add(this.eventBus.on(EVENT_NAMES.INTERACTION_HIT, ({ part, motionSlot }) => {
+    this.registry.add(this.eventBus.on(EVENT_NAMES.INTERACTION_HIT, ({ part, motionSlot, motionIntent }) => {
       if (this.state.interaction?.enabled === false) return;
-      this.triggerReaction(part, motionSlot);
+      this.triggerReaction(part, { motionSlot, motionIntent });
     }));
 
     this.registry.add(this.eventBus.on(EVENT_NAMES.DIALOGUE_USER, ({ text }) => {
@@ -699,6 +700,12 @@ export class AppController {
       retargetUnmatchedTrackCount: motion.retargetUnmatchedTrackCount ?? null,
       retargetSkippedScaleTrackCount: motion.retargetSkippedScaleTrackCount ?? null,
       retargetMatchedBoneCount: motion.retargetMatchedBoneCount ?? null,
+      intent: motion.intent || null,
+      intentStatus: motion.intentStatus || null,
+      requestedMotion: motion.requestedMotion || null,
+      resolvedMotion: motion.resolvedMotion || null,
+      fallbackReason: motion.fallbackReason || '',
+      fallbackFrom: motion.fallbackFrom || '',
       secondaryMotionEnabled: capabilities.secondaryMotionEnabled ?? true,
       secondaryMotion: motion.secondaryMotion || null,
       proceduralActive: Boolean(motion.proceduralActive),
@@ -831,11 +838,23 @@ export class AppController {
     this.showDialogue(MOOD_DIALOGUES[mood] || '嗯...');
   }
 
-  triggerReaction(type, motionSlot = this.interactionManager.getMotionSlotForPart(type)) {
+  triggerReaction(type, motionRequest = this.interactionManager.getMotionRequestForPart(type)) {
+    const request = typeof motionRequest === 'string'
+      ? { motionSlot: motionRequest, motionIntent: null }
+      : (motionRequest || {});
+    const motionSlot = request.motionSlot || this.interactionManager.getMotionSlotForPart(type);
+    const motionIntent = request.motionIntent || this.interactionManager.getMotionIntentForPart(type);
     const pool = DEFAULT_DIALOGUES[type] || DEFAULT_DIALOGUES.idle;
     const text = pool[Math.floor(Math.random() * pool.length)];
-    const accepted = this.motionManager.requestSlot(motionSlot);
-    if (!accepted) this.log.debug('动画槽位请求被队列策略忽略:', motionSlot);
+    const accepted = motionIntent
+      ? this.motionManager.requestIntent(motionIntent, {
+        part: type,
+        fallbackSlot: motionSlot,
+        replacePending: true
+      })
+      : this.motionManager.requestSlot(motionSlot);
+    if (!accepted) this.log.debug('动画意图请求被队列策略忽略:', motionIntent || motionSlot);
+    this.syncMotionDebugState({ force: true });
     this.showDialogue(text);
   }
 

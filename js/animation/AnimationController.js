@@ -399,7 +399,11 @@ export class AnimationController {
 
   requestAction(name, options = {}) {
     const meta = this.registry.getMeta(name);
-    if (!meta) return false;
+    if (!meta) {
+      this.lastError = `motion_not_registered:${name || 'unknown'}`;
+      return false;
+    }
+    this.lastError = '';
 
     const layerName = options.layer || meta.layer;
     const mode = options.mode || (layerName === 'base' ? 'base' : 'enqueue');
@@ -499,6 +503,15 @@ export class AnimationController {
     const meta = this.registry.getMeta(request.name);
     const layer = this.layers[request.layer] || this.layers.gesture;
     if (!action || !meta || !layer) return false;
+
+    if (request.layer === 'gesture' && this.layers.fullBody?.active) {
+      this.stopLayerAction('fullBody', true, {
+        reason: 'superseded-by-gesture',
+        restoreBase: true,
+        returnToIdle: false
+      });
+      this.queue.clearLayer('fullBody');
+    }
 
     const played = this.blender.playLayerAction({ action, meta, layer, request });
     if (!played) return false;

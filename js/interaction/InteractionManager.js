@@ -11,6 +11,15 @@ const defaultInteractionSlots = {
   record: MotionSlot.BODY_TAP
 };
 
+const defaultInteractionIntents = {
+  head: 'interaction.headTap',
+  leg: 'interaction.legTap',
+  arm: 'interaction.greeting',
+  body: 'interaction.tap',
+  chat: 'interaction.chat',
+  record: 'interaction.tap'
+};
+
 export class InteractionManager {
   constructor(runtime, {
     onHit,
@@ -75,15 +84,30 @@ export class InteractionManager {
   }
 
   emitInteraction(part) {
+    const motionRequest = this.getMotionRequestForPart(part);
     this.onHit?.({
       part,
-      motionSlot: this.getMotionSlotForPart(part)
+      motionSlot: motionRequest.motionSlot,
+      motionIntent: motionRequest.motionIntent
     });
+  }
+
+  getMotionRequestForPart(part) {
+    return {
+      motionSlot: this.getMotionSlotForPart(part),
+      motionIntent: this.getMotionIntentForPart(part)
+    };
   }
 
   getMotionSlotForPart(part) {
     return this.characterMeta?.interactions?.[part]?.motionSlot
       || defaultInteractionSlots[part]
       || MotionSlot.BODY_TAP;
+  }
+
+  getMotionIntentForPart(part) {
+    return this.characterMeta?.interactions?.[part]?.motionIntent
+      || defaultInteractionIntents[part]
+      || 'interaction.tap';
   }
 }
