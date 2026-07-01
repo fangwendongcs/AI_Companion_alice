@@ -168,6 +168,18 @@ export class TTSSettingsController {
       this.statusView.showTTS('loading', '已选择 OpenAI TTS。必须用 npm run dev 启动后端，并配置 OPENAI_API_KEY。');
       return;
     }
+    if (config.engine === 'backend') {
+      this.statusView.showTTS('loading', '已选择后端默认 TTS。后端会根据 TTS_PROVIDER 决定 mock / CosyVoice / Higgs。');
+      return;
+    }
+    if (config.engine === 'cosyvoice') {
+      this.statusView.showTTS('loading', '已选择 CosyVoice2。需要后端配置 COSYVOICE_BASE_URL；失败会自动回退本机语音。');
+      return;
+    }
+    if (config.engine === 'higgs') {
+      this.statusView.showTTS('loading', '已选择 Higgs Audio v3。需要后端配置 HIGGS_BASE_URL；失败会自动回退本机语音。');
+      return;
+    }
     this.statusView.showTTS('success', '当前使用浏览器原生语音，声音质量取决于系统/浏览器内置声线。');
   }
 }

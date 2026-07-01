@@ -63,12 +63,60 @@ export class TTSService {
       method: 'POST',
       source: 'tts',
       timeoutMs: this.timeoutMs,
+      headers: {
+        Accept: 'application/json'
+      },
       body: provider.createPayload(text, config)
     });
 
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      const payload = normalizeTTSAudioResult(await response.json());
+      await this.playAudioResult(payload, { onStart });
+      return;
+    }
+
     const blob = await response.blob();
+    await this.playBlob(blob, { onStart });
+  }
+
+  async playAudioResult(result, { onStart } = {}) {
+    if (!result || result.tts_status !== 'ok') {
+      const message = result?.error?.message || 'TTS provider unavailable.';
+      const error = new Error(message);
+      error.code = result?.error?.code || 'TTS_PROVIDER_UNAVAILABLE';
+      error.ttsStatus = result?.tts_status || 'failed';
+      throw error;
+    }
+
+    if (result.audioBase64) {
+      const blob = base64ToBlob(result.audioBase64, result.contentType || contentTypeForFormat(result.format));
+      await this.playBlob(blob, { onStart });
+      return;
+    }
+
+    if (result.audioUrl) {
+      await this.playAudioUrl(result.audioUrl, { onStart });
+      return;
+    }
+
+    const error = new Error('TTS provider returned no playable audio payload.');
+    error.code = 'TTS_INVALID_RESPONSE';
+    error.ttsStatus = result.tts_status;
+    throw error;
+  }
+
+  async playBlob(blob, { onStart } = {}) {
     const url = URL.createObjectURL(blob);
 
+    try {
+      await this.playAudioUrl(url, { onStart });
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  async playAudioUrl(url, { onStart } = {}) {
     try {
       await new Promise((resolve, reject) => {
         const audio = new Audio(url);
@@ -87,7 +135,6 @@ export class TTSService {
           .catch(reject);
       });
     } finally {
-      URL.revokeObjectURL(url);
       this.currentAudio = null;
     }
   }
@@ -157,4 +204,28 @@ export function formatTTSTransportError(error) {
     return new Error('TTS 请求超时，已准备切换到免费本机语音兜底。', { cause: error });
   }
   return error;
+}
+
+function normalizeTTSAudioResult(payload) {
+  const data = payload?.ok === true && Object.prototype.hasOwnProperty.call(payload, 'data')
+    ? payload.data
+    : payload;
+  if (data?.ok === true && Object.prototype.hasOwnProperty.call(data, 'data')) return data.data;
+  return data;
+}
+
+function base64ToBlob(base64, contentType = 'audio/mpeg') {
+  const binary = atob(String(base64 || ''));
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return new Blob([bytes], { type: contentType });
+}
+
+function contentTypeForFormat(format = '') {
+  const normalized = String(format || '').toLowerCase();
+  if (normalized === 'wav') return 'audio/wav';
+  if (normalized === 'ogg') return 'audio/ogg';
+  return 'audio/mpeg';
 }

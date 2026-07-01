@@ -74,7 +74,10 @@ async function checkEnvExample() {
     'AVATAR_ASSET_DIR=',
     'UPLOAD_MAX_TOTAL_BYTES=',
     'N8N_WEBHOOK_URL=',
-    'N8N_WEBHOOK_SECRET='
+    'N8N_WEBHOOK_SECRET=',
+    'TTS_PROVIDER=',
+    'COSYVOICE_BASE_URL=',
+    'HIGGS_BASE_URL='
   ];
 
   for (const key of requiredKeys) {
@@ -85,6 +88,8 @@ async function checkEnvExample() {
     /\bsk-[A-Za-z0-9_-]{20,}/,
     /\bBearer\s+[A-Za-z0-9._-]{20,}/i,
     /OPENAI_API_KEY\s*=\s*(?!replace_with|$)[^\s#]+/i,
+    /COSYVOICE_API_KEY\s*=\s*(?!replace_with|$)[^\s#]+/i,
+    /HIGGS_API_KEY\s*=\s*(?!replace_with|$)[^\s#]+/i,
     /API_AUTH_TOKEN\s*=\s*(?!replace_with|$)[^\s#]+/i,
     /N8N_WEBHOOK_SECRET\s*=\s*(?!replace_with|$)[^\s#]+/i
   ];

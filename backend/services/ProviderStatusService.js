@@ -4,10 +4,15 @@ import {
   providerDefaultModels,
   providerKeyEnv
 } from '../config/serverConfig.js';
+import { createTTSProviderRegistry } from './tts/TTSProviderRegistry.js';
 
 const realProviders = ['openai', 'qwen', 'deepseek', 'custom'];
 
 export class ProviderStatusService {
+  constructor({ ttsRegistry = createTTSProviderRegistry() } = {}) {
+    this.ttsRegistry = ttsRegistry;
+  }
+
   getStatus() {
     return {
       llm: [
@@ -20,7 +25,8 @@ export class ProviderStatusService {
           status: 'ready'
         },
         ...realProviders.map((provider) => this.getRealProviderStatus(provider))
-      ]
+      ],
+      tts: this.ttsRegistry.listStatus()
     };
   }
 

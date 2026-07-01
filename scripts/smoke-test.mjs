@@ -7,6 +7,7 @@ try {
   if (health.ok !== true) throw new Error('/api/health did not return ok=true');
 
   await assertProviderStatus();
+  await assertTTSBoundary();
   await assertDialogueBoundary();
   await assertChatLegacyEndpoint();
 
@@ -175,6 +176,42 @@ async function assertDialogueBoundary() {
   }, 'LLM_PROVIDER_UNSUPPORTED');
 }
 
+async function assertTTSBoundary() {
+  const payload = await postJson('/api/tts', {
+    text: 'smoke tts mock check',
+    provider: 'mock',
+    responseFormat: 'json',
+    emotion: 'warm',
+    tone: 'gentle',
+    prosody: {
+      rate: 1,
+      pitch: 1,
+      volume: 1
+    }
+  });
+  const data = payload.data || payload;
+  if (payload.ok !== true) throw new Error('/api/tts did not return ok=true');
+  if (data.tts_status !== 'ok') throw new Error('/api/tts mock should return tts_status=ok');
+  if (data.provider !== 'mock') throw new Error('/api/tts mock should return provider=mock');
+  if (!data.audioBase64) throw new Error('/api/tts mock should return audioBase64');
+  if (data.streaming !== false) throw new Error('/api/tts mock should return streaming=false');
+
+  const unsupported = await fetch(`${baseUrl}/api/tts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({
+      text: 'smoke unsupported tts provider',
+      provider: 'unsupported-provider',
+      responseFormat: 'json'
+    })
+  });
+  const unsupportedPayload = await unsupported.json();
+  const unsupportedData = unsupportedPayload.data || unsupportedPayload;
+  if (!unsupported.ok) throw new Error('/api/tts unsupported provider JSON contract should stay HTTP 200 for observable fallback');
+  if (unsupportedData.tts_status !== 'failed') throw new Error('/api/tts unsupported provider should return failed status');
+  if (unsupportedData.error?.code !== 'TTS_PROVIDER_UNSUPPORTED') throw new Error('/api/tts unsupported provider should return TTS_PROVIDER_UNSUPPORTED');
+}
+
 async function assertMemoryFlow() {
   const sessionId = `smoke_memory_${Date.now()}`;
   const first = await postJson('/api/dialogue', {
@@ -292,6 +329,14 @@ async function assertProviderStatus() {
   if (openai.requiresKey !== true || openai.mode !== 'real') {
     throw new Error('/api/providers real providers should report real mode and requiresKey=true');
   }
+
+  const ttsProviders = payload.data?.tts || [];
+  const mockTTS = ttsProviders.find((item) => item.provider === 'mock');
+  if (!mockTTS) throw new Error('/api/providers missing mock TTS provider');
+  if (mockTTS.configured !== true) throw new Error('/api/providers mock TTS should be configured');
+  if (!ttsProviders.some((item) => item.provider === 'cosyvoice')) throw new Error('/api/providers missing cosyvoice TTS provider');
+  if (!ttsProviders.some((item) => item.provider === 'higgs')) throw new Error('/api/providers missing higgs TTS provider');
+  if (!ttsProviders.every((item) => item.capabilities)) throw new Error('/api/providers TTS providers should expose safe capabilities');
 
   const serialized = JSON.stringify(payload);
   if (/"(apiKey|secret|token|webhookUrl)"\s*:/i.test(serialized)) {

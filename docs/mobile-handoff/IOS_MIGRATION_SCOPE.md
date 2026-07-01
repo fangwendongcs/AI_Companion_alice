@@ -76,7 +76,7 @@
 
 ### Phase iOS-2：语音与记忆
 
-- 接入后端 TTS 二进制音频。
+- 接入后端 `/api/tts` Audio Result，优先解码 `audioBase64`，必要时兼容二进制音频。
 - 接入 memory list / clear。
 - 支持 Alice / Shiro / Wambo 切换。
 - 用 `affect.motion.slot` 驱动轻量 Avatar 动效。
@@ -95,4 +95,3 @@
 - 能开启或关闭 memory，并调用 `/api/memory` 清理。
 - 没有 OpenAI、MiniMax、n8n、Qdrant、API provider secret 出现在 iOS 代码或 plist 中。
 - Three.js、FBXLoader、DOM 事件、CSS 布局代码没有进入 iOS 项目。
-

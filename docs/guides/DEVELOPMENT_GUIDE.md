@@ -109,10 +109,11 @@ backend/config/serverConfig.js
 
 旧接口可以继续返回旧结构，新接口优先返回 `{ ok, data, error }`。
 
-TTS 是二进制响应例外：
+TTS 当前推荐返回统一 Audio Result：
 
-- 请求仍通过 `ApiClient.response()` 共享 timeout 与 AppError。
-- 播放阶段继续使用 `Blob -> Audio`，不走 JSON 解包。
+- Web 请求仍通过 `ApiClient.response()` 共享 timeout 与 AppError。
+- `responseFormat=json` 时，播放阶段从 `audioBase64 / audioUrl` 创建音频。
+- 旧二进制响应仍兼容为 `Blob -> Audio`。
 
 ## 常见问题
 

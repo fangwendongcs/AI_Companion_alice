@@ -4,6 +4,36 @@ export const TTSProviders = {
     label: '免费本机语音',
     transport: 'browser'
   },
+  backend: {
+    id: 'backend',
+    label: '后端默认 TTS',
+    transport: 'backend',
+    createPayload(text, config) {
+      return createBackendPayload(text, config);
+    }
+  },
+  cosyvoice: {
+    id: 'cosyvoice',
+    label: 'CosyVoice2',
+    transport: 'backend',
+    createPayload(text, config) {
+      return createBackendPayload(text, config, {
+        provider: 'cosyvoice',
+        voiceId: config.customVoiceId || undefined
+      });
+    }
+  },
+  higgs: {
+    id: 'higgs',
+    label: 'Higgs Audio v3',
+    transport: 'backend',
+    createPayload(text, config) {
+      return createBackendPayload(text, config, {
+        provider: 'higgs',
+        voiceId: config.customVoiceId || undefined
+      });
+    }
+  },
   openai: {
     id: 'openai',
     label: 'OpenAI TTS',
@@ -13,9 +43,11 @@ export const TTSProviders = {
         text,
         provider: 'openai',
         voice: config.openaiVoice,
+        voiceId: config.openaiVoice,
         model: config.openaiModel,
         speed: config.rate,
-        instructions: config.openaiInstructions
+        instructions: config.openaiInstructions,
+        ...createSemanticPayload(config)
       };
     }
   },
@@ -33,9 +65,11 @@ export const TTSProviders = {
         text,
         provider: 'minimax',
         voice: selectedVoice,
+        voiceId: selectedVoice,
         model: config.minimaxModel,
         speed: config.rate,
-        pitch: config.pitch
+        pitch: config.pitch,
+        ...createSemanticPayload(config)
       };
     }
   }
@@ -43,4 +77,27 @@ export const TTSProviders = {
 
 export function getTTSProvider(engine) {
   return TTSProviders[engine] || TTSProviders.browser;
+}
+
+function createBackendPayload(text, config, overrides = {}) {
+  return {
+    text,
+    ...createSemanticPayload(config),
+    ...overrides
+  };
+}
+
+function createSemanticPayload(config = {}) {
+  return {
+    responseFormat: 'json',
+    locale: config.locale || 'zh-CN',
+    emotion: config.emotion || config.affect?.emotion || 'neutral',
+    tone: config.tone || config.affect?.tone || 'calm',
+    prosody: {
+      rate: config.rate,
+      pitch: config.pitch,
+      volume: config.volume ?? 1
+    },
+    stream: false
+  };
 }

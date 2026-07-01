@@ -29,6 +29,9 @@ export class AudioStatusController {
   getEngineName(engine) {
     if (engine === 'minimax') return 'MiniMax';
     if (engine === 'openai') return 'OpenAI';
+    if (engine === 'backend') return '后端默认 TTS';
+    if (engine === 'cosyvoice') return 'CosyVoice2';
+    if (engine === 'higgs') return 'Higgs Audio v3';
     return '浏览器原生';
   }
 

@@ -40,7 +40,7 @@
 - `/api/providers` 已使用 `{ ok, data }`。
 - `/api/health` 返回 `{ ok: true }`。
 - `/api/avatars` 当前返回 registry 原始结构。
-- `/api/tts` 返回音频二进制。
+- `/api/tts` 推荐使用 `responseFormat=json` 返回 `{ ok, data }` Audio Result；音频二进制仅作为旧兼容路径。
 
 ## GET /api/health
 
@@ -220,7 +220,52 @@ iOS 建议：
 
 ## POST /api/tts
 
-用途：后端 TTS 代理，返回音频二进制。
+用途：后端 TTS 代理。推荐 iOS 使用 `responseFormat=json`，消费统一 Audio Result；二进制音频响应仅作为旧兼容路径。
+
+统一请求：
+
+```json
+{
+  "text": "你好，我是 Alice。",
+  "provider": "mock",
+  "voiceId": "alice",
+  "locale": "zh-CN",
+  "emotion": "warm",
+  "tone": "gentle",
+  "prosody": {
+    "rate": 1.05,
+    "pitch": 1.1,
+    "volume": 1
+  },
+  "stream": false,
+  "responseFormat": "json"
+}
+```
+
+统一响应：
+
+```json
+{
+  "ok": true,
+  "data": {
+    "tts_status": "ok",
+    "provider": "mock",
+    "format": "wav",
+    "audioUrl": null,
+    "audioBase64": "...",
+    "durationMs": 260,
+    "sampleRate": 16000,
+    "streaming": false,
+    "contentType": "audio/wav"
+  }
+}
+```
+
+iOS 侧建议：
+
+- `tts_status=ok` 且有 `audioBase64` 时解码后交给 `AVAudioPlayer`。
+- `tts_status=unavailable/failed` 时保留文本回复，可降级到 `AVSpeechSynthesizer`。
+- 不要在 iOS 保存 CosyVoice / Higgs / OpenAI / MiniMax service URL、模型地址或 API Key。
 
 OpenAI TTS 请求：
 
@@ -444,4 +489,3 @@ struct DialogueResponse: Decodable {
     let meta: DialogueMeta?
 }
 ```
-

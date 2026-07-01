@@ -98,7 +98,7 @@ http://localhost:3000
 http://localhost:3000?debug=1
 ```
 
-默认 LLM provider 是 `stub`，所以本地开发不需要 API Key。如果要使用真实 OpenAI-compatible provider 或云端 TTS，需要只在后端环境变量中配置 Key，不要把 secret 写入前端。
+默认 LLM provider 是 `stub`，所以本地开发不需要 API Key。TTS 也已经进入后端 provider 边界：`TTS_PROVIDER=mock` 不依赖外部服务，`cosyvoice` 和 `higgs` 只通过后端环境变量启用。CosyVoice2 默认对接官方 FastAPI runtime 契约，不要把服务地址或 secret 写入前端。
 
 ## 部署模式与 Secret 管理
 

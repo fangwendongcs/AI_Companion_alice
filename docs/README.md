@@ -37,6 +37,8 @@
 
 - [DEVELOPMENT_GUIDE.md](./guides/DEVELOPMENT_GUIDE.md): 本地开发与排查
 - [CONFIG_GUIDE.md](./guides/CONFIG_GUIDE.md): 配置说明
+- [LOCAL_TTS.md](./guides/LOCAL_TTS.md): 本地与可替换 TTS Provider
+- [COSYVOICE_RUNTIME.md](./guides/COSYVOICE_RUNTIME.md): CosyVoice2 官方 FastAPI runtime 与 Alice 端到端验证
 - [KNOWLEDGE_GUIDE.md](./guides/KNOWLEDGE_GUIDE.md): Phase 3 本地知识源与简单检索边界
 - [LOCAL_TTS.md](./guides/LOCAL_TTS.md): 本地 TTS 方案
 

@@ -40,3 +40,24 @@ assets/avatars/test-vrm/alice_test
 # Python
 __pycache__/
 *.pyc
+.venv/
+
+# Local CosyVoice runtime: repo clone, models, logs, generated audio and caches
+runtime/cosyvoice/CosyVoice/
+runtime/cosyvoice/downloads/
+runtime/cosyvoice/envs/
+runtime/cosyvoice/home/
+runtime/cosyvoice/miniforge/
+runtime/cosyvoice/miniforge-root/
+runtime/cosyvoice/pip-cache/
+runtime/cosyvoice/modelscope-cache/
+runtime/cosyvoice/hf-cache/
+runtime/cosyvoice/hf-home/
+runtime/cosyvoice/pretrained_models/
+runtime/cosyvoice/models/
+runtime/cosyvoice/cache/
+runtime/cosyvoice/logs/
+runtime/cosyvoice/output/
+runtime/cosyvoice/*.pid
+runtime/cosyvoice/*.wav
+runtime/cosyvoice/*.mp3

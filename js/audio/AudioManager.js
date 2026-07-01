@@ -72,9 +72,16 @@ export class AudioManager {
 
 function applyVoiceAffect(config, affect) {
   const voice = affect?.voice;
-  if (!voice) return config;
-  return {
+  const semanticConfig = {
     ...config,
+    affect,
+    emotion: affect?.emotion || config.emotion || 'neutral',
+    tone: affect?.tone || config.tone || 'calm',
+    voiceStyle: voice?.style || config.voiceStyle || null
+  };
+  if (!voice) return semanticConfig;
+  return {
+    ...semanticConfig,
     rate: clamp(voice.rate ?? config.rate, 0.6, 1.6),
     pitch: clamp(voice.pitch ?? config.pitch, 0.8, 2)
   };

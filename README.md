@@ -98,7 +98,7 @@ For debug state inspection:
 http://localhost:3000?debug=1
 ```
 
-Default LLM provider is `stub`, so no API key is required for local development. To use real OpenAI-compatible providers or cloud TTS, configure backend environment variables only. Do not put secrets in frontend code.
+Default LLM provider is `stub`, so no API key is required for local development. TTS also has a backend provider boundary: `TTS_PROVIDER=mock` works without external services, while `cosyvoice` and `higgs` can be enabled from backend environment variables only. CosyVoice2 defaults to the official FastAPI runtime contract; do not put service URLs or secrets in frontend code.
 
 ## Deployment Modes And Secrets
 

@@ -442,7 +442,79 @@ Workflow 成功时：
 
 ### POST /api/tts
 
-返回音频二进制。
+后端统一 TTS provider 入口。推荐 Web / iOS 发送 `responseFormat=json`，消费统一 Audio Result；旧二进制响应仍保留为兼容路径。
+
+请求：
+
+```json
+{
+  "text": "你好，我是 Alice。",
+  "provider": "mock",
+  "voiceId": "alice",
+  "locale": "zh-CN",
+  "emotion": "warm",
+  "tone": "gentle",
+  "prosody": {
+    "rate": 1.05,
+    "pitch": 1.1,
+    "volume": 1
+  },
+  "stream": false,
+  "responseFormat": "json"
+}
+```
+
+成功响应：
+
+```json
+{
+  "ok": true,
+  "data": {
+    "tts_status": "ok",
+    "provider": "mock",
+    "format": "wav",
+    "audioUrl": null,
+    "audioBase64": "...",
+    "durationMs": 260,
+    "sampleRate": 16000,
+    "streaming": false,
+    "contentType": "audio/wav"
+  }
+}
+```
+
+不可用 / 失败响应仍保持 HTTP 200 + 可观测状态，便于客户端保留文本回复并降级到本机语音：
+
+```json
+{
+  "ok": true,
+  "data": {
+    "tts_status": "unavailable",
+    "provider": "cosyvoice",
+    "format": null,
+    "audioUrl": null,
+    "audioBase64": "",
+    "streaming": false,
+    "error": {
+      "code": "TTS_NOT_CONFIGURED",
+      "message": "missing_base_url"
+    }
+  }
+}
+```
+
+Provider：
+
+- `mock`：默认本地演示，不需要外部服务。
+- `cosyvoice`：CosyVoice2 adapter，默认通过官方 FastAPI runtime 配置；OpenAI-compatible proxy 必须显式设置 `COSYVOICE_API_STYLE=openai_compatible`。
+- `higgs`：Higgs Audio v3 实验 adapter，通过 `HIGGS_BASE_URL` 配置兼容 `/v1/audio/speech` endpoint。
+- `openai` / `minimax`：旧兼容 provider。
+
+合约要求：
+
+- 前端和 iOS 不接触 TTS service URL、模型部署地址或 API Key。
+- `emotion / tone / prosody` 是 Alice 统一语义，provider-specific prompt、instruction 或 inline token 只在后端 adapter 内生成。
+- `GET /api/providers` 只返回 provider readiness 和 capability，不返回 base URL、secret、token 或 Bearer。
 
 ### GET /api/providers
 
@@ -468,6 +540,47 @@ Workflow 成功时：
         "mode": "real",
         "requiresKey": true,
         "status": "missing_key"
+      }
+    ],
+    "tts": [
+      {
+        "provider": "mock",
+        "configured": true,
+        "mode": "demo",
+        "requiresKey": false,
+        "status": "ready",
+        "health": {
+          "healthy": true,
+          "status": "ready",
+          "live": false,
+          "reason": "mock_provider"
+        },
+        "capabilities": {
+          "supportsStreaming": false,
+          "supportsVoiceClone": false,
+          "supportsEmotion": true
+        }
+      },
+      {
+        "provider": "cosyvoice",
+        "configured": false,
+        "mode": "real",
+        "requiresKey": false,
+        "status": "missing_base_url",
+        "apiStyle": "official_fastapi",
+        "apiMode": "sft",
+        "sampleRate": 22050,
+        "health": {
+          "healthy": false,
+          "status": "missing_base_url",
+          "live": false,
+          "reason": "missing_base_url"
+        },
+        "capabilities": {
+          "supportsStreaming": false,
+          "supportsVoiceClone": true,
+          "supportsEmotion": true
+        }
       }
     ]
   }

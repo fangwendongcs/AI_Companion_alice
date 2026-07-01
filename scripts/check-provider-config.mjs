@@ -36,6 +36,11 @@ function checkProviderStatusContract() {
   assert(status.llm.some((item) => item.provider === 'qwen'), 'Provider status 必须包含 qwen。');
   assert(status.llm.some((item) => item.provider === 'deepseek'), 'Provider status 必须包含 deepseek。');
   assert(status.llm.some((item) => item.provider === 'custom'), 'Provider status 必须包含 custom。');
+  assert(Array.isArray(status.tts), 'Provider status 必须包含 tts 列表。');
+  assert(status.tts.some((item) => item.provider === 'mock' && item.configured === true), 'TTS provider status 必须包含 configured mock。');
+  assert(status.tts.some((item) => item.provider === 'cosyvoice'), 'TTS provider status 必须包含 cosyvoice。');
+  assert(status.tts.some((item) => item.provider === 'higgs'), 'TTS provider status 必须包含 higgs。');
+  assert(status.tts.every((item) => item.capabilities), 'TTS provider status 必须包含 capabilities。');
   assertNoSecretFields(status, 'Provider status');
 }
 

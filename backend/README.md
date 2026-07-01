@@ -14,6 +14,8 @@ npm run dev
 OPENAI_API_KEY=replace_with_your_key MINIMAX_API_KEY=replace_with_your_key npm run dev
 ```
 
+本地 TTS provider 默认是 `mock`，不需要外部服务。要测试 CosyVoice2 或 Higgs Audio v3，只配置后端环境变量，例如 `TTS_PROVIDER=cosyvoice COSYVOICE_BASE_URL=http://localhost:50000 npm run dev`。
+
 Provider 配置状态可通过 `GET /api/providers` 查看。该接口只返回安全状态，例如 provider 是否 configured、是否需要 Key、默认 model 和 demo/real mode，不返回任何真实 Key 或 secret。
 
 默认地址：
@@ -45,6 +47,8 @@ http://localhost:3000
 - `RATE_LIMIT_SENSITIVE_MAX_REQUESTS`：敏感写接口窗口内最大请求数，默认 `60`
 - `OPENAI_API_KEY`：OpenAI Chat/TTS
 - `MINIMAX_API_KEY`：MiniMax TTS
+- `COSYVOICE_API_KEY`：可选 CosyVoice2 服务鉴权 Key
+- `HIGGS_API_KEY`：可选 Higgs Audio v3 服务鉴权 Key
 - `QWEN_API_KEY`：通义千问 OpenAI-compatible 接口
 - `DEEPSEEK_API_KEY`：DeepSeek OpenAI-compatible 接口
 - `CUSTOM_API_KEY`：自定义 OpenAI-compatible 接口
@@ -56,6 +60,20 @@ http://localhost:3000
 - `CUSTOM_BASE_URL`：自定义 OpenAI-compatible 接口地址
 - `OPENAI_TTS_MODEL`：OpenAI TTS 模型，默认 `gpt-4o-mini-tts`
 - `MINIMAX_TTS_MODEL`：MiniMax TTS 模型，默认 `speech-2.8-hd`
+- `TTS_PROVIDER`：后端默认 TTS provider，支持 `mock` / `cosyvoice` / `higgs` / `openai` / `minimax`，默认 `mock`
+- `TTS_OUTPUT_FORMAT`：后端 TTS 输出格式，默认 `mp3`
+- `COSYVOICE_BASE_URL`：CosyVoice2 兼容服务地址，未配置时 provider 报 `missing_base_url`
+- `COSYVOICE_API_STYLE`：`official_fastapi` 或 `openai_compatible`，默认 `official_fastapi`
+- `COSYVOICE_API_MODE`：官方 FastAPI mode，默认 `sft`
+- `COSYVOICE_SPEECH_PATH`：可选覆盖 path；官方 mode 默认自动映射到 `/inference_${COSYVOICE_API_MODE}`
+- `COSYVOICE_MODEL`：CosyVoice2 后端模型名，默认 `iic/CosyVoice2-0.5B`
+- `COSYVOICE_VOICE_ID`：CosyVoice2 默认 voiceId/spk_id，默认 `中文女`
+- `COSYVOICE_SAMPLE_RATE`：官方 FastAPI raw PCM 采样率，默认 `24000`
+- `COSYVOICE_PROMPT_TEXT` / `COSYVOICE_PROMPT_WAV` / `COSYVOICE_INSTRUCT_TEXT`：zero-shot / instruct2 等模式需要
+- `HIGGS_BASE_URL`：Higgs Audio v3 兼容服务地址，未配置时 provider 报 `missing_base_url`
+- `HIGGS_SPEECH_PATH`：Higgs speech endpoint，默认 `/v1/audio/speech`
+- `HIGGS_MODEL`：Higgs 后端模型名，默认 `higgs-audio-v3`
+- `HIGGS_VOICE_ID`：Higgs 默认 voiceId，默认 `alice`
 - `UPSTREAM_TIMEOUT_MS`：后端访问 LLM/TTS 上游的超时时间，默认 `45000`
 - `N8N_WEBHOOK_URL`：可选 n8n webhook 地址，只允许后端读取
 - `N8N_WEBHOOK_SECRET`：可选 n8n webhook secret，只通过后端 header 发送
@@ -100,6 +118,85 @@ API_AUTH_TOKEN=replace_with_private_token
 - `POST /api/avatars`
 
 `GET /api/health`、`GET /api/providers` 和静态资源仍可公开读取；`GET /api/providers` 只能返回安全 readiness 状态。
+
+## TTS Provider 架构
+
+`POST /api/tts` 已收口到后端 `TTSOrchestrator -> TTSProviderRegistry -> provider adapter`。Web 和后续 iOS 只调用 Alice 后端，不直接知道 CosyVoice、Higgs、OpenAI 或 MiniMax 的服务地址、模型名细节和密钥。
+
+当前 provider：
+
+- `mock`：默认演示 provider，返回本地静音 WAV，用于无 Key / 无外部服务的链路验证。
+- `cosyvoice`：CosyVoice2 开源主线 adapter，默认按官方 FastAPI `/inference_sft` 契约调用服务；如明确部署了 OpenAI-compatible proxy，可设置 `COSYVOICE_API_STYLE=openai_compatible`。
+- `higgs`：Higgs Audio v3 实验 adapter，使用 `HIGGS_BASE_URL` 调用兼容 `/v1/audio/speech` 的 endpoint，并把 Alice 情绪 / 语气转成 inline control tokens 或兼容参数。
+- `openai`、`minimax`：保留旧兼容 provider，继续走后端环境变量。
+
+默认 provider：
+
+```bash
+TTS_PROVIDER=mock
+TTS_OUTPUT_FORMAT=mp3
+```
+
+CosyVoice2：
+
+```bash
+COSYVOICE_BASE_URL=http://localhost:50000
+COSYVOICE_API_STYLE=official_fastapi
+COSYVOICE_API_MODE=sft
+COSYVOICE_SPEECH_PATH=
+COSYVOICE_MODEL=iic/CosyVoice2-0.5B
+COSYVOICE_VOICE_ID=中文女
+COSYVOICE_SAMPLE_RATE=24000
+COSYVOICE_API_KEY=replace_with_optional_key
+```
+
+Higgs Audio v3：
+
+```bash
+HIGGS_BASE_URL=http://localhost:8000
+HIGGS_SPEECH_PATH=/v1/audio/speech
+HIGGS_MODEL=higgs-audio-v3
+HIGGS_VOICE_ID=alice
+HIGGS_API_KEY=replace_with_optional_key
+```
+
+真实 provider 可用性可以用可选命令验证：
+
+```bash
+npm run check:tts-live
+# or
+npm run check:cosyvoice-live
+```
+
+没有配置 `COSYVOICE_BASE_URL` / `HIGGS_BASE_URL` 时该命令会跳过，不影响默认 `npm run check`。命令只输出 provider、格式和音频长度，不打印 API Key、服务地址密钥或完整音频内容。
+
+`/api/tts` 支持统一 JSON Audio Result：
+
+```json
+{
+  "ok": true,
+  "data": {
+    "tts_status": "ok",
+    "provider": "mock",
+    "format": "wav",
+    "audioUrl": null,
+    "audioBase64": "...",
+    "durationMs": 260,
+    "sampleRate": 16000,
+    "streaming": false
+  }
+}
+```
+
+如果 provider 未配置、超时或上游异常，接口返回稳定 `tts_status=unavailable/failed`，前端仍会按现有 audio fallback 走浏览器本机语音，不影响 `/api/dialogue` 文本回复。
+
+`GET /api/providers` 会返回 TTS provider 的安全 readiness：
+
+- `configured` / `status`：说明后端配置是否足够，不返回环境变量值。
+- `health`：轻量健康摘要，默认不主动请求外部模型服务，避免 provider status 接口拖慢对话链路。
+- `capabilities`：声明 `supportsStreaming`、`supportsVoiceClone`、`supportsEmotion` 等能力。
+
+真实 CosyVoice / Higgs 连通性请用 `npm run check:tts-live` 验证。
 
 鉴权错误使用稳定错误码：
 

@@ -5,5 +5,5 @@ export const CONFIG_LIMITS = {
   maxInteractionCooldownMs: 5000
 };
 
-export const VALID_TTS_ENGINES = ['browser', 'openai', 'minimax'];
+export const VALID_TTS_ENGINES = ['browser', 'backend', 'cosyvoice', 'higgs', 'openai', 'minimax'];
 export const VALID_MODEL_FORMATS = ['vrm', 'glb', 'gltf'];

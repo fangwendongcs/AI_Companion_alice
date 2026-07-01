@@ -13,8 +13,12 @@ for (const avatar of registry.avatars || []) {
   if (motionsPath && isLocalAsset(motionsPath)) {
     const motions = await readJson(motionsPath);
     for (const [slot, entry] of Object.entries(motions.slots || {})) {
-      if (entry.file) await assertLocalFile(entry.file, `${avatar.id}.motions.${slot}`);
-      if (entry.path) await assertLocalFile(entry.path, `${avatar.id}.motions.${slot}`);
+      if (entry.file) await assertLocalFile(entry.file, `${avatar.id}.motions.${slot}`, {
+        fallbackAvailable: motions.proceduralFallbacks?.[slot] === true
+      });
+      if (entry.path) await assertLocalFile(entry.path, `${avatar.id}.motions.${slot}`, {
+        fallbackAvailable: motions.proceduralFallbacks?.[slot] === true
+      });
     }
   }
 }
@@ -36,12 +40,13 @@ async function readJson(path) {
   }
 }
 
-async function assertLocalFile(path, label) {
+async function assertLocalFile(path, label, { fallbackAvailable = false } = {}) {
   if (!path || !isLocalAsset(path)) return;
   const normalized = normalizePath(path);
   try {
     await access(normalized);
   } catch {
+    if (fallbackAvailable) return;
     missing.push({ label, path: normalized });
   }
 }

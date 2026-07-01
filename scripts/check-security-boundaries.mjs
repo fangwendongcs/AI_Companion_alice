@@ -73,6 +73,8 @@ async function checkEnvExample() {
     'REQUIRE_API_AUTH',
     'API_AUTH_TOKEN',
     'OPENAI_API_KEY',
+    'COSYVOICE_API_KEY',
+    'HIGGS_API_KEY',
     'N8N_WEBHOOK_URL',
     'N8N_WEBHOOK_SECRET'
   ].forEach((name) => {
@@ -100,6 +102,8 @@ async function checkFrontendSecretBoundary() {
   const forbiddenPatterns = [
     /\bOPENAI_API_KEY\b/,
     /\bMINIMAX_API_KEY\b/,
+    /\bCOSYVOICE_API_KEY\b/,
+    /\bHIGGS_API_KEY\b/,
     /\bQWEN_API_KEY\b/,
     /\bDEEPSEEK_API_KEY\b/,
     /\bCUSTOM_API_KEY\b/,

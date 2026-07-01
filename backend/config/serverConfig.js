@@ -66,9 +66,30 @@ export const providerBaseUrlEnv = {
   custom: 'CUSTOM_BASE_URL'
 };
 
+export const ttsDefaultProvider = String(process.env.TTS_PROVIDER || 'mock').trim().toLowerCase();
+export const ttsOutputFormat = String(process.env.TTS_OUTPUT_FORMAT || 'mp3').trim().toLowerCase();
+export const ttsCosyVoiceBaseUrl = String(process.env.COSYVOICE_BASE_URL || '').trim();
+export const ttsCosyVoiceApiStyle = String(process.env.COSYVOICE_API_STYLE || 'official_fastapi').trim();
+export const ttsCosyVoiceApiMode = String(process.env.COSYVOICE_API_MODE || 'sft').trim();
+export const ttsCosyVoicePath = String(process.env.COSYVOICE_SPEECH_PATH || '').trim();
+export const ttsCosyVoiceModel = String(process.env.COSYVOICE_MODEL || 'iic/CosyVoice2-0.5B').trim();
+export const ttsCosyVoiceVoiceId = String(process.env.COSYVOICE_VOICE_ID || '中文女').trim();
+export const ttsCosyVoiceSampleRate = Number(process.env.COSYVOICE_SAMPLE_RATE || 24000);
+export const ttsCosyVoicePromptText = String(process.env.COSYVOICE_PROMPT_TEXT || '').trim();
+export const ttsCosyVoicePromptWavPath = String(process.env.COSYVOICE_PROMPT_WAV || '').trim();
+export const ttsCosyVoiceInstructText = String(process.env.COSYVOICE_INSTRUCT_TEXT || '').trim();
+export const ttsCosyVoiceApiKeyEnv = 'COSYVOICE_API_KEY';
+export const ttsCosyVoiceApiKey = String(process.env[ttsCosyVoiceApiKeyEnv] || '').trim();
+export const ttsHiggsBaseUrl = String(process.env.HIGGS_BASE_URL || '').trim();
+export const ttsHiggsPath = String(process.env.HIGGS_SPEECH_PATH || '/v1/audio/speech').trim();
+export const ttsHiggsModel = String(process.env.HIGGS_MODEL || 'higgs-audio-v3').trim();
+export const ttsHiggsVoiceId = String(process.env.HIGGS_VOICE_ID || 'alice').trim();
+export const ttsHiggsApiKeyEnv = 'HIGGS_API_KEY';
+export const ttsHiggsApiKey = String(process.env[ttsHiggsApiKeyEnv] || '').trim();
+
 export const ttsProviderBaseUrls = {
-  openai: providerBaseUrls.openai,
-  minimax: 'https://api.minimax.io/v1'
+  openai: String(process.env.OPENAI_BASE_URL || providerBaseUrls.openai).trim(),
+  minimax: String(process.env.MINIMAX_BASE_URL || 'https://api.minimax.io/v1').trim()
 };
 
 export const ttsProviderKeyEnv = {

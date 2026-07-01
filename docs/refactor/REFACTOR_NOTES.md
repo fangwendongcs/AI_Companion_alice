@@ -1775,3 +1775,22 @@ npm run check:assets
 - `DebugPanelController` 新增 `lipSync.mode / lipSync.audioDriven / lipSync.fallback / lipSync.amplitude / lipSync.mouth` 字段，使用 `textContent` 展示，不保存音频对象、provider secret 或模型专属 morph 名称。
 - `check:vrm-renderer-flow` 和 `check:companion-state-flow` 已覆盖 lip-sync debug snapshot、状态同步边界和 Debug Panel 字段。
 - 本轮只做可观测性收口，不接真实 TTS provider、不做 phoneme/viseme、不引入 `@pixiv/three-vrm`，不改后端 Dialogue / Memory / Persona / Emotion 业务逻辑。
+
+## 76. Backend TTS Provider Registry
+
+- 新增 `backend/services/tts/TTSProviderRegistry.js` 和 `TTSOrchestrator.js`，把 `/api/tts` 收口为统一 provider registry / factory / orchestration，不再在 route 中直接写 OpenAI / MiniMax 分支。
+- 新增 `MockTTSProvider`、`CosyVoiceTTSProvider`、`HiggsTTSProvider`、`OpenAITTSProvider` 和 `MiniMaxTTSProvider`。`mock` 是无外部服务默认演示 provider；`cosyvoice` 是当前开源主线；`higgs` 是实验性兼容 `/v1/audio/speech` provider。
+- 新增 `TTSVoicePolicy.js`，把 Alice 的 `emotion / tone / prosody` 统一语义映射到 provider adapter 内部的 instruction、prompt 或 Higgs inline control tokens，避免 Dialogue / Memory / Persona / Emotion / Web / iOS 依赖模型私有字段。
+- `/api/tts` 现在推荐返回统一 JSON Audio Result：`tts_status / provider / format / audioUrl / audioBase64 / durationMs / sampleRate / streaming`；旧二进制音频响应仍作为兼容路径。
+- `TTSService` 已能消费统一 Audio Result JSON，并在 `tts_status=failed/unavailable` 时继续走现有浏览器语音 fallback；backend audio 仍可把 `HTMLAudioElement` 传给 lip-sync amplitude sampler。
+- `/api/providers` 增加安全 TTS readiness / capabilities，不返回 service URL、API key、token 或 Bearer。
+- 新增 `check:tts-provider-flow`，覆盖 mock、unknown provider、缺配置、CosyVoice fake binary、Higgs fake JSON、timeout fallback、emotion/tone mapping、Audio Result 和 secret 不泄漏。
+- `.env.example` 和 `docs/guides/LOCAL_TTS.md` 已记录 `TTS_PROVIDER=mock`、CosyVoice2 和 Higgs Audio v3 配置方式。本轮不下载模型、不部署 GPU 服务、不做 voice clone / streaming PCM / phoneme 或 viseme。
+
+## 77. CosyVoice2 Official FastAPI Runtime Alignment
+
+- `CosyVoiceTTSProvider` 默认切到官方 FastAPI runtime 契约：`COSYVOICE_API_STYLE=official_fastapi`，`COSYVOICE_API_MODE=sft`，默认 endpoint 为 `/inference_sft`，默认端口说明为 `50000`。
+- 官方 FastAPI 返回 raw int16 PCM；provider 会包装为 WAV `audioBase64`，保持 Web / iOS 统一 Audio Result 不变。
+- `localhost:9880` 和 `/v1/audio/speech` 只保留为显式 `COSYVOICE_API_STYLE=openai_compatible` 的自建代理路径，不再作为 CosyVoice 官方默认。
+- 新增 `scripts/cosyvoice/start-official-fastapi.sh` / `stop-official-fastapi.sh` 和 `docs/guides/COSYVOICE_RUNTIME.md`，把官方 runtime 的 clone、Python 环境、模型缓存、日志、启动、live check 和清理命令写清楚。
+- `runtime/cosyvoice/` 下的官方仓库、模型、日志、音频输出和 pid 文件已加入 `.gitignore`，避免把模型权重或生成音频提交进仓库。

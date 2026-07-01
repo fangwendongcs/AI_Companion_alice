@@ -1,7 +1,7 @@
 import { DEFAULT_LLM_CONFIG, DEFAULT_TTS_CONFIG } from '../config/providers.js';
 
 const supportedProviders = new Set(['stub', 'openai', 'qwen', 'deepseek', 'custom']);
-const supportedTTSEngines = new Set(['browser', 'openai', 'minimax']);
+const supportedTTSEngines = new Set(['browser', 'backend', 'cosyvoice', 'higgs', 'openai', 'minimax']);
 const freeDefaultMigrationKey = 'tts_free_default_migration_v1';
 const llmStubDefaultMigrationKey = 'llm_stub_default_migration_v1';
 const memorySessionKey = 'llm_memory_session_id';
