@@ -18,6 +18,14 @@ MODELSCOPE_CACHE="${MODELSCOPE_CACHE:-"$RUNTIME_DIR/modelscope-cache"}"
 MPLCONFIGDIR="${MPLCONFIGDIR:-"$RUNTIME_DIR/matplotlib-cache"}"
 VOICE_ID="${COSYVOICE_VOICE_ID:-中文女}"
 SAMPLE_RATE="${COSYVOICE_SAMPLE_RATE:-24000}"
+STARTUP_GUARD_SECONDS="${COSYVOICE_STARTUP_GUARD_SECONDS:-8}"
+
+print_fastapi_log_tail() {
+  if [ -s "$LOG_DIR/fastapi.log" ]; then
+    echo "[cosyvoice:start] fastapi log tail:" >&2
+    tail -80 "$LOG_DIR/fastapi.log" >&2 || true
+  fi
+}
 
 if [ ! -f "$REPO_DIR/runtime/python/fastapi/server.py" ]; then
   cat >&2 <<MSG
@@ -79,6 +87,13 @@ cd "$REPO_DIR/runtime/python/fastapi"
 MODELSCOPE_CACHE="$MODELSCOPE_CACHE" MPLCONFIGDIR="$MPLCONFIGDIR" nohup "$PYTHON_BIN" server.py --port "$PORT" --model_dir "$MODEL_DIR" > "$LOG_DIR/fastapi.log" 2>&1 &
 PID="$!"
 echo "$PID" > "$PID_FILE"
+sleep "$STARTUP_GUARD_SECONDS"
+if ! kill -0 "$PID" 2>/dev/null; then
+  rm -f "$PID_FILE"
+  echo "[cosyvoice:start] process exited before endpoint readiness pid=$PID guardSeconds=$STARTUP_GUARD_SECONDS" >&2
+  print_fastapi_log_tail
+  exit 1
+fi
 echo "[cosyvoice:start] started pid=$PID port=$PORT model_dir=$MODEL_DIR"
 echo "[cosyvoice:start] log: $LOG_DIR/fastapi.log"
 echo "[cosyvoice:start] Alice env: COSYVOICE_BASE_URL=http://127.0.0.1:$PORT COSYVOICE_API_STYLE=official_fastapi COSYVOICE_API_MODE=sft COSYVOICE_VOICE_ID=$VOICE_ID COSYVOICE_SAMPLE_RATE=$SAMPLE_RATE"

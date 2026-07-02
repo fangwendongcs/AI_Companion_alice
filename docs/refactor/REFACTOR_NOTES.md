@@ -1811,3 +1811,9 @@ npm run check:assets
 - `/api/tts` 增加公开 provider 白名单，当前只接受 `mock` / `cosyvoice`；未知 provider 返回稳定 `TTS_PROVIDER_UNSUPPORTED`，不会泄露内部 adapter。
 - Web Settings 会显示当前 Provider、可用状态、当前 voiceId、能力摘要和简洁失败原因；CosyVoice2 未启动时显示“本地语音服务未启动”，文字对话和浏览器 fallback 继续可用。
 - 本轮不改 CosyVoice runtime、模型下载、speaker 初始化、Dialogue、Persona、Memory、VRM 或 iOS 主逻辑，也不接入新的第三方 TTS provider。
+
+## 80. CosyVoice2 Runtime Validation Closure
+
+- `cosyvoice:start` 在后台启动官方 FastAPI 后会用 `COSYVOICE_STARTUP_GUARD_SECONDS` 短等待确认进程仍存活，默认 8 秒；如果进程很快退出，会清理 pid 文件并输出 `runtime/cosyvoice/logs/fastapi.log` 尾部，避免把失败启动误判为 ready。
+- `npm run cosyvoice:verify` 仍是当前可复现端到端回归入口：preflight -> start runtime -> endpoint check -> Alice live provider check -> WAV evidence -> stop runtime -> degradation check。
+- 本轮只收口 CosyVoice2 runtime 可靠性和验证证据，不扩展 Higgs / Fun-CosyVoice 3.0 / 其他 TTS provider，不改变 Dialogue / Persona / Memory / VRM / iOS 主链路。

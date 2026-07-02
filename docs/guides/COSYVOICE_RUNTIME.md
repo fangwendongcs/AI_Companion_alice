@@ -181,7 +181,7 @@ COSYVOICE_SAMPLE_RATE=24000 \
 npm run check:cosyvoice-runtime
 ```
 
-该检查会验证模型目录、`llm.pt / flow.pt / hift.pt / cosyvoice2.yaml / spk2info.pt`、目标 speaker 和 sample rate。`cosyvoice:start` 也会在启动前执行同类检查，避免服务看似启动但 speaker 或模型不完整。
+该检查会验证模型目录、`llm.pt / flow.pt / hift.pt / cosyvoice2.yaml / spk2info.pt`、目标 speaker 和 sample rate。`cosyvoice:start` 也会在启动前执行同类检查，避免服务看似启动但 speaker 或模型不完整。启动脚本还会在后台进程创建后做一次短等待确认，默认 `COSYVOICE_STARTUP_GUARD_SECONDS=8`；如果 FastAPI 进程立即退出，会清理 pid 文件并打印 `runtime/cosyvoice/logs/fastapi.log` 尾部，避免把失败启动误判为 ready。
 
 ```bash
 COSYVOICE_PYTHON="$PWD/runtime/cosyvoice/envs/cosyvoice-py310/bin/python" \
