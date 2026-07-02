@@ -57,7 +57,8 @@ export async function parseProviderResponse(response, {
     format: contentTypeToFormat(contentType, fallbackFormat),
     audioBase64: audioBuffer.toString('base64'),
     contentType,
-    streaming
+    streaming: false,
+    upstreamStreaming: Boolean(streaming)
   });
 }
 
@@ -91,7 +92,8 @@ export function parseJsonAudioResult(data, {
     audioUrl,
     durationMs: data?.durationMs ?? data?.duration_ms ?? data?.data?.durationMs ?? null,
     sampleRate: data?.sampleRate ?? data?.sample_rate ?? data?.data?.sampleRate ?? null,
-    streaming: data?.streaming ?? streaming,
+    streaming: Boolean((data?.streaming ?? streaming) && !audioBase64),
+    upstreamStreaming: Boolean(data?.upstreamStreaming ?? data?.upstream_streaming ?? streaming),
     contentType: data?.contentType || data?.content_type || contentType
   });
 }

@@ -478,10 +478,13 @@ Workflow 成功时：
     "durationMs": 260,
     "sampleRate": 16000,
     "streaming": false,
+    "upstreamStreaming": false,
     "contentType": "audio/wav"
   }
 }
 ```
+
+`streaming` 表示客户端是否能按当前响应边收边播。若后端返回 `audioBase64`，即使上游 provider 使用 HTTP streaming，客户端也应看到 `streaming=false`。`upstreamStreaming=true` 仅表示后端 adapter 从上游收到的是流式响应，例如 CosyVoice 官方 FastAPI raw PCM。
 
 不可用 / 失败响应仍保持 HTTP 200 + 可观测状态，便于客户端保留文本回复并降级到本机语音：
 

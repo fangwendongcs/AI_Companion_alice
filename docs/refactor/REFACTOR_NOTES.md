@@ -1794,3 +1794,11 @@ npm run check:assets
 - `localhost:9880` 和 `/v1/audio/speech` 只保留为显式 `COSYVOICE_API_STYLE=openai_compatible` 的自建代理路径，不再作为 CosyVoice 官方默认。
 - 新增 `scripts/cosyvoice/start-official-fastapi.sh` / `stop-official-fastapi.sh` 和 `docs/guides/COSYVOICE_RUNTIME.md`，把官方 runtime 的 clone、Python 环境、模型缓存、日志、启动、live check 和清理命令写清楚。
 - `runtime/cosyvoice/` 下的官方仓库、模型、日志、音频输出和 pid 文件已加入 `.gitignore`，避免把模型权重或生成音频提交进仓库。
+
+## 78. CosyVoice2 Runtime Reproducibility Hardening
+
+- 新增 `scripts/cosyvoice/init-sft-speaker.sh`，把 `中文女` 的 SFT speaker 初始化固化为可重复命令。脚本使用官方 `AutoModel.add_zero_shot_spk()`，并自动检查 `spk2info.pt` 中的 `embedding / llm_embedding / flow_embedding`，不再依赖手工编辑 runtime 文件。
+- 新增 `scripts/cosyvoice/check-runtime-readiness.mjs`，覆盖模型目录完整性、`llm.pt / flow.pt / hift.pt / cosyvoice2.yaml / spk2info.pt`、目标 speaker、sample rate 和可选 FastAPI endpoint 检查。缺失项会输出可执行修复命令。
+- 新增 `scripts/cosyvoice/verify-official-runtime.sh` 和 `scripts/cosyvoice/check-degradation.mjs`，形成 `start -> endpoint ready -> Alice live check -> WAV evidence -> stop -> degradation` 的可复现回归流程。
+- 修正统一 Audio Result 的 streaming 语义：后端完整接收 PCM 并返回 `audioBase64` 时 `streaming=false`；CosyVoice 官方 runtime 的上游流式来源记录为 `upstreamStreaming=true`。
+- 本轮仍不接 Fun-CosyVoice 3.0、不改 Dialogue / Persona / Web / iOS / Higgs，也不提交模型、缓存或生成音频。

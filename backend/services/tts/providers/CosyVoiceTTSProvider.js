@@ -25,7 +25,7 @@ export class CosyVoiceTTSProvider {
     model = 'iic/CosyVoice2-0.5B',
     defaultVoice = '中文女',
     outputFormat = 'wav',
-    sampleRate = 22050,
+    sampleRate = 24000,
     promptText = '',
     promptWavPath = '',
     instructText = '',
@@ -42,7 +42,7 @@ export class CosyVoiceTTSProvider {
     this.model = model;
     this.defaultVoice = defaultVoice;
     this.outputFormat = outputFormat;
-    this.sampleRate = Number(sampleRate) || 22050;
+    this.sampleRate = Number(sampleRate) || 24000;
     this.promptText = String(promptText || '').trim();
     this.promptWavPath = String(promptWavPath || '').trim();
     this.instructText = String(instructText || '').trim();
@@ -244,11 +244,13 @@ export class CosyVoiceTTSProvider {
       format: 'wav',
       audioBase64: wavBuffer.toString('base64'),
       sampleRate: this.sampleRate,
-      streaming: true,
+      streaming: false,
+      upstreamStreaming: true,
       contentType: 'audio/wav',
       metadata: {
         apiStyle: this.apiStyle,
-        apiMode: this.apiMode
+        apiMode: this.apiMode,
+        upstreamStreaming: true
       }
     });
   }
@@ -278,7 +280,7 @@ function isWav(buffer) {
     && buffer.subarray(8, 12).toString('ascii') === 'WAVE';
 }
 
-function wrapPcm16leAsWav(pcmBuffer, sampleRate = 22050) {
+function wrapPcm16leAsWav(pcmBuffer, sampleRate = 24000) {
   const dataSize = pcmBuffer.byteLength;
   const header = Buffer.alloc(44);
   header.write('RIFF', 0);

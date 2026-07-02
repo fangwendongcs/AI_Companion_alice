@@ -15,6 +15,9 @@ if [ ! -x "$DEFAULT_PYTHON" ]; then
 fi
 PYTHON_BIN="${COSYVOICE_PYTHON:-"$DEFAULT_PYTHON"}"
 MODELSCOPE_CACHE="${MODELSCOPE_CACHE:-"$RUNTIME_DIR/modelscope-cache"}"
+MPLCONFIGDIR="${MPLCONFIGDIR:-"$RUNTIME_DIR/matplotlib-cache"}"
+VOICE_ID="${COSYVOICE_VOICE_ID:-中文女}"
+SAMPLE_RATE="${COSYVOICE_SAMPLE_RATE:-24000}"
 
 if [ ! -f "$REPO_DIR/runtime/python/fastapi/server.py" ]; then
   cat >&2 <<MSG
@@ -38,7 +41,7 @@ MSG
   exit 2
 fi
 
-mkdir -p "$LOG_DIR"
+mkdir -p "$LOG_DIR" "$MODELSCOPE_CACHE" "$MPLCONFIGDIR"
 
 if [ ! -x "$PYTHON_BIN" ]; then
   echo "[cosyvoice:start] Python runtime not found or not executable: $PYTHON_BIN" >&2
@@ -60,15 +63,22 @@ for required_model_file in llm.pt flow.pt hift.pt; do
   fi
 done
 
+COSYVOICE_MODEL_DIR="$MODEL_DIR" \
+COSYVOICE_PYTHON="$PYTHON_BIN" \
+COSYVOICE_API_MODE="${COSYVOICE_API_MODE:-sft}" \
+COSYVOICE_VOICE_ID="$VOICE_ID" \
+COSYVOICE_SAMPLE_RATE="$SAMPLE_RATE" \
+node "$ROOT_DIR/scripts/cosyvoice/check-runtime-readiness.mjs" --no-endpoint
+
 if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
   echo "[cosyvoice:start] already running pid=$(cat "$PID_FILE")"
   exit 0
 fi
 
 cd "$REPO_DIR/runtime/python/fastapi"
-MODELSCOPE_CACHE="$MODELSCOPE_CACHE" nohup "$PYTHON_BIN" server.py --port "$PORT" --model_dir "$MODEL_DIR" > "$LOG_DIR/fastapi.log" 2>&1 &
+MODELSCOPE_CACHE="$MODELSCOPE_CACHE" MPLCONFIGDIR="$MPLCONFIGDIR" nohup "$PYTHON_BIN" server.py --port "$PORT" --model_dir "$MODEL_DIR" > "$LOG_DIR/fastapi.log" 2>&1 &
 PID="$!"
 echo "$PID" > "$PID_FILE"
 echo "[cosyvoice:start] started pid=$PID port=$PORT model_dir=$MODEL_DIR"
 echo "[cosyvoice:start] log: $LOG_DIR/fastapi.log"
-echo "[cosyvoice:start] Alice env: COSYVOICE_BASE_URL=http://127.0.0.1:$PORT COSYVOICE_API_STYLE=official_fastapi COSYVOICE_API_MODE=sft"
+echo "[cosyvoice:start] Alice env: COSYVOICE_BASE_URL=http://127.0.0.1:$PORT COSYVOICE_API_STYLE=official_fastapi COSYVOICE_API_MODE=sft COSYVOICE_VOICE_ID=$VOICE_ID COSYVOICE_SAMPLE_RATE=$SAMPLE_RATE"

@@ -170,6 +170,24 @@ npm run check:cosyvoice-live
 
 没有配置 `COSYVOICE_BASE_URL` / `HIGGS_BASE_URL` 时该命令会跳过，不影响默认 `npm run check`。命令只输出 provider、格式和音频长度，不打印 API Key、服务地址密钥或完整音频内容。
 
+CosyVoice2 官方 runtime 的复现流程：
+
+```bash
+npm run cosyvoice:init-speaker
+npm run check:cosyvoice-runtime
+npm run cosyvoice:start
+COSYVOICE_BASE_URL=http://127.0.0.1:50000 npm run check:cosyvoice-live
+npm run cosyvoice:stop
+```
+
+完整回归可使用：
+
+```bash
+npm run cosyvoice:verify
+```
+
+CosyVoice 官方 FastAPI 的上游响应是 raw PCM 流，但 Alice 后端会先完整接收并包装为 WAV/Base64，再返回客户端；因此客户端 Audio Result 的 `streaming=false`。如果结果中出现 `upstreamStreaming=true`，只表示上游 HTTP 响应是流式来源，不表示 Web/iOS 可以边收边播。
+
 `/api/tts` 支持统一 JSON Audio Result：
 
 ```json
@@ -183,7 +201,8 @@ npm run check:cosyvoice-live
     "audioBase64": "...",
     "durationMs": 260,
     "sampleRate": 16000,
-    "streaming": false
+    "streaming": false,
+    "upstreamStreaming": false
   }
 }
 ```

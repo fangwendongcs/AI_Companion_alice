@@ -122,34 +122,15 @@ COSYVOICE_API_MODE=sft
 COSYVOICE_VOICE_ID=中文女
 ```
 
-需要先基于官方 `zero_shot_prompt.wav` 在本地模型目录生成一个测试 speaker：
+需要先基于官方 `zero_shot_prompt.wav` 在本地模型目录生成一个测试 speaker。该步骤已经固化为可重复脚本，不需要手工编辑 `spk2info.pt`：
 
 ```bash
-MODELSCOPE_CACHE="$PWD/runtime/cosyvoice/modelscope-cache" \
-PYTHONPATH="$PWD/runtime/cosyvoice/CosyVoice:$PWD/runtime/cosyvoice/CosyVoice/third_party/Matcha-TTS" \
-runtime/cosyvoice/envs/cosyvoice-py310/bin/python - <<'PY'
-import torch
-from cosyvoice.cli.cosyvoice import AutoModel
-
-model_dir = 'runtime/cosyvoice/pretrained_models/CosyVoice2-0.5B-hf'
-prompt_wav = 'runtime/cosyvoice/CosyVoice/asset/zero_shot_prompt.wav'
-prompt_text = '希望你以后能够做的比我还好呦。'
-spk_id = '中文女'
-
-cosyvoice = AutoModel(model_dir=model_dir)
-cosyvoice.add_zero_shot_spk(prompt_text, prompt_wav, spk_id)
-cosyvoice.save_spkinfo()
-
-path = f'{model_dir}/spk2info.pt'
-spk = torch.load(path, map_location='cpu', weights_only=True)
-item = spk[spk_id]
-if 'embedding' not in item and 'llm_embedding' in item:
-    item['embedding'] = item['llm_embedding']
-    spk[spk_id] = item
-    torch.save(spk, path)
-print(cosyvoice.list_available_spks())
-PY
+COSYVOICE_MODEL_DIR="$PWD/runtime/cosyvoice/pretrained_models/CosyVoice2-0.5B-hf" \
+COSYVOICE_VOICE_ID=中文女 \
+npm run cosyvoice:init-speaker
 ```
+
+脚本会使用官方 `AutoModel.add_zero_shot_spk()` 生成 speaker，并检查 `spk2info.pt` 中是否存在目标 speaker、`embedding`、`llm_embedding` 和 `flow_embedding`。如果缺失，会给出可执行的修复命令。生成物仍位于 `runtime/cosyvoice/pretrained_models/`，不会进入 Git。
 
 ### ModelScope 路径
 
@@ -191,6 +172,17 @@ runtime/cosyvoice/logs/fastapi.log
 
 启动 runtime 和验证 Alice 接入是两条不同命令。`cosyvoice:start` 只启动 CosyVoice FastAPI 服务；`check:cosyvoice-live` 只探测已经存在的服务。
 
+启动前可以先跑本地前置检查：
+
+```bash
+COSYVOICE_MODEL_DIR="$PWD/runtime/cosyvoice/pretrained_models/CosyVoice2-0.5B-hf" \
+COSYVOICE_VOICE_ID=中文女 \
+COSYVOICE_SAMPLE_RATE=24000 \
+npm run check:cosyvoice-runtime
+```
+
+该检查会验证模型目录、`llm.pt / flow.pt / hift.pt / cosyvoice2.yaml / spk2info.pt`、目标 speaker 和 sample rate。`cosyvoice:start` 也会在启动前执行同类检查，避免服务看似启动但 speaker 或模型不完整。
+
 ```bash
 COSYVOICE_PYTHON="$PWD/runtime/cosyvoice/envs/cosyvoice-py310/bin/python" \
 COSYVOICE_MODEL_DIR="$PWD/runtime/cosyvoice/pretrained_models/CosyVoice2-0.5B-hf" \
@@ -228,6 +220,46 @@ npm run check:cosyvoice-live
 ```
 
 通过时会输出 provider、格式、音频长度和 streaming 状态。它不会打印服务密钥、请求正文或完整音频内容。
+
+如需保存一份可解析 WAV 证据：
+
+```bash
+COSYVOICE_BASE_URL=http://127.0.0.1:50000 \
+COSYVOICE_API_STYLE=official_fastapi \
+COSYVOICE_API_MODE=sft \
+COSYVOICE_VOICE_ID=中文女 \
+COSYVOICE_SAMPLE_RATE=24000 \
+TTS_LIVE_OUTPUT_WAV=runtime/cosyvoice/output/alice-cosyvoice-live.wav \
+npm run check:cosyvoice-live
+```
+
+Alice 后端会完整接收官方 FastAPI 返回的 raw PCM，再包装为完整 WAV/Base64 返回客户端。因此统一 Audio Result 中：
+
+- `streaming=false`：客户端拿到的是完整音频，不能边收边播。
+- `upstreamStreaming=true`：仅表示 CosyVoice 官方 runtime 的上游 HTTP 响应是流式 raw PCM。
+
+不要把 `upstreamStreaming=true` 当成 Web / iOS 客户端可流式播放的语义。
+
+## 一键回归流程
+
+已经具备 runtime、模型和 speaker 后，可以用一条命令执行可复现回归：
+
+```bash
+COSYVOICE_MODEL_DIR="$PWD/runtime/cosyvoice/pretrained_models/CosyVoice2-0.5B-hf" \
+COSYVOICE_VOICE_ID=中文女 \
+COSYVOICE_SAMPLE_RATE=24000 \
+npm run cosyvoice:verify
+```
+
+该流程会依次执行：
+
+1. runtime 前置检查；
+2. 启动官方 FastAPI；
+3. 等待 `/inference_sft` 可用；
+4. 执行 Alice `check:cosyvoice-live`；
+5. 写出并解析 WAV 证据；
+6. 停止 runtime；
+7. 验证服务停止后 TTS 降级且 Dialogue 文本仍返回。
 
 ## 停止服务
 

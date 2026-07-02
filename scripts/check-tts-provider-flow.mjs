@@ -81,6 +81,8 @@ async function checkCosyVoiceBinaryResult() {
   assert(result.provider === 'cosyvoice', 'CosyVoice result provider 应为 cosyvoice。');
   assert(result.format === 'wav', 'CosyVoice official FastAPI raw PCM response 应归一为 wav。');
   assert(result.audioBase64.startsWith('UklGR'), 'CosyVoice official FastAPI raw PCM response 应包装为 WAV。');
+  assert(result.streaming === false, 'CosyVoice 返回 base64 WAV 时客户端 streaming 必须为 false。');
+  assert(result.upstreamStreaming === true, 'CosyVoice official FastAPI raw PCM 流应记录 upstreamStreaming=true。');
   assert(request.url === 'http://127.0.0.1:50000/inference_sft', 'CosyVoice official FastAPI 默认应调用 /inference_sft。');
   const body = new URLSearchParams(String(request.body));
   assert(body.get('spk_id') === 'alice_cn', 'CosyVoice official FastAPI 应映射 voiceId -> spk_id。');

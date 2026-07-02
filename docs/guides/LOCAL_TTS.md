@@ -44,6 +44,7 @@ audioUrl 或 audioBase64
 durationMs
 sampleRate
 streaming
+upstreamStreaming
 ```
 
 CosyVoice / Higgs 的 prompt、instruction、inline control token 只在后端 adapter 内生成。Dialogue、Memory、Persona、Emotion、Web 和 iOS 都不依赖这些 provider 私有字段。
@@ -67,6 +68,7 @@ COSYVOICE_API_KEY=replace_with_optional_key
 - 官方 FastAPI runtime 使用 `/inference_sft`、`/inference_zero_shot`、`/inference_cross_lingual`、`/inference_instruct`、`/inference_instruct2`。
 - Alice 默认使用 `COSYVOICE_API_MODE=sft`，请求字段为 `tts_text` 和 `spk_id`。
 - 官方 runtime 返回 raw int16 PCM，Alice provider 会包装成 WAV `audioBase64`。
+- Alice 后端完整接收 raw PCM 后再返回 WAV/Base64，因此客户端 Audio Result 的 `streaming=false`；如需记录上游 HTTP 流式来源，使用 `upstreamStreaming=true`。
 - `/v1/audio/speech` 仅适用于你自己额外部署的 OpenAI-compatible proxy，不是官方默认契约。
 - 服务不可用时，`/api/tts` 返回 `tts_status=unavailable/failed`，Web 端继续 fallback 到浏览器语音。
 

@@ -12,6 +12,7 @@ export function createAudioResult({
   durationMs = null,
   sampleRate = null,
   streaming = false,
+  upstreamStreaming = false,
   contentType = null,
   metadata = null
 } = {}) {
@@ -24,6 +25,7 @@ export function createAudioResult({
     durationMs,
     sampleRate,
     streaming: Boolean(streaming),
+    ...(upstreamStreaming ? { upstreamStreaming: true } : {}),
     contentType: contentType || formatToContentType(format),
     metadata: metadata || undefined
   };

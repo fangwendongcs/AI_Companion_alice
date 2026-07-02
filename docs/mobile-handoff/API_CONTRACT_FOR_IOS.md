@@ -256,6 +256,7 @@ iOS 建议：
     "durationMs": 260,
     "sampleRate": 16000,
     "streaming": false,
+    "upstreamStreaming": false,
     "contentType": "audio/wav"
   }
 }
@@ -264,6 +265,7 @@ iOS 建议：
 iOS 侧建议：
 
 - `tts_status=ok` 且有 `audioBase64` 时解码后交给 `AVAudioPlayer`。
+- `streaming=false` 表示 iOS 收到的是完整音频；`upstreamStreaming=true` 只表示 Alice 后端从上游 provider 接收时是流式来源，不代表 iOS 可以边收边播。
 - `tts_status=unavailable/failed` 时保留文本回复，可降级到 `AVSpeechSynthesizer`。
 - 不要在 iOS 保存 CosyVoice / Higgs / OpenAI / MiniMax service URL、模型地址或 API Key。
 

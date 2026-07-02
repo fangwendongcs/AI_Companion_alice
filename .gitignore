@@ -51,6 +51,7 @@ runtime/cosyvoice/miniforge/
 runtime/cosyvoice/miniforge-root/
 runtime/cosyvoice/pip-cache/
 runtime/cosyvoice/modelscope-cache/
+runtime/cosyvoice/matplotlib-cache/
 runtime/cosyvoice/hf-cache/
 runtime/cosyvoice/hf-home/
 runtime/cosyvoice/pretrained_models/
