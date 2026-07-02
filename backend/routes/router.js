@@ -18,7 +18,7 @@ export async function routeRequest(req, res) {
   }
 
   if (url.pathname === '/api/providers' && req.method === 'GET') {
-    handleProviders(req, res);
+    await handleProviders(req, res);
     return;
   }
 

@@ -27,12 +27,9 @@ export class AudioStatusController {
   }
 
   getEngineName(engine) {
-    if (engine === 'minimax') return 'MiniMax';
-    if (engine === 'openai') return 'OpenAI';
-    if (engine === 'backend') return '后端默认 TTS';
     if (engine === 'cosyvoice') return 'CosyVoice2';
-    if (engine === 'higgs') return 'Higgs Audio v3';
-    return '浏览器原生';
+    if (engine === 'mock') return 'Mock';
+    return '本机兜底';
   }
 
   formatError(error) {
@@ -40,14 +37,11 @@ export class AudioStatusController {
     if (message.includes('501') || message.includes('404')) {
       return 'TTS 后端没有接通。请不要用 python3 -m http.server 试听高级声线，改用 npm run dev 后访问 http://localhost:3000。';
     }
-    if (message.includes('MINIMAX_API_KEY')) {
-      return 'MiniMax 没有配置 API Key。请用 MINIMAX_API_KEY=你的key npm run dev 启动。';
-    }
     if (message.includes('Invalid API key format')) {
       return 'API Key 格式无效。请确认环境变量里是真实 Key，不是中文占位文本，并且不要带空格或换行。';
     }
-    if (message.includes('OPENAI_API_KEY')) {
-      return 'OpenAI 没有配置 API Key。请用 OPENAI_API_KEY=你的key npm run dev 启动。';
+    if (message.includes('local_service_not_running') || message.includes('TTS_NOT_CONFIGURED')) {
+      return '本地语音服务未启动，文字对话仍可用。';
     }
     return `TTS 请求失败：${message.slice(0, 160)}`;
   }

@@ -1,14 +1,13 @@
 # 本地与可替换 TTS Provider
 
-当前默认语音仍保留浏览器/系统内置声线，保证不配置 API Key 也能出声。后端已经新增统一 TTS Provider 架构，用于后续接入本地或私有部署的高质量中文角色声线。
+当前 Web Settings 只展示 `Mock` 和 `CosyVoice2`，用于本地开发阶段在“稳定演示”和“真实本地语音服务”之间切换测试。浏览器/系统内置声线仍作为播放失败后的最后兜底，但不再作为 Settings 中的可选 Provider。
 
 ## 当前策略
 
-1. **浏览器兜底**：Web 端最终 fallback，保证本地演示不断声。
-2. **后端默认 provider**：`TTS_PROVIDER=mock`，无外部服务时返回统一 Audio Result，适合 smoke / iOS contract 验证。
-3. **CosyVoice2**：当前开源主线 provider，默认通过后端 `COSYVOICE_BASE_URL` 调用官方 FastAPI runtime。
-4. **Higgs Audio v3**：实验 provider，通过后端 `HIGGS_BASE_URL` 调用兼容 `/v1/audio/speech` 的服务；没有本地 5B 部署时不阻塞主线。
-5. **OpenAI / MiniMax**：保留旧兼容 provider，仍然只在后端读取 key。
+1. **Mock**：默认开发 provider，无外部服务时返回统一 Audio Result，适合 smoke、Web Settings 和 iOS contract 验证。
+2. **CosyVoice2**：当前真实本地 TTS 主线，默认通过后端 `COSYVOICE_BASE_URL` 调用官方 FastAPI runtime。
+3. **浏览器兜底**：仅在后端语音不可用时由 Web 端自动 fallback，保证文字对话和状态链路不被 TTS 阻断。
+4. **其他 provider**：旧 adapter 可以保留在后端实验层，但当前 Web Settings 和 `GET /api/providers` 只暴露 Mock / CosyVoice2。
 
 ## 后端边界
 
@@ -18,7 +17,7 @@
 POST /api/tts
   -> TTSOrchestrator
   -> TTSProviderRegistry
-  -> Mock / CosyVoice / Higgs / OpenAI / MiniMax provider
+  -> Mock / CosyVoice2 provider
   -> unified Audio Result
 ```
 
@@ -47,7 +46,7 @@ streaming
 upstreamStreaming
 ```
 
-CosyVoice / Higgs 的 prompt、instruction、inline control token 只在后端 adapter 内生成。Dialogue、Memory、Persona、Emotion、Web 和 iOS 都不依赖这些 provider 私有字段。
+CosyVoice2 的 prompt、instruction、speaker、runtime endpoint 只在后端 adapter 内处理。Dialogue、Memory、Persona、Emotion、Web 和 iOS 都不依赖 provider 私有字段。
 
 ## CosyVoice2 配置
 
@@ -74,19 +73,6 @@ COSYVOICE_API_KEY=replace_with_optional_key
 
 详见 [COSYVOICE_RUNTIME.md](./COSYVOICE_RUNTIME.md)。
 
-## Higgs Audio v3 配置
-
-```bash
-TTS_PROVIDER=higgs
-HIGGS_BASE_URL=http://localhost:8000
-HIGGS_SPEECH_PATH=/v1/audio/speech
-HIGGS_MODEL=higgs-audio-v3
-HIGGS_VOICE_ID=alice
-HIGGS_API_KEY=replace_with_optional_key
-```
-
-Higgs provider 会把 Alice 的 `emotion / tone` 映射为 inline control tokens 和兼容 API 参数。当前不负责下载权重、部署 GPU 服务、Docker / vLLM-Omni 或流式 PCM 播放。
-
 ## 客户端调用
 
 推荐 Web / iOS 请求统一 JSON：
@@ -95,7 +81,6 @@ Higgs provider 会把 Alice 的 `emotion / tone` 映射为 inline control tokens
 {
   "text": "你好，我是 Alice。",
   "provider": "cosyvoice",
-  "voiceId": "alice",
   "locale": "zh-CN",
   "emotion": "warm",
   "tone": "gentle",
@@ -109,7 +94,7 @@ Higgs provider 会把 Alice 的 `emotion / tone` 映射为 inline control tokens
 }
 ```
 
-旧二进制播放路径仍保留，但新客户端优先消费 `{ ok, data }` Audio Result。
+当前 Web Settings 只传 `provider=mock|cosyvoice` 和统一语义参数，不传模型路径、服务端口、API Key、内部请求参数或错误堆栈。旧二进制播放路径仍保留，但新客户端优先消费 `{ ok, data }` Audio Result。
 
 ## 验证
 
@@ -120,6 +105,13 @@ npm run check:cosyvoice-live
 npm run smoke
 ```
 
-`check:tts-provider-flow` 使用 fake endpoint 覆盖 provider selection、CosyVoice/Higgs 请求映射、缺配置、超时、统一 Audio Result 和 secret 不泄漏。真实 CosyVoice/Higgs 服务的视觉 / 听感验收需要在本地服务启动后单独执行。
+`check:tts-provider-flow` 使用 fake endpoint 覆盖 provider selection、CosyVoice2 请求映射、缺配置、超时、统一 Audio Result 和 secret 不泄漏。真实 CosyVoice2 服务的视觉 / 听感验收需要在本地服务启动后单独执行。
 
-`check:tts-live` 是可选真实服务检查：未设置 `COSYVOICE_BASE_URL` / `HIGGS_BASE_URL` 时会跳过；设置后会直接调用后端 provider adapter，并只输出状态、格式和音频长度，不打印音频内容、服务地址密钥或请求正文。
+`check:tts-live` 是可选真实服务检查：未设置 `COSYVOICE_BASE_URL` 时会跳过；设置后会直接调用后端 provider adapter，并只输出状态、格式和音频长度，不打印音频内容、服务地址密钥或请求正文。
+
+## Web Settings 状态
+
+- Mock：始终可用，用于无本地 TTS 服务的开发演示。
+- CosyVoice2：后端配置 `COSYVOICE_BASE_URL` 且本地 FastAPI runtime 可达时显示可用。
+- CosyVoice2 未启动：Settings 显示“本地语音服务未启动”，文字对话继续可用，TTS 播放走现有 fallback。
+- 非开发模式：前端不允许切换 provider。

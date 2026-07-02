@@ -87,27 +87,26 @@ async function checkAvatarRegression() {
 
 function checkTTSRegression() {
   assert(
-    DEFAULT_TTS_CONFIG.engine === 'browser',
-    '默认 TTS engine 必须保持为免费浏览器兜底。'
+    DEFAULT_TTS_CONFIG.engine === 'mock',
+    '默认 TTS engine 必须保持为 mock，确保无本地语音服务时也可演示。'
   );
   assert(
     VALID_TTS_ENGINES.includes(DEFAULT_TTS_CONFIG.engine),
     `默认 TTS engine 不在白名单中：${DEFAULT_TTS_CONFIG.engine}`
   );
-  assert(TTSProviders.browser?.transport === 'browser', 'browser provider 必须可用。');
   assert(
-    TTSProviders.openai?.transport === 'backend'
-      && typeof TTSProviders.openai.createPayload === 'function',
-    'OpenAI TTS provider 配置不完整。'
+    TTSProviders.mock?.transport === 'backend'
+      && typeof TTSProviders.mock.createPayload === 'function',
+    'Mock TTS provider 配置不完整。'
   );
   assert(
-    TTSProviders.minimax?.transport === 'backend'
-      && typeof TTSProviders.minimax.createPayload === 'function',
-    'MiniMax TTS provider 配置不完整。'
+    TTSProviders.cosyvoice?.transport === 'backend'
+      && typeof TTSProviders.cosyvoice.createPayload === 'function',
+    'CosyVoice2 TTS provider 配置不完整。'
   );
   assert(
-    getTTSProvider('unsupported-provider') === TTSProviders.browser,
-    '未知 TTS provider 必须回退到 browser。'
+    getTTSProvider('unsupported-provider') === TTSProviders.mock,
+    '未知 TTS provider 必须回退到 mock。'
   );
   assert(
     !Object.keys(DEFAULT_TTS_CONFIG).some((key) => key.toLowerCase().includes('key')),

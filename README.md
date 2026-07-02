@@ -98,7 +98,7 @@ For debug state inspection:
 http://localhost:3000?debug=1
 ```
 
-Default LLM provider is `stub`, so no API key is required for local development. TTS also has a backend provider boundary: `TTS_PROVIDER=mock` works without external services, while `cosyvoice` and `higgs` can be enabled from backend environment variables only. CosyVoice2 defaults to the official FastAPI runtime contract; do not put service URLs or secrets in frontend code.
+Default LLM provider is `stub`, so no API key is required for local development. Web Settings currently exposes only `Mock` and `CosyVoice2` for TTS testing: `mock` works without external services, while `cosyvoice` is enabled by backend environment variables after the local CosyVoice2 runtime is started. Service URLs, model paths, ports, and secrets stay out of frontend code.
 
 ## Deployment Modes And Secrets
 

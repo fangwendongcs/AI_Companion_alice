@@ -63,11 +63,18 @@ export class CosyVoiceTTSProvider {
     const hasBaseUrl = Boolean(this.baseUrl);
     const status = hasBaseUrl ? this.getModeConfigurationStatus() : 'missing_base_url';
     const configured = status === 'ready';
+    const health = {
+      provider: this.id,
+      healthy: configured,
+      status,
+      live: false,
+      reason: configured ? 'configured' : status
+    };
     return {
       provider: this.id,
       configured,
       status,
-      health: this.healthCheck({ status }),
+      health,
       mode: this.mode,
       requiresKey: false,
       defaultModel: this.model,
@@ -79,18 +86,6 @@ export class CosyVoiceTTSProvider {
     };
   }
 
-  healthCheck({ status = null } = {}) {
-    const currentStatus = status || this.getStatus().status;
-    const healthy = currentStatus === 'ready';
-    return {
-      provider: this.id,
-      healthy,
-      status: currentStatus,
-      live: false,
-      reason: healthy ? 'configured' : currentStatus
-    };
-  }
-
   async synthesize(input = {}) {
     const status = this.getStatus();
     if (!status.configured) return createUnavailableResult(this.id, status.status, 'TTS_NOT_CONFIGURED');
@@ -98,6 +93,65 @@ export class CosyVoiceTTSProvider {
     const style = mapAliceTTSStyle({ ...input, provider: this.id });
     if (this.apiStyle === 'openai_compatible') return this.synthesizeOpenAICompatible(input, style);
     return this.synthesizeOfficialFastApi(input, style);
+  }
+
+  async healthCheck({ status = null } = {}) {
+    const currentStatus = status || this.getModeConfigurationStatus();
+    if (currentStatus !== 'ready') {
+      return {
+        provider: this.id,
+        healthy: false,
+        status: currentStatus,
+        live: false,
+        reason: currentStatus
+      };
+    }
+
+    if (!this.baseUrl) {
+      return {
+        provider: this.id,
+        healthy: false,
+        status: 'missing_base_url',
+        live: false,
+        reason: 'missing_base_url'
+      };
+    }
+
+    const probePath = this.apiStyle === 'official_fastapi' ? '/openapi.json' : sanitizePath(this.path || '/v1/audio/speech');
+    const probeUrl = `${this.baseUrl}${probePath}`;
+    let response = null;
+    try {
+      response = await fetchWithProviderTimeout(this.fetchImpl, probeUrl, {
+        method: 'GET',
+        headers: { Accept: 'application/json,text/html,*/*' }
+      }, Math.min(this.timeoutMs, 2000));
+    } catch (error) {
+      return {
+        provider: this.id,
+        healthy: false,
+        status: 'local_service_not_running',
+        live: false,
+        reason: error?.code || error?.name || 'endpoint_unreachable'
+      };
+    }
+
+    if (!response || response.__timeout) {
+      return {
+        provider: this.id,
+        healthy: false,
+        status: 'local_service_not_running',
+        live: false,
+        reason: 'endpoint_timeout'
+      };
+    }
+
+    return {
+      provider: this.id,
+      healthy: response.status >= 200 && response.status < 500,
+      status: response.status >= 200 && response.status < 500 ? 'ready' : 'local_service_not_running',
+      live: response.status >= 200 && response.status < 500,
+      reason: response.status >= 200 && response.status < 500 ? 'endpoint_reachable' : `http_${response.status}`
+    };
   }
 
   async synthesizeOfficialFastApi(input = {}, style = {}) {

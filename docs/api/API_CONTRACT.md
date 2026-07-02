@@ -510,8 +510,8 @@ Provider：
 
 - `mock`：默认本地演示，不需要外部服务。
 - `cosyvoice`：CosyVoice2 adapter，默认通过官方 FastAPI runtime 配置；OpenAI-compatible proxy 必须显式设置 `COSYVOICE_API_STYLE=openai_compatible`。
-- `higgs`：Higgs Audio v3 实验 adapter，通过 `HIGGS_BASE_URL` 配置兼容 `/v1/audio/speech` endpoint。
-- `openai` / `minimax`：旧兼容 provider。
+
+当前 Web Settings 与公开 `/api/providers` TTS readiness 只暴露 `mock` / `cosyvoice`。其他实验 provider 不进入当前前端切换面板，也不作为公开状态返回。
 
 合约要求：
 
@@ -548,10 +548,13 @@ Provider：
     "tts": [
       {
         "provider": "mock",
+        "label": "Mock",
         "configured": true,
+        "available": true,
         "mode": "demo",
         "requiresKey": false,
         "status": "ready",
+        "defaultVoice": "mock-silence",
         "health": {
           "healthy": true,
           "status": "ready",
@@ -566,16 +569,17 @@ Provider：
       },
       {
         "provider": "cosyvoice",
+        "label": "CosyVoice2",
         "configured": false,
-        "mode": "real",
+        "available": false,
+        "mode": "local",
         "requiresKey": false,
-        "status": "missing_base_url",
-        "apiStyle": "official_fastapi",
-        "apiMode": "sft",
-        "sampleRate": 22050,
+        "status": "local_service_not_running",
+        "defaultVoice": "中文女",
+        "sampleRate": 24000,
         "health": {
           "healthy": false,
-          "status": "missing_base_url",
+          "status": "local_service_not_running",
           "live": false,
           "reason": "missing_base_url"
         },

@@ -14,9 +14,9 @@ npm run dev
 OPENAI_API_KEY=replace_with_your_key MINIMAX_API_KEY=replace_with_your_key npm run dev
 ```
 
-本地 TTS provider 默认是 `mock`，不需要外部服务。要测试 CosyVoice2 或 Higgs Audio v3，只配置后端环境变量，例如 `TTS_PROVIDER=cosyvoice COSYVOICE_BASE_URL=http://localhost:50000 npm run dev`。
+本地 TTS provider 默认是 `mock`，不需要外部服务。当前 Web Settings 只展示 `Mock` 与 `CosyVoice2`；要测试真实本地语音，先启动 CosyVoice2 runtime，再用 `COSYVOICE_BASE_URL=http://localhost:50000 npm run dev` 启动 Alice。
 
-Provider 配置状态可通过 `GET /api/providers` 查看。该接口只返回安全状态，例如 provider 是否 configured、是否需要 Key、默认 model 和 demo/real mode，不返回任何真实 Key 或 secret。
+Provider 配置状态可通过 `GET /api/providers` 查看。该接口只返回安全状态，例如 provider 是否 configured、是否可用、默认 model/voice 和 demo/real/local mode，不返回任何真实 Key、service URL 或 secret。TTS readiness 当前只公开 `mock` / `cosyvoice`，避免把未进入当前 Web Settings 的实验 provider 暴露给前端。
 
 默认地址：
 
@@ -60,7 +60,7 @@ http://localhost:3000
 - `CUSTOM_BASE_URL`：自定义 OpenAI-compatible 接口地址
 - `OPENAI_TTS_MODEL`：OpenAI TTS 模型，默认 `gpt-4o-mini-tts`
 - `MINIMAX_TTS_MODEL`：MiniMax TTS 模型，默认 `speech-2.8-hd`
-- `TTS_PROVIDER`：后端默认 TTS provider，支持 `mock` / `cosyvoice` / `higgs` / `openai` / `minimax`，默认 `mock`
+- `TTS_PROVIDER`：后端默认 TTS provider，当前 Web Settings 支持 `mock` / `cosyvoice`，默认 `mock`
 - `TTS_OUTPUT_FORMAT`：后端 TTS 输出格式，默认 `mp3`
 - `COSYVOICE_BASE_URL`：CosyVoice2 兼容服务地址，未配置时 provider 报 `missing_base_url`
 - `COSYVOICE_API_STYLE`：`official_fastapi` 或 `openai_compatible`，默认 `official_fastapi`
@@ -121,14 +121,14 @@ API_AUTH_TOKEN=replace_with_private_token
 
 ## TTS Provider 架构
 
-`POST /api/tts` 已收口到后端 `TTSOrchestrator -> TTSProviderRegistry -> provider adapter`。Web 和后续 iOS 只调用 Alice 后端，不直接知道 CosyVoice、Higgs、OpenAI 或 MiniMax 的服务地址、模型名细节和密钥。
+`POST /api/tts` 已收口到后端 `TTSOrchestrator -> TTSProviderRegistry -> provider adapter`。Web 和后续 iOS 只调用 Alice 后端，不直接知道 CosyVoice2 runtime 地址、模型路径、端口、内部请求参数或密钥。
 
-当前 provider：
+当前 Web Settings provider：
 
 - `mock`：默认演示 provider，返回本地静音 WAV，用于无 Key / 无外部服务的链路验证。
 - `cosyvoice`：CosyVoice2 开源主线 adapter，默认按官方 FastAPI `/inference_sft` 契约调用服务；如明确部署了 OpenAI-compatible proxy，可设置 `COSYVOICE_API_STYLE=openai_compatible`。
-- `higgs`：Higgs Audio v3 实验 adapter，使用 `HIGGS_BASE_URL` 调用兼容 `/v1/audio/speech` 的 endpoint，并把 Alice 情绪 / 语气转成 inline control tokens 或兼容参数。
-- `openai`、`minimax`：保留旧兼容 provider，继续走后端环境变量。
+
+旧实验 adapter 不会出现在当前 Web Settings 或公开 TTS readiness 中；后续要启用新 provider，需要单独做 provider contract、Settings 状态和 smoke 验收。
 
 默认 provider：
 
@@ -150,16 +150,6 @@ COSYVOICE_SAMPLE_RATE=24000
 COSYVOICE_API_KEY=replace_with_optional_key
 ```
 
-Higgs Audio v3：
-
-```bash
-HIGGS_BASE_URL=http://localhost:8000
-HIGGS_SPEECH_PATH=/v1/audio/speech
-HIGGS_MODEL=higgs-audio-v3
-HIGGS_VOICE_ID=alice
-HIGGS_API_KEY=replace_with_optional_key
-```
-
 真实 provider 可用性可以用可选命令验证：
 
 ```bash
@@ -168,7 +158,7 @@ npm run check:tts-live
 npm run check:cosyvoice-live
 ```
 
-没有配置 `COSYVOICE_BASE_URL` / `HIGGS_BASE_URL` 时该命令会跳过，不影响默认 `npm run check`。命令只输出 provider、格式和音频长度，不打印 API Key、服务地址密钥或完整音频内容。
+没有配置 `COSYVOICE_BASE_URL` 时该命令会跳过，不影响默认 `npm run check`。命令只输出 provider、格式和音频长度，不打印 API Key、服务地址密钥或完整音频内容。
 
 CosyVoice2 官方 runtime 的复现流程：
 
@@ -212,10 +202,10 @@ CosyVoice 官方 FastAPI 的上游响应是 raw PCM 流，但 Alice 后端会先
 `GET /api/providers` 会返回 TTS provider 的安全 readiness：
 
 - `configured` / `status`：说明后端配置是否足够，不返回环境变量值。
-- `health`：轻量健康摘要，默认不主动请求外部模型服务，避免 provider status 接口拖慢对话链路。
+- `health`：轻量健康摘要；Mock 始终 ready，CosyVoice2 在配置 `COSYVOICE_BASE_URL` 后会做短超时 live probe，服务未启动时返回 `local_service_not_running`。
 - `capabilities`：声明 `supportsStreaming`、`supportsVoiceClone`、`supportsEmotion` 等能力。
 
-真实 CosyVoice / Higgs 连通性请用 `npm run check:tts-live` 验证。
+真实 CosyVoice2 连通性请用 `COSYVOICE_BASE_URL=http://127.0.0.1:50000 npm run check:cosyvoice-live` 验证。
 
 鉴权错误使用稳定错误码：
 

@@ -1,15 +1,19 @@
 import { maxJsonBodyBytes } from '../config/serverConfig.js';
-import { TTS_STATUS } from '../services/tts/TTSResult.js';
+import { createFailedResult, TTS_STATUS } from '../services/tts/TTSResult.js';
 import { TTSOrchestrator } from '../services/tts/TTSOrchestrator.js';
 import { readJsonBody } from '../utils/request.js';
 import { sendJson, sendOk, writeCors } from '../utils/response.js';
 
 const ttsOrchestrator = new TTSOrchestrator();
+const publicTTSProviders = new Set(['mock', 'cosyvoice']);
 
 export async function handleTTS(req, res) {
   const body = await readJsonBody(req, maxJsonBodyBytes);
   const wantsJson = shouldReturnJson(req, body);
-  const result = await ttsOrchestrator.synthesize(body);
+  const requestedProvider = normalizeProvider(body.provider || 'mock');
+  const result = publicTTSProviders.has(requestedProvider)
+    ? await ttsOrchestrator.synthesize({ ...body, provider: requestedProvider })
+    : createFailedResult(requestedProvider || 'unknown', `Unsupported TTS provider: ${requestedProvider}`, 'TTS_PROVIDER_UNSUPPORTED');
 
   if (wantsJson) {
     sendOk(res, 200, result);
@@ -43,6 +47,10 @@ export async function handleTTS(req, res) {
     tts_status: TTS_STATUS.FAILED,
     provider: result.provider
   });
+}
+
+function normalizeProvider(value = '') {
+  return String(value || '').trim().toLowerCase();
 }
 
 function shouldReturnJson(req, body = {}) {

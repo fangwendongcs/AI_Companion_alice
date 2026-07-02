@@ -98,7 +98,7 @@ http://localhost:3000
 http://localhost:3000?debug=1
 ```
 
-默认 LLM provider 是 `stub`，所以本地开发不需要 API Key。TTS 也已经进入后端 provider 边界：`TTS_PROVIDER=mock` 不依赖外部服务，`cosyvoice` 和 `higgs` 只通过后端环境变量启用。CosyVoice2 默认对接官方 FastAPI runtime 契约，不要把服务地址或 secret 写入前端。
+默认 LLM provider 是 `stub`，所以本地开发不需要 API Key。Web Settings 当前只展示 `Mock` 和 `CosyVoice2` 两个 TTS 测试入口：`mock` 不依赖外部服务，`cosyvoice` 在本地 CosyVoice2 runtime 启动后通过后端环境变量启用。服务地址、模型路径、端口和 secret 都不会写进前端代码。
 
 ## 部署模式与 Secret 管理
 

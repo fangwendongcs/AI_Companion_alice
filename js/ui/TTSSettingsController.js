@@ -1,58 +1,43 @@
-import { MINIMAX_VOICE_PRESETS, OPENAI_TTS_VOICES } from '../config/voicePresets.js';
+import { APP_MODE } from '../config/appConfig.js';
+
+const DISPLAYED_TTS_PROVIDERS = ['mock', 'cosyvoice'];
 
 export class TTSSettingsController {
-  constructor({ refs, registry, store, ttsService, getConfig, setConfig, speakText, statusView }) {
+  constructor({ refs, registry, store, apiClient, ttsService, getConfig, setConfig, speakText, statusView }) {
     this.refs = refs;
     this.registry = registry;
     this.store = store;
+    this.apiClient = apiClient;
     this.ttsService = ttsService;
     this.getConfig = getConfig;
     this.setConfig = setConfig;
     this.speakText = speakText;
     this.statusView = statusView;
+    this.providerStatus = new Map();
   }
 
   init() {
-    this.populateOpenAIVoices();
-    this.populateMinimaxVoices();
     const config = this.getConfig();
-
-    this.refs.ttsEngine.value = config.engine;
+    this.populateProviderOptions();
+    this.refs.ttsEngine.value = this.normalizeEngine(config.engine);
     this.refs.speechRate.value = config.rate;
     this.refs.speechPitch.value = config.pitch;
-    this.setSelectValue(this.refs.openaiVoiceSelect, config.openaiVoice);
-    this.setSelectValue(this.refs.minimaxVoiceSelect, config.minimaxVoice);
-    this.setSelectValue(this.refs.minimaxModelSelect, config.minimaxModel);
-    config.openaiVoice = this.refs.openaiVoiceSelect.value;
-    config.minimaxVoice = this.refs.minimaxVoiceSelect.value;
-    config.minimaxModel = this.refs.minimaxModelSelect.value;
-    this.refs.openaiTTSInstructionsInput.value = config.openaiInstructions || '';
-    this.refs.customVoiceIdInput.value = config.customVoiceId || '';
     this.refs.rateVal.textContent = config.rate.toFixed(2);
     this.refs.pitchVal.textContent = config.pitch.toFixed(2);
 
-    this.syncEngineUI();
-    this.populateVoices();
-    if (window.speechSynthesis) {
-      window.speechSynthesis.onvoiceschanged = () => this.populateVoices();
-      this.registry.add(() => {
-        if (window.speechSynthesis?.onvoiceschanged) window.speechSynthesis.onvoiceschanged = null;
-      });
-    }
-
+    this.syncDevelopmentMode();
     this.bindEvents();
-    this.showEngineHint();
+    this.showProviderStatus(this.refs.ttsEngine.value);
+    void this.loadProviderStatus();
   }
 
   bindEvents() {
     this.registry.addEventListener(this.refs.ttsEngine, 'change', (event) => {
-      this.updateConfig({ engine: event.target.value });
-      this.syncEngineUI();
-      this.showEngineHint();
-    });
-
-    this.registry.addEventListener(this.refs.voiceSelect, 'change', (event) => {
-      this.updateConfig({ browserVoice: event.target.value });
+      const engine = this.normalizeEngine(event.target.value);
+      this.updateConfig({ engine });
+      this.refs.ttsEngine.value = engine;
+      this.showProviderStatus(engine);
+      void this.loadProviderStatus();
     });
 
     this.registry.addEventListener(this.refs.speechRate, 'input', (event) => {
@@ -67,29 +52,9 @@ export class TTSSettingsController {
       this.updateConfig({ pitch });
     });
 
-    this.registry.addEventListener(this.refs.openaiVoiceSelect, 'change', (event) => {
-      this.updateConfig({ openaiVoice: event.target.value });
-    });
-
-    this.registry.addEventListener(this.refs.openaiTTSInstructionsInput, 'input', (event) => {
-      this.updateConfig({ openaiInstructions: event.target.value });
-    });
-
-    this.registry.addEventListener(this.refs.minimaxVoiceSelect, 'change', (event) => {
-      this.updateConfig({ minimaxVoice: event.target.value });
-      this.syncEngineUI();
-    });
-
-    this.registry.addEventListener(this.refs.minimaxModelSelect, 'change', (event) => {
-      this.updateConfig({ minimaxModel: event.target.value });
-    });
-
-    this.registry.addEventListener(this.refs.customVoiceIdInput, 'input', (event) => {
-      this.updateConfig({ customVoiceId: event.target.value.trim() });
-    });
-
-    this.registry.addEventListener(this.refs.testVoiceBtn, 'click', () => {
-      this.speakText('你好！我是 Alice，很高兴认识你！');
+    this.registry.addEventListener(this.refs.testVoiceBtn, 'click', async () => {
+      await this.loadProviderStatus();
+      this.speakText('你好！我是 Alice，正在测试当前语音 Provider。');
     });
   }
 
@@ -102,84 +67,103 @@ export class TTSSettingsController {
     this.store.saveTTSConfig(next);
   }
 
-  populateVoices() {
-    const config = this.getConfig();
-    const voices = this.ttsService.getVoices();
-    const sorted = [...voices].sort((a, b) => {
-      const azh = a.lang?.startsWith('zh') ? 1 : 0;
-      const bzh = b.lang?.startsWith('zh') ? 1 : 0;
-      if (azh !== bzh) return bzh - azh;
-      return (a.name || '').localeCompare(b.name || '');
-    });
-
-    this.refs.voiceSelect.innerHTML = '<option value="auto">自动（优先晓晓 Neural）</option>';
-    sorted.forEach((voice) => {
-      const opt = document.createElement('option');
-      opt.value = voice.name;
-      opt.textContent = `${voice.name} (${voice.lang || 'unknown'})`;
-      this.refs.voiceSelect.appendChild(opt);
-    });
-
-    const hasSaved = [...this.refs.voiceSelect.options].some((option) => option.value === config.browserVoice);
-    this.refs.voiceSelect.value = hasSaved ? config.browserVoice : 'auto';
-  }
-
-  populateOpenAIVoices() {
-    this.refs.openaiVoiceSelect.innerHTML = '';
-    OPENAI_TTS_VOICES.forEach((voice) => {
-      const opt = document.createElement('option');
-      opt.value = voice.id;
-      opt.textContent = voice.label;
-      this.refs.openaiVoiceSelect.appendChild(opt);
+  populateProviderOptions() {
+    this.refs.ttsEngine.innerHTML = '';
+    [
+      { id: 'mock', label: 'Mock（本地演示）' },
+      { id: 'cosyvoice', label: 'CosyVoice2（本地服务）' }
+    ].forEach((provider) => {
+      const option = document.createElement('option');
+      option.value = provider.id;
+      option.textContent = provider.label;
+      this.refs.ttsEngine.appendChild(option);
     });
   }
 
-  populateMinimaxVoices() {
-    this.refs.minimaxVoiceSelect.innerHTML = '';
-    MINIMAX_VOICE_PRESETS.forEach((voice) => {
-      const opt = document.createElement('option');
-      opt.value = voice.id;
-      opt.textContent = `${voice.label} / ${voice.id}`;
-      opt.title = voice.description;
-      this.refs.minimaxVoiceSelect.appendChild(opt);
-    });
+  syncDevelopmentMode() {
+    const isDevelopment = APP_MODE === 'development';
+    this.refs.ttsEngine.disabled = !isDevelopment;
+    if (!isDevelopment) {
+      this.statusView.showTTS('loading', '生产环境不允许在前端切换 TTS Provider。');
+    }
   }
 
-  setSelectValue(select, value) {
-    const hasValue = [...select.options].some((option) => option.value === value);
-    select.value = hasValue ? value : select.options[0]?.value || '';
+  async loadProviderStatus() {
+    if (!this.apiClient) return;
+    try {
+      const status = await this.apiClient.json('/api/providers', {
+        source: 'providers',
+        timeoutMs: 6000
+      });
+      this.providerStatus = new Map((status?.tts || [])
+        .filter((item) => DISPLAYED_TTS_PROVIDERS.includes(item.provider))
+        .map((item) => [item.provider, item]));
+      this.showProviderStatus(this.refs.ttsEngine.value);
+    } catch (error) {
+      this.statusView.showTTS('error', `TTS 状态读取失败：${error.message.slice(0, 80)}`);
+      this.renderStatusSummary(null, '状态读取失败');
+    }
   }
 
-  syncEngineUI() {
-    const config = this.getConfig();
-    this.refs.browserVoiceGroup.style.display = config.engine === 'browser' ? '' : 'none';
-    this.refs.openaiVoiceGroup.style.display = config.engine === 'openai' ? '' : 'none';
-    this.refs.minimaxVoiceGroup.style.display = config.engine === 'minimax' ? '' : 'none';
-    this.refs.customVoiceIdInput.disabled = config.minimaxVoice !== 'custom';
+  showProviderStatus(provider) {
+    const normalized = this.normalizeEngine(provider);
+    const status = this.providerStatus.get(normalized);
+    this.renderStatusSummary(status, this.formatReason(status, normalized));
+
+    if (normalized === 'mock') {
+      this.statusView.showTTS('success', '当前使用 Mock，本地演示无需外部语音服务。');
+      return;
+    }
+
+    if (!status) {
+      this.statusView.showTTS('loading', '正在读取 CosyVoice2 状态。');
+      return;
+    }
+
+    if (status.available) {
+      this.statusView.showTTS('success', `CosyVoice2 可用，当前 voiceId：${status.defaultVoice || '默认'}`);
+      return;
+    }
+
+    this.statusView.showTTS('error', '本地语音服务未启动，文字对话仍可用。');
   }
 
-  showEngineHint() {
-    const config = this.getConfig();
-    if (config.engine === 'minimax') {
-      this.statusView.showTTS('loading', '已选择 MiniMax。必须用 npm run dev 启动后端，并配置 MINIMAX_API_KEY；Python 静态服务不会生效。');
-      return;
-    }
-    if (config.engine === 'openai') {
-      this.statusView.showTTS('loading', '已选择 OpenAI TTS。必须用 npm run dev 启动后端，并配置 OPENAI_API_KEY。');
-      return;
-    }
-    if (config.engine === 'backend') {
-      this.statusView.showTTS('loading', '已选择后端默认 TTS。后端会根据 TTS_PROVIDER 决定 mock / CosyVoice / Higgs。');
-      return;
-    }
-    if (config.engine === 'cosyvoice') {
-      this.statusView.showTTS('loading', '已选择 CosyVoice2。需要后端配置 COSYVOICE_BASE_URL；失败会自动回退本机语音。');
-      return;
-    }
-    if (config.engine === 'higgs') {
-      this.statusView.showTTS('loading', '已选择 Higgs Audio v3。需要后端配置 HIGGS_BASE_URL；失败会自动回退本机语音。');
-      return;
-    }
-    this.statusView.showTTS('success', '当前使用浏览器原生语音，声音质量取决于系统/浏览器内置声线。');
+  renderStatusSummary(status, reason = '') {
+    if (!this.refs.ttsProviderStatusSummary) return;
+    const provider = status?.provider || this.normalizeEngine(this.refs.ttsEngine.value);
+    const label = status?.label || (provider === 'cosyvoice' ? 'CosyVoice2' : 'Mock');
+    const availableText = status
+      ? (status.available ? '可用' : '不可用')
+      : '读取中';
+    const voice = status?.defaultVoice || (provider === 'mock' ? 'mock-silence' : '-');
+    const capabilities = this.formatCapabilities(status?.capabilities);
+
+    this.refs.ttsCurrentProvider.textContent = label;
+    this.refs.ttsProviderAvailability.textContent = availableText;
+    this.refs.ttsProviderVoice.textContent = voice;
+    this.refs.ttsProviderCapabilities.textContent = capabilities;
+    this.refs.ttsProviderReason.textContent = reason || '-';
+  }
+
+  formatCapabilities(capabilities = {}) {
+    if (!capabilities || typeof capabilities !== 'object') return '-';
+    const items = [];
+    if (capabilities.supportsEmotion) items.push('emotion');
+    if (capabilities.supportsVoiceClone) items.push('voice-clone');
+    if (capabilities.supportsStreaming) items.push('upstream-streaming');
+    return items.length ? items.join(' / ') : 'basic';
+  }
+
+  formatReason(status, provider) {
+    if (!status) return provider === 'cosyvoice' ? '等待后端 readiness' : '本地 mock 可直接使用';
+    if (status.provider === 'mock') return '本地演示 provider';
+    if (status.available) return '服务已连接';
+    if (status.status === 'local_service_not_running') return '本地语音服务未启动';
+    if (status.status === 'missing_base_url') return '后端未配置 COSYVOICE_BASE_URL';
+    return status.health?.reason || status.status || '不可用';
+  }
+
+  normalizeEngine(engine) {
+    return DISPLAYED_TTS_PROVIDERS.includes(engine) ? engine : 'mock';
   }
 }

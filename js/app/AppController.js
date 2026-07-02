@@ -586,7 +586,7 @@ export class AppController {
         ...this.state.audio,
         speaking: patch.isSpeaking ?? this.state.isSpeaking,
         muted: patch.isMuted ?? this.state.isMuted,
-        currentVoice: this.ttsConfig?.browserVoice || this.ttsConfig?.openaiVoice || this.ttsConfig?.minimaxVoice || null
+        currentVoice: this.ttsConfig?.engine || null
       };
     }
     if ('isThinking' in patch || 'lastAssistantMessage' in patch || 'lastUserMessage' in patch || 'dialogueError' in patch) {

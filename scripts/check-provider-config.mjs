@@ -27,8 +27,8 @@ async function checkEnvExamplePlaceholders() {
   assert(!/Bearer\s+[A-Za-z0-9._-]+/.test(source), '.env.example 不应包含 Bearer token。');
 }
 
-function checkProviderStatusContract() {
-  const status = new ProviderStatusService().getStatus();
+async function checkProviderStatusContract() {
+  const status = await new ProviderStatusService().getStatus();
   const stub = status.llm.find((item) => item.provider === 'stub');
   assert(stub?.configured === true, 'Provider status 必须报告 stub configured=true。');
   assert(stub?.requiresKey === false, 'Provider status 必须报告 stub requiresKey=false。');
@@ -39,7 +39,7 @@ function checkProviderStatusContract() {
   assert(Array.isArray(status.tts), 'Provider status 必须包含 tts 列表。');
   assert(status.tts.some((item) => item.provider === 'mock' && item.configured === true), 'TTS provider status 必须包含 configured mock。');
   assert(status.tts.some((item) => item.provider === 'cosyvoice'), 'TTS provider status 必须包含 cosyvoice。');
-  assert(status.tts.some((item) => item.provider === 'higgs'), 'TTS provider status 必须包含 higgs。');
+  assert(!status.tts.some((item) => ['higgs', 'openai', 'minimax'].includes(item.provider)), '公开 TTS provider status 当前只能暴露 mock / cosyvoice。');
   assert(status.tts.every((item) => item.capabilities), 'TTS provider status 必须包含 capabilities。');
   assertNoSecretFields(status, 'Provider status');
 }
@@ -78,14 +78,30 @@ async function checkLLMErrorCodes() {
 async function checkFrontendProviderBoundary() {
   const providers = await readFile('js/config/providers.js', 'utf8');
   const settings = await readFile('js/ui/LLMSettingsController.js', 'utf8');
+  const ttsSettings = await readFile('js/ui/TTSSettingsController.js', 'utf8');
+  const ttsRegistry = await readFile('js/voice/TTSProviderRegistry.js', 'utf8');
   const html = await readFile('index.html', 'utf8');
+  const ttsSection = extractTTSSection(html);
 
   assert(providers.includes("provider: 'stub'"), '默认 provider 必须保持 stub。');
   assert(settings.includes('/api/providers'), 'LLM 设置面板必须通过 /api/providers 读取安全 provider 状态。');
+  assert(ttsSettings.includes('/api/providers'), 'TTS 设置面板必须通过 /api/providers 读取安全 provider 状态。');
+  assert(ttsSettings.includes('DISPLAYED_TTS_PROVIDERS') && ttsSettings.includes("'mock'") && ttsSettings.includes("'cosyvoice'"), 'TTS 设置面板当前只能展示 mock / cosyvoice。');
+  assert(ttsRegistry.includes("provider: 'mock'") && ttsRegistry.includes("provider: 'cosyvoice'"), '前端 TTS registry 必须只传 mock / cosyvoice provider id。');
+  assert(!/provider:\s*['"`](higgs|openai|minimax)['"`]/i.test(ttsRegistry), '前端 TTS registry 当前不应暴露 higgs / openai / minimax provider。');
+  assert(!/Higgs Audio v3|value="higgs"|value="openai"|value="minimax"/i.test(ttsSection), 'TTS Settings UI 当前不应展示 Higgs / OpenAI / MiniMax。');
   assert(settings.includes('本地演示模式，无需 API Key'), 'LLM 设置面板必须提示 stub 无需 API Key。');
   assert(html.includes('apiKeyInput') && html.includes('disabled'), '前端 API Key 输入框必须保持禁用。');
   assert(settings.includes('已迁移到后端环境变量'), 'LLM 设置控制器必须保持后端环境变量迁移提示。');
   assert(!/Authorization\s*:\s*['"`]Bearer/i.test(settings), 'LLM 设置面板不应创建 Bearer header。');
+  assert(!/Authorization\s*:\s*['"`]Bearer/i.test(ttsSettings), 'TTS 设置面板不应创建 Bearer header。');
+}
+
+function extractTTSSection(html) {
+  const start = html.indexOf('语音合成配置');
+  const end = html.indexOf('3D 场景与渲染配置');
+  if (start === -1 || end === -1 || end <= start) return html;
+  return html.slice(start, end);
 }
 
 function assertNoSecretFields(value, label) {

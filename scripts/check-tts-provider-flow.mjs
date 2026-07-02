@@ -159,8 +159,11 @@ async function checkProviderStatusSafety() {
 async function checkFrontendAudioResultSupport() {
   const service = await readFile('js/voice/TTSService.js', 'utf8');
   const registry = await readFile('js/voice/TTSProviderRegistry.js', 'utf8');
+  const route = await readFile('backend/routes/ttsRoutes.js', 'utf8');
   assert(service.includes('audioBase64') && service.includes('playAudioResult'), 'TTSService 必须支持统一 Audio Result JSON。');
-  assert(registry.includes("id: 'cosyvoice'") && registry.includes("id: 'higgs'"), '前端 TTS registry 必须识别 cosyvoice/higgs backend provider。');
+  assert(registry.includes("id: 'mock'") && registry.includes("id: 'cosyvoice'"), '前端 TTS registry 必须识别 mock/cosyvoice backend provider。');
+  assert(!/id:\s*['"`](higgs|openai|minimax)['"`]/i.test(registry), '前端 TTS registry 当前不应暴露 higgs/openai/minimax provider。');
+  assert(route.includes("'mock'") && route.includes("'cosyvoice'") && route.includes('publicTTSProviders'), '/api/tts 必须对白名单 provider 做集中校验。');
   assert(registry.includes("responseFormat: 'json'"), '前端 backend TTS payload 必须请求统一 JSON Audio Result。');
   assert(!/COSYVOICE_API_KEY|HIGGS_API_KEY/.test(registry), '前端 registry 不应出现后端 TTS secret 环境变量名。');
 }

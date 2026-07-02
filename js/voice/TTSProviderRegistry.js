@@ -1,15 +1,12 @@
 export const TTSProviders = {
-  browser: {
-    id: 'browser',
-    label: '免费本机语音',
-    transport: 'browser'
-  },
-  backend: {
-    id: 'backend',
-    label: '后端默认 TTS',
+  mock: {
+    id: 'mock',
+    label: 'Mock',
     transport: 'backend',
     createPayload(text, config) {
-      return createBackendPayload(text, config);
+      return createBackendPayload(text, config, {
+        provider: 'mock'
+      });
     }
   },
   cosyvoice: {
@@ -18,65 +15,14 @@ export const TTSProviders = {
     transport: 'backend',
     createPayload(text, config) {
       return createBackendPayload(text, config, {
-        provider: 'cosyvoice',
-        voiceId: config.customVoiceId || undefined
+        provider: 'cosyvoice'
       });
-    }
-  },
-  higgs: {
-    id: 'higgs',
-    label: 'Higgs Audio v3',
-    transport: 'backend',
-    createPayload(text, config) {
-      return createBackendPayload(text, config, {
-        provider: 'higgs',
-        voiceId: config.customVoiceId || undefined
-      });
-    }
-  },
-  openai: {
-    id: 'openai',
-    label: 'OpenAI TTS',
-    transport: 'backend',
-    createPayload(text, config) {
-      return {
-        text,
-        provider: 'openai',
-        voice: config.openaiVoice,
-        voiceId: config.openaiVoice,
-        model: config.openaiModel,
-        speed: config.rate,
-        instructions: config.openaiInstructions,
-        ...createSemanticPayload(config)
-      };
-    }
-  },
-  minimax: {
-    id: 'minimax',
-    label: 'MiniMax TTS',
-    transport: 'backend',
-    createPayload(text, config) {
-      const customVoice = (config.customVoiceId || '').trim();
-      const selectedVoice = config.minimaxVoice === 'custom'
-        ? customVoice || 'Chinese (Mandarin)_Crisp_Girl'
-        : config.minimaxVoice;
-
-      return {
-        text,
-        provider: 'minimax',
-        voice: selectedVoice,
-        voiceId: selectedVoice,
-        model: config.minimaxModel,
-        speed: config.rate,
-        pitch: config.pitch,
-        ...createSemanticPayload(config)
-      };
     }
   }
 };
 
 export function getTTSProvider(engine) {
-  return TTSProviders[engine] || TTSProviders.browser;
+  return TTSProviders[engine] || TTSProviders.mock;
 }
 
 function createBackendPayload(text, config, overrides = {}) {

@@ -189,38 +189,35 @@
           <div class="setting-group">
             <span class="setting-label">TTS 引擎</span>
             <select class="custom-input" id="ttsEngine">
-              <option value="browser">免费本机语音（默认兜底）</option>
-              <option value="minimax">MiniMax 动漫中文（推荐）</option>
-              <option value="openai">OpenAI TTS（需要 API Key）</option>
+              <option value="mock">Mock（本地演示）</option>
+              <option value="cosyvoice">CosyVoice2（本地服务）</option>
             </select>
           </div>
-          <div class="setting-group" id="browserVoiceGroup">
-            <span class="setting-label">声音选择</span>
-            <select class="custom-input" id="voiceSelect">
-              <option value="auto">自动（优先晓晓 Neural）</option>
-            </select>
-          </div>
-          <div class="setting-group" id="openaiVoiceGroup" style="display: none;">
-            <span class="setting-label">OpenAI 声线</span>
-            <select class="custom-input" id="openaiVoiceSelect">
-            </select>
-            <span class="setting-label">OpenAI 语气指令</span>
-            <textarea class="custom-input" id="openaiTTSInstructionsInput" rows="3"
-              placeholder="例如：中文普通话，年轻明亮，轻快二次元角色感。"></textarea>
-          </div>
-          <div class="setting-group" id="minimaxVoiceGroup" style="display: none;">
-            <span class="setting-label">MiniMax 声线</span>
-            <select class="custom-input" id="minimaxVoiceSelect"></select>
-            <span class="setting-label">MiniMax 模型</span>
-            <select class="custom-input" id="minimaxModelSelect">
-              <option value="speech-2.8-hd">speech-2.8-hd（高质量）</option>
-              <option value="speech-2.8-turbo">speech-2.8-turbo（低延迟）</option>
-              <option value="speech-2.6-hd">speech-2.6-hd</option>
-              <option value="speech-2.6-turbo">speech-2.6-turbo</option>
-            </select>
-            <span class="setting-label">自定义 voice_id</span>
-            <input type="text" class="custom-input" id="customVoiceIdInput"
-              placeholder="选择自定义后填写，例如你的克隆音色 ID">
+          <div class="setting-group">
+            <span class="setting-label">Provider 状态</span>
+            <div class="provider-status-summary" id="ttsProviderStatusSummary">
+              <div class="provider-status-summary__row">
+                <span>当前 Provider</span>
+                <strong id="ttsCurrentProvider">Mock</strong>
+              </div>
+              <div class="provider-status-summary__row">
+                <span>可用状态</span>
+                <strong id="ttsProviderAvailability">读取中</strong>
+              </div>
+              <div class="provider-status-summary__row">
+                <span>当前 voiceId</span>
+                <strong id="ttsProviderVoice">mock-silence</strong>
+              </div>
+              <div class="provider-status-summary__row">
+                <span>能力摘要</span>
+                <strong id="ttsProviderCapabilities">basic</strong>
+              </div>
+              <div class="provider-status-summary__row provider-status-summary__reason">
+                <span>失败原因</span>
+                <strong id="ttsProviderReason">-</strong>
+              </div>
+            </div>
+            <div class="setting-help">仅开发模式允许在 Mock 与 CosyVoice2 间切换；前端不会显示服务地址、模型路径或密钥。</div>
           </div>
           <div class="setting-group">
             <span class="setting-label">语速 <span id="rateVal">1.05</span>x</span>

@@ -25,14 +25,14 @@ For detailed request and response shapes, see [API_CONTRACT.md](./API_CONTRACT.m
 POST /api/tts
   -> TTSOrchestrator
   -> TTSProviderRegistry
-  -> Mock / CosyVoice / Higgs / OpenAI / MiniMax provider
+  -> Mock / CosyVoice2 provider
   -> unified Audio Result
 ```
 
-Clients send semantic fields such as `text`, `voiceId`, `locale`, `emotion`, `tone`, `prosody`, and `stream`. Provider-specific prompt, instruction, inline token, model name, endpoint, and secret handling stays inside the backend adapter. CosyVoice2 defaults to the official FastAPI runtime contract (`/inference_sft` by default); `/v1/audio/speech` is only for an explicitly configured OpenAI-compatible proxy.
+Current Web Settings and public TTS readiness expose only `mock` and `cosyvoice`. Clients send `provider`, `text`, `locale`, `emotion`, `tone`, `prosody`, and `stream`; provider-specific prompt, instruction, model name, endpoint, speaker, and secret handling stays inside the backend adapter. CosyVoice2 defaults to the official FastAPI runtime contract (`/inference_sft` by default); `/v1/audio/speech` is only for an explicitly configured OpenAI-compatible proxy.
 
 ## Security Boundary
 
 - Web and iOS do not store provider keys.
-- Web and iOS do not call CosyVoice, Higgs, OpenAI, MiniMax, n8n, or future vector stores directly.
+- Web and iOS do not call CosyVoice2 runtime, provider services, n8n, or future vector stores directly.
 - Public deployment candidates must enable the Phase 4 security baseline: CORS allowlist, body limits, rate limits, API token auth for sensitive writes, upload isolation, request IDs, and redacted logs.

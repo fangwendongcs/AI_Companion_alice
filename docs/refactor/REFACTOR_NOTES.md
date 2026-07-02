@@ -1802,3 +1802,12 @@ npm run check:assets
 - 新增 `scripts/cosyvoice/verify-official-runtime.sh` 和 `scripts/cosyvoice/check-degradation.mjs`，形成 `start -> endpoint ready -> Alice live check -> WAV evidence -> stop -> degradation` 的可复现回归流程。
 - 修正统一 Audio Result 的 streaming 语义：后端完整接收 PCM 并返回 `audioBase64` 时 `streaming=false`；CosyVoice 官方 runtime 的上游流式来源记录为 `upstreamStreaming=true`。
 - 本轮仍不接 Fun-CosyVoice 3.0、不改 Dialogue / Persona / Web / iOS / Higgs，也不提交模型、缓存或生成音频。
+
+## 79. Web Settings TTS Provider Switch
+
+- Web Settings 的 TTS 下拉和前端 `TTSProviderRegistry` 收口为 `mock` / `cosyvoice`，当前不展示 Higgs Audio v3、OpenAI TTS、MiniMax 或浏览器语音 provider。
+- `mock` 是默认开发 provider，无需外部服务；`cosyvoice` 只传 provider id 和统一语义参数给后端，服务地址、模型路径、端口、API key 和内部请求参数均留在后端环境。
+- `GET /api/providers` 的 TTS readiness 现在只公开 Mock / CosyVoice2 的安全状态；CosyVoice2 配置了 `COSYVOICE_BASE_URL` 时会做短超时 live probe，服务未启动时返回 `local_service_not_running`。
+- `/api/tts` 增加公开 provider 白名单，当前只接受 `mock` / `cosyvoice`；未知 provider 返回稳定 `TTS_PROVIDER_UNSUPPORTED`，不会泄露内部 adapter。
+- Web Settings 会显示当前 Provider、可用状态、当前 voiceId、能力摘要和简洁失败原因；CosyVoice2 未启动时显示“本地语音服务未启动”，文字对话和浏览器 fallback 继续可用。
+- 本轮不改 CosyVoice runtime、模型下载、speaker 初始化、Dialogue、Persona、Memory、VRM 或 iOS 主逻辑，也不接入新的第三方 TTS provider。
