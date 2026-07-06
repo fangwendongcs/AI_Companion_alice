@@ -1,0 +1,22 @@
+# Decision Log
+
+最后更新：2026-07-03
+
+本文件只记录会影响后续开发方向的关键决策。小修复、局部命名、纯样式调整不需要写入。
+
+| 记录日期 | 决策 | 原因 | 影响范围 | 权威来源 |
+| --- | --- | --- | --- | --- |
+| 2026-07-03 | `/api/dialogue` 是主对话入口，`/api/chat` 只保留旧兼容。 | 避免 Web、Backend、Agent 测试各自形成不同对话链路。 | Web、Backend、测试脚本 | `docs/api/API_CONTRACT.md`、`backend/routes/dialogueRoutes.js` |
+| 2026-07-03 | Web 表现层优先消费 `dialogue.v1` 语义字段。 | 保持 Dialogue / Memory / Persona / Emotion 独立于 renderer。 | Web、Backend、VRMRenderer、未来表现层 | `docs/contracts/DIALOGUE_CONTRACT.md`、`backend/contracts/dialogueContract.js` |
+| 2026-07-03 | 后端业务层不得返回 renderer-specific 字段。 | 防止业务逻辑绑定 FBX、VRM、Rive、骨骼或模型路径。 | Backend、Avatar presentation | `docs/contracts/DIALOGUE_CONTRACT.md` |
+| 2026-07-03 | TTS 公开主线为 `mock` + `cosyvoice`，其他 provider 留在后端实验层。 | 本地开发需要稳定 fallback，真实本地语音主线集中到 CosyVoice2。 | Web Settings、`/api/providers`、`/api/tts` | `docs/guides/LOCAL_TTS.md`、`backend/routes/ttsRoutes.js` |
+| 2026-07-03 | CosyVoice2 默认对接官方 FastAPI runtime，不默认假设 OpenAI-compatible proxy。 | 官方契约是 `/inference_sft` 等 endpoint，默认端口 `50000`。 | TTS adapter、运行脚本、环境配置 | `docs/guides/COSYVOICE_RUNTIME.md` |
+| 2026-07-03 | Memory 采用保守长期记忆策略：只保存显式、非敏感、稳定信息。 | 陪伴连续性要可控、可解释、可清除，不能自动囤积隐私。 | Backend Memory、PromptBuilder、Web Memory UI | `docs/architecture/PHASE5_MEMORY_ARCHITECTURE.md`、`backend/services/MemoryService.js` |
+| 2026-07-03 | Avatar 表现层通过 renderer adapter 消费 `AvatarDirective`。 | 让 Default / VRM / 未来 Web 表现层共享语义契约。 | `js/avatar/renderers/*`、`js/avatar/presentation/*` | `docs/architecture/VRM_RENDERER_MVP.md`、`docs/avatar/AVATAR_PRESENTATION_CONTRACT.md` |
+| 2026-07-03 | `assets/avatars/test-vrm/` 和 `assets/motions/` 默认是本地 QA / debug 资源，不自动产品化。 | 测试资产可能缺授权、体积/质量/retarget 未过关。 | VRM QA、资产管理、registry | `docs/architecture/VRM_RENDERER_MVP.md`、`docs/architecture/VRM_MOTION_READINESS.md` |
+
+## 新增决策模板
+
+```text
+| YYYY-MM-DD | 决策内容 | 为什么这样做 | 影响哪些模块 | 链接到代码/文档 |
+```

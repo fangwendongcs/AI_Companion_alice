@@ -223,6 +223,9 @@ npm run smoke
 
 ## 关键文档
 
+- [Agent Entry](./AGENTS.md)
+- [Project Memory](./docs/project-memory/README.md)
+- [Current Status](./docs/project-memory/CURRENT_STATUS.md)
 - [Project Showcase](./docs/product/PROJECT_SHOWCASE.md)
 - [Phase 3 Intelligence Baseline](./docs/product/PHASE3_BASELINE.md)
 - [Phase 4 Deployment Security Baseline](./docs/security/PHASE4_DEPLOYMENT_SECURITY_BASELINE.md)

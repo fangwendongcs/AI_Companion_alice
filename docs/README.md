@@ -1,5 +1,15 @@
 # Documentation Index
 
+## Project Memory
+
+- [AGENTS.md](../AGENTS.md): 所有 Coding Agent 的第一阅读入口
+- [project-memory/README.md](./project-memory/README.md): 项目长期记忆导航页与权威来源地图
+- [project-memory/CURRENT_STATUS.md](./project-memory/CURRENT_STATUS.md): 当前状态、已完成能力、进行中模块和下一步
+- [project-memory/DECISION_LOG.md](./project-memory/DECISION_LOG.md): 重大技术决策记录
+- [project-memory/RISKS_AND_TODO.md](./project-memory/RISKS_AND_TODO.md): 当前风险、待验证项和后续建议
+- [project-memory/AGENT_HANDOFF_CHECKLIST.md](./project-memory/AGENT_HANDOFF_CHECKLIST.md): 面向其他 Coding Agent 的快速验证与交接清单
+- [project-memory/DOCUMENT_AUDIT.md](./project-memory/DOCUMENT_AUDIT.md): 文档审计结果、权威/历史/待验证分类
+
 ## Architecture
 
 - [ARCHITECTURE.md](./architecture/ARCHITECTURE.md): 系统总览与主流程边界
@@ -43,14 +53,13 @@
 
 ## Product
 
-- [PRD.md](./product/PRD.md): 产品需求
-- [DESIGN.md](./product/DESIGN.md): 设计说明
 - [PROJECT_SHOWCASE.md](./product/PROJECT_SHOWCASE.md): GitHub 展示型项目介绍
 - [MVP_ACCEPTANCE.md](./product/MVP_ACCEPTANCE.md): 阶段 2 MVP 用户链路与验收标准
 - [MVP_BASELINE.md](./product/MVP_BASELINE.md): 阶段 2 封版基线与下一阶段边界
 - [PHASE3_ACCEPTANCE.md](./product/PHASE3_ACCEPTANCE.md): Phase 3 智能能力验收标准
 - [PHASE3_BASELINE.md](./product/PHASE3_BASELINE.md): Phase 3 智能能力基线封版结论
 - [PHASE5_COMPANION_EXPERIENCE.md](./product/PHASE5_COMPANION_EXPERIENCE.md): Phase 5 记忆、人格和陪伴连续性体验方向
+- 当前仓库未发现 `docs/product/PRD.md` / `docs/product/DESIGN.md` Markdown；产品原始资料以以下 `.docx` 为历史参考。
 - `产品需求文档.docx`
 - `思路和计划文档.docx`
 - `竞品与可行性分析报告.docx`
@@ -58,14 +67,13 @@
 ## Review And Refactor
 
 - [PROJECT_REVIEW_REPORT.md](./reports/PROJECT_REVIEW_REPORT.md): 项目审查报告
-- [ARCHITECTURE_REFACTOR_PLAN.md](./refactor/ARCHITECTURE_REFACTOR_PLAN.md): 架构重构方案
 - [REFACTOR_NOTES.md](./refactor/REFACTOR_NOTES.md): 实际重构记录
 - [CHANGESET_BOUNDARIES.md](./refactor/CHANGESET_BOUNDARIES.md): 当前综合 diff 的逻辑边界与建议提交顺序
 - [AVATAR_META_DEPRECATION_PLAN.md](./refactor/AVATAR_META_DEPRECATION_PLAN.md): `meta.json` 兼容窗口与删除计划
 
 ## Process And Security
 
-- [AGENTS.md](./process/AGENTS.md): Codex 协作约定
+- [AGENTS.md](../AGENTS.md): Agent 快速接手入口与项目协作约定
 - [CODEX_EXECUTION_STANDARD.md](./process/CODEX_EXECUTION_STANDARD.md): 每轮任务执行标准
 - [NEXT_PHASE_PLAN.md](./process/NEXT_PHASE_PLAN.md): 阶段 2 分期计划
 - [PHASE3_IMPLEMENTATION_PLAN.md](./process/PHASE3_IMPLEMENTATION_PLAN.md): Phase 3 分阶段实施计划
