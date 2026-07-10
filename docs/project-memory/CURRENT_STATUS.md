@@ -1,6 +1,6 @@
 # Current Status
 
-最后更新：2026-07-03
+最后更新：2026-07-10
 
 ## 当前阶段
 
@@ -11,6 +11,7 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 - Web 端可运行本地 Avatar / Dialogue / Memory / TTS / Debug 体验。
 - 后端是所有 LLM、Memory、RAG、n8n、TTS provider 和 secret 的边界。
 - `/api/dialogue` 是主对话入口，并已提供 `dialogue.v1` 语义字段供 Web 表现层消费。
+- LLM 已支持后端 OpenAI-compatible `openai` / `qwen` / `deepseek` / `custom`；真实 provider 失败时，`/api/dialogue` 默认安全降级到完整 `dialogue.v1` stub 回复。
 - TTS 当前公开主线是 `mock` 和 `cosyvoice`；其他 provider adapter 可留在后端实验层，但不进入 Web Settings 公开选择。
 - VRMRenderer 已进入 Web MVP：业务层输出 `AvatarDirective`，Renderer 负责表达、眨眼、基础 lip-sync 和安全 no-op。
 
@@ -22,6 +23,7 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 | Avatar registry / manifest | 可用 | `public/avatars/registry.json`、`docs/architecture/AVATAR_ARCHITECTURE.md` |
 | Alice / Shiro / Wambo | 可用 | `public/avatars/*/manifest.json` |
 | `/api/dialogue` 主链路 | 可用 | `docs/contracts/DIALOGUE_CONTRACT.md` |
+| LLM Provider MVP | 可用；真实 Key live 回包待各 provider 环境验证 | `backend/services/LLMService.js`、`docs/api/API_CONTRACT.md` |
 | `dialogue.v1` 语义契约 | 可用 | `backend/contracts/dialogueContract.js` |
 | SQLite-backed Memory | 可用 | `docs/architecture/PHASE5_MEMORY_ARCHITECTURE.md` |
 | Persona / Affect | 可用 | `backend/config/avatarPersonas.js`、`backend/services/CompanionAffectService.js` |
@@ -43,6 +45,7 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 | VRM | 手动浏览器 QA Shiro / Wambo / local girl test；外部动作只走 QA gate，不直接产品化。 |
 | Memory / Persona | 继续打磨中文陪伴连续性、长期记忆可解释和清理体验。 |
 | Security | 公网前仍需正式鉴权、域名、HTTPS、secret manager 和部署平台策略。 |
+| LLM Provider | 用真实 Key 分别验证 OpenAI / Qwen / DeepSeek 的实际模型权限、模型名和响应兼容性；默认 fallback 已覆盖无 Key 与上游失败。 |
 
 ## 当前风险摘要
 
@@ -51,6 +54,7 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 - `docs/mobile-handoff/` 是已有移动端交接资料，本轮不是重点；Web 项目当前权威以 `docs/project-memory/`、`docs/contracts/`、`docs/architecture/` 为准。
 - 单 token API auth 是部署前 baseline，不是完整公开产品鉴权方案。
 - Alice 自有模型/素材的商业授权仍需在正式分发前复核。
+- OpenAI / Qwen / DeepSeek 的真实返回细节、账户权限和模型名需要在各自真实 Key 环境中单独验证；仓库自动检查只使用 fake endpoint，不保存真实 Key。
 
 ## 最近验证
 
@@ -64,8 +68,16 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 
 未执行 `npm run check` 全量回归，也未启动浏览器手动验收。
 
+2026-07-10 LLM Provider MVP 已执行：
+
+- `git diff --check`：通过。
+- `npm run check`：通过，包含 `check:llm-provider-flow`、契约、安全与既有 TTS / VRM 回归。
+- `npm run smoke`：通过，使用无真实 Key 的默认 stub 链路。
+- 未使用或保存任何真实 LLM Key；OpenAI / Qwen / DeepSeek 仍需在各自授权环境中做 live 验证。
+
 ## 本次项目记忆更新记录
 
 | 日期 | 更新内容 |
 | --- | --- |
 | 2026-07-03 | 新增项目记忆体系；明确当前状态、权威文档、更新规则、风险与交接验证路径。 |
+| 2026-07-10 | 实现 LLM Provider MVP fallback：真实 provider 缺配置、超时、上游错误、非法/空回复时 `/api/dialogue` 默认降级为完整 `dialogue.v1` stub；新增 fake endpoint 自动检查。 |

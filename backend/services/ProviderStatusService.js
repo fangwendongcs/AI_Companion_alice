@@ -1,4 +1,5 @@
 import {
+  customApiKeyOptional,
   providerBaseUrlEnv,
   providerBaseUrls,
   providerDefaultModels,
@@ -10,8 +11,12 @@ const realProviders = ['openai', 'qwen', 'deepseek', 'custom'];
 const publicTTSProviders = new Set(['mock', 'cosyvoice']);
 
 export class ProviderStatusService {
-  constructor({ ttsRegistry = createTTSProviderRegistry() } = {}) {
+  constructor({
+    ttsRegistry = createTTSProviderRegistry(),
+    customKeyOptional = customApiKeyOptional
+  } = {}) {
     this.ttsRegistry = ttsRegistry;
+    this.customKeyOptional = customKeyOptional;
   }
 
   async getStatus() {
@@ -37,13 +42,15 @@ export class ProviderStatusService {
   getRealProviderStatus(provider) {
     const hasKey = Boolean(resolveApiKey(provider));
     const hasBaseUrl = Boolean(resolveBaseUrl(provider));
+    const requiresKey = provider === 'custom' ? !this.customKeyOptional : true;
+    const hasRequiredKey = hasKey || !requiresKey;
     return {
       provider,
-      configured: hasKey && hasBaseUrl,
+      configured: hasRequiredKey && hasBaseUrl,
       defaultModel: providerDefaultModels[provider] || '',
       mode: 'real',
-      requiresKey: true,
-      status: getStatus({ hasKey, hasBaseUrl })
+      requiresKey,
+      status: getStatus({ hasKey: hasRequiredKey, hasBaseUrl })
     };
   }
 }

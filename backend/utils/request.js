@@ -27,11 +27,19 @@ export async function readJsonBody(req, maxBytes) {
 }
 
 export async function fetchWithTimeout(url, options = {}) {
+  const {
+    fetchImpl = fetch,
+    timeoutMs = upstreamTimeoutMs,
+    ...requestOptions
+  } = options;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), upstreamTimeoutMs);
+  const resolvedTimeoutMs = Number.isFinite(timeoutMs) && timeoutMs > 0
+    ? timeoutMs
+    : upstreamTimeoutMs;
+  const timeout = setTimeout(() => controller.abort(), resolvedTimeoutMs);
   try {
-    return await fetch(url, {
-      ...options,
+    return await fetchImpl(url, {
+      ...requestOptions,
       signal: controller.signal
     });
   } catch (error) {

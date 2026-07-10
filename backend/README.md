@@ -8,6 +8,8 @@
 npm run dev
 ```
 
+仓库没有使用 `dotenv`，`npm run dev` 也没有配置 `--env-file`；它只读取当前 shell / 系统已经注入的环境变量。单独创建 `.env` 不会自动生效。完整的 macOS / Linux、PowerShell 和 Node 20+ 显式 `.env` 启动方式见 [`docs/guides/DEVELOPMENT_GUIDE.md`](../docs/guides/DEVELOPMENT_GUIDE.md#环境变量注入)。
+
 默认前端 LLM provider 为 `stub`，本地演示不需要 API Key。真实 provider 仍通过后端环境变量配置，例如：
 
 ```bash
@@ -45,6 +47,7 @@ http://localhost:3000
 - `RATE_LIMIT_WINDOW_MS`：限流窗口，默认 `60000`
 - `RATE_LIMIT_MAX_REQUESTS`：普通 API 窗口内最大请求数，默认 `240`
 - `RATE_LIMIT_SENSITIVE_MAX_REQUESTS`：敏感写接口窗口内最大请求数，默认 `60`
+- `DIALOGUE_FALLBACK_TO_STUB`：真实 LLM 在 `/api/dialogue` 中失败时是否降级到完整 stub 回复，默认 `true`；不影响旧 `/api/chat`
 - `OPENAI_API_KEY`：OpenAI Chat/TTS
 - `MINIMAX_API_KEY`：MiniMax TTS
 - `COSYVOICE_API_KEY`：可选 CosyVoice2 服务鉴权 Key
@@ -52,6 +55,7 @@ http://localhost:3000
 - `QWEN_API_KEY`：通义千问 OpenAI-compatible 接口
 - `DEEPSEEK_API_KEY`：DeepSeek OpenAI-compatible 接口
 - `CUSTOM_API_KEY`：自定义 OpenAI-compatible 接口
+- `CUSTOM_API_KEY_OPTIONAL`：是否允许 `custom` 在无 Key 时调用，默认 `false`；只对受控无鉴权端点开启
 - `LLM_API_KEY`：通用兜底 Key
 - `OPENAI_BASE_URL`：OpenAI 兼容代理地址
 - `MINIMAX_BASE_URL`：MiniMax TTS 代理地址，未配置时使用 `https://api.minimax.io/v1`

@@ -1,4 +1,5 @@
 import {
+  customApiKeyOptional,
   providerBaseUrlEnv,
   providerBaseUrls,
   providerKeyEnv
@@ -7,6 +8,12 @@ import { createHttpError } from '../utils/httpError.js';
 import { fetchWithTimeout } from '../utils/request.js';
 
 export class LLMService {
+  constructor({ fetchImpl = fetch, timeoutMs, customKeyOptional = customApiKeyOptional } = {}) {
+    this.fetchImpl = fetchImpl;
+    this.timeoutMs = timeoutMs;
+    this.customKeyOptional = customKeyOptional;
+  }
+
   async chat({
     message = '',
     provider = 'openai',
@@ -27,7 +34,7 @@ export class LLMService {
       );
     }
 
-    if (!apiKey) {
+    if (!apiKey && !allowsKeylessProvider(normalizedProvider, this.customKeyOptional)) {
       throw createCodedHttpError(
         'Provider API key is not configured in the backend environment.',
         400,
@@ -35,36 +42,44 @@ export class LLMService {
       );
     }
 
-    const upstream = await fetchWithTimeout(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: String(model || 'gpt-4o-mini').trim() || 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: String(systemPrompt || '你是 Alice，一个简短回复的 3D 数字伙伴。') },
-          { role: 'user', content: String(message || '') }
-        ],
-        max_tokens: maxTokens,
-        temperature
-      })
-    });
-
-    const text = await upstream.text();
-    if (!upstream.ok) {
-      throw createCodedHttpError(text.slice(0, 1000) || `LLM upstream HTTP ${upstream.status}`, upstream.status, 'LLM_UPSTREAM_ERROR');
-    }
-
-    let data = null;
     try {
-      data = JSON.parse(text);
-    } catch {
-      throw createCodedHttpError('LLM upstream returned invalid JSON.', 502, 'LLM_INVALID_RESPONSE');
-    }
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+      if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
 
-    return data.choices?.[0]?.message?.content?.trim() || '';
+      const upstream = await fetchWithTimeout(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          model: String(model || 'gpt-4o-mini').trim() || 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: String(systemPrompt || '你是 Alice，一个简短回复的 3D 数字伙伴。') },
+            { role: 'user', content: String(message || '') }
+          ],
+          max_tokens: maxTokens,
+          temperature
+        }),
+        fetchImpl: this.fetchImpl,
+        timeoutMs: this.timeoutMs
+      });
+
+      const text = await upstream.text();
+      if (!upstream.ok) {
+        throw createCodedHttpError('LLM upstream request failed.', upstream.status || 502, 'LLM_UPSTREAM_ERROR');
+      }
+
+      let data = null;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw createCodedHttpError('LLM upstream returned invalid JSON.', 502, 'LLM_INVALID_RESPONSE');
+      }
+
+      return extractReplyText(data);
+    } catch (error) {
+      throw normalizeUpstreamError(error);
+    }
   }
 }
 
@@ -86,19 +101,44 @@ function resolveProviderBaseUrl(provider) {
 function resolveApiKey(provider) {
   const envName = providerKeyEnv[provider];
   const value = ((envName && process.env[envName]) || process.env.LLM_API_KEY || '').trim();
-  assertSafeApiKey(value, envName || 'LLM_API_KEY');
+  assertSafeApiKey(value);
   return value;
 }
 
-function assertSafeApiKey(value, envName) {
+function assertSafeApiKey(value) {
   if (!value) return;
   if (/[\r\n]/.test(value) || /[^\x20-\x7e]/.test(value)) {
     throw createCodedHttpError(
-      `Invalid API key format. Please set ${envName} to a valid ASCII API key without spaces or Chinese placeholder text.`,
+      'Invalid provider API key format.',
       400,
       'LLM_INVALID_API_KEY'
     );
   }
+}
+
+function allowsKeylessProvider(provider, customKeyOptional) {
+  return provider === 'custom' && customKeyOptional === true;
+}
+
+function extractReplyText(data) {
+  const content = data?.choices?.[0]?.message?.content;
+  if (typeof content !== 'string') {
+    throw createCodedHttpError('LLM upstream returned an invalid response.', 502, 'LLM_INVALID_RESPONSE');
+  }
+
+  const reply = content.trim();
+  if (!reply) {
+    throw createCodedHttpError('LLM upstream returned an empty response.', 502, 'LLM_EMPTY_RESPONSE');
+  }
+  return reply;
+}
+
+function normalizeUpstreamError(error) {
+  if (String(error?.code || '').startsWith('LLM_')) return error;
+  if (error?.statusCode === 504 || error?.name === 'AbortError') {
+    return createCodedHttpError('LLM upstream request timed out.', 504, 'LLM_UPSTREAM_TIMEOUT');
+  }
+  return createCodedHttpError('LLM upstream request failed.', 502, 'LLM_UPSTREAM_ERROR');
 }
 
 function sanitizeBaseUrl(baseUrl) {

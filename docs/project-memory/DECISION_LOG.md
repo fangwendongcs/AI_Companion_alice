@@ -1,6 +1,6 @@
 # Decision Log
 
-最后更新：2026-07-03
+最后更新：2026-07-10
 
 本文件只记录会影响后续开发方向的关键决策。小修复、局部命名、纯样式调整不需要写入。
 
@@ -14,6 +14,8 @@
 | 2026-07-03 | Memory 采用保守长期记忆策略：只保存显式、非敏感、稳定信息。 | 陪伴连续性要可控、可解释、可清除，不能自动囤积隐私。 | Backend Memory、PromptBuilder、Web Memory UI | `docs/architecture/PHASE5_MEMORY_ARCHITECTURE.md`、`backend/services/MemoryService.js` |
 | 2026-07-03 | Avatar 表现层通过 renderer adapter 消费 `AvatarDirective`。 | 让 Default / VRM / 未来 Web 表现层共享语义契约。 | `js/avatar/renderers/*`、`js/avatar/presentation/*` | `docs/architecture/VRM_RENDERER_MVP.md`、`docs/avatar/AVATAR_PRESENTATION_CONTRACT.md` |
 | 2026-07-03 | `assets/avatars/test-vrm/` 和 `assets/motions/` 默认是本地 QA / debug 资源，不自动产品化。 | 测试资产可能缺授权、体积/质量/retarget 未过关。 | VRM QA、资产管理、registry | `docs/architecture/VRM_RENDERER_MVP.md`、`docs/architecture/VRM_MOTION_READINESS.md` |
+| 2026-07-10 | `/api/dialogue` 默认在真实 LLM 可恢复失败时降级到现有 stub，并以 `meta.mode=llm_fallback_stub` 标识。 | 无真实 Key 的本地 MVP、短暂上游故障和异常回复都应保留完整 `dialogue.v1` 与 Web 体验；显式 stub 保持原语义。 | `DialogueOrchestrationService`、Web dialogue、自动检查、API 契约 | `backend/services/DialogueOrchestrationService.js`、`docs/api/API_CONTRACT.md` |
+| 2026-07-10 | 不实现专用 Ollama adapter；`custom` 保持通用 OpenAI-compatible 路径，并以 `CUSTOM_API_KEY_OPTIONAL=false` 默认要求 Key。 | 避免扩展 provider 适配面；仅允许后端显式开启无 Key 端点，客户端不保存 URL 或 Key。 | `LLMService`、`ProviderStatusService`、环境配置、文档 | `backend/services/LLMService.js`、`.env.example`、`docs/api/API_CONTRACT.md` |
 
 ## 新增决策模板
 

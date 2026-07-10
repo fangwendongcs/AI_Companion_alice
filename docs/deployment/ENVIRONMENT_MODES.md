@@ -46,6 +46,8 @@ Production mode still does not include a full login system, OAuth, RBAC, WAF, ob
 
 Never commit real secrets.
 
+The repository does not load `dotenv`, and `npm run dev` does not include Node's `--env-file` option. It reads only environment variables already present in the launching shell or deployment process. Creating `.env` by itself has no effect; see [Development Guide](../guides/DEVELOPMENT_GUIDE.md#环境变量注入) for explicit shell, PowerShell, and Node 20+ examples.
+
 Keep these values only in local ignored files or deployment platform environment variables:
 
 - `API_AUTH_TOKEN`

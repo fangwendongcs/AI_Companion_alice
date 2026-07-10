@@ -134,7 +134,7 @@ Phase 4.4 上传边界：
 
 ### POST /api/dialogue
 
-当前前端主对话入口。已支持本地 `stub`、LLM-only 编排、SQLite-backed Memory、保守长期 `memory_items`、角色 persona、规则化 affect、本地知识检索 RAG 和可选 n8n workflow 工具调用。n8n 不作为主对话编排器。
+当前前端主对话入口。已支持本地 `stub`、OpenAI-compatible LLM-only 编排、SQLite-backed Memory、保守长期 `memory_items`、角色 persona、规则化 affect、本地知识检索 RAG 和可选 n8n workflow 工具调用。n8n 不作为主对话编排器。
 
 Phase 5.10 起，该接口返回 `dialogue.v1` 跨端语义契约字段。Web 与后续 iOS 应优先消费这些 renderer-agnostic 字段；现有 `reply / affect / memory / meta` 继续保留为 Web 兼容字段。
 
@@ -270,6 +270,19 @@ validate input -> memory context -> rag context -> optional workflow -> PromptBu
 
 `reply_text / companion_state / emotion / tone / avatar_directive / memory_event / tts / contract` 是跨端消费字段，不允许包含 `animationFile`、`fbxPath`、`riveInput`、`vrmExpressionPreset`、`boneName` 或硬编码动画路径。Renderer 只能把 `avatar_directive` 映射到本地表现层。
 
+#### LLM fallback（`/api/dialogue` 专用）
+
+`DIALOGUE_FALLBACK_TO_STUB=true` 是默认值。用户选择 `openai`、`qwen`、`deepseek` 或 `custom` 时，如果后端发现缺少必需配置、上游超时/非成功响应、响应 JSON 或结构非法、或模型 content 为空，`/api/dialogue` 会继续返回完整 `dialogue.v1`，并改用现有本地 stub 文案。
+
+- 用户显式选择 `stub`（以及兼容的 `local` / `boundary`）时，仍保持原有 `meta.mode="llm_stub"` 行为，不经过 fallback 判断。
+- 真实 provider 正常成功时，`meta.mode="llm_only"`。
+- 降级成功时，`meta.mode="llm_fallback_stub"`，`meta.fallback` 只返回安全的 `{ "applied": true, "reason": "..." }`。`reason` 仅可能为 `not_configured`、`timeout`、`upstream_error`、`invalid_response` 或 `empty_response`；不会包含 API Key、base URL 或上游正文。
+- `meta.provider` / `meta.model` 保留用户请求的真实 provider / model，便于前端展示与调试；它们不表示最终回复来自真实模型。
+- 将 `DIALOGUE_FALLBACK_TO_STUB=false` 后，接口会返回安全错误码，例如 `LLM_NOT_CONFIGURED`、`LLM_UPSTREAM_TIMEOUT`、`LLM_UPSTREAM_ERROR`、`LLM_INVALID_RESPONSE` 或 `LLM_EMPTY_RESPONSE`。
+- `POST /api/chat` 是旧兼容入口，不启用此 fallback，仍直接复用 `LLMService` 的成功或安全错误结果。
+
+`custom` 是通用 OpenAI-compatible adapter，不是 Ollama adapter。默认 `CUSTOM_API_KEY_OPTIONAL=false`，因此仍需 `CUSTOM_API_KEY`。仅在后端明确受控且端点不需要认证时，才可设置 `CUSTOM_API_KEY_OPTIONAL=true`，此时 `CUSTOM_BASE_URL` 可指向兼容 `/v1` 的服务，例如本机 Ollama 的 `http://localhost:11434/v1`；前端不接触该 URL 或任何 Key。
+
 ### GET /api/memory / DELETE /api/memory
 
 `GET /api/memory` 返回当前 session / avatar 的精简长期记忆摘要，不返回完整原始 messages。
@@ -335,7 +348,7 @@ validate input -> memory context -> rag context -> optional workflow -> PromptBu
 }
 ```
 
-缺少真实 provider API Key 时：
+当 `DIALOGUE_FALLBACK_TO_STUB=false` 且缺少真实 provider API Key 时：
 
 ```json
 {
@@ -346,6 +359,8 @@ validate input -> memory context -> rag context -> optional workflow -> PromptBu
   }
 }
 ```
+
+`LLM_UPSTREAM_ERROR` 等 LLM 错误的 message 是固定安全文案；后端不会把上游响应正文、API Key 或 provider base URL 回传或写入结构化错误日志。
 
 Memory enabled 成功时：
 

@@ -7,6 +7,7 @@ import { PromptBuilder } from './PromptBuilder.js';
 import { PersonaService } from './PersonaService.js';
 import { CompanionAffectService } from './CompanionAffectService.js';
 import { buildDialogueContract } from '../contracts/dialogueContract.js';
+import { dialogueFallbackToStub } from '../config/serverConfig.js';
 
 const MAX_MESSAGE_CHARS = 4000;
 const MAX_SYSTEM_PROMPT_CHARS = 4000;
@@ -21,7 +22,8 @@ export class DialogueOrchestrationService {
     llmService = new LLMService(),
     promptBuilder = new PromptBuilder(),
     personaService = new PersonaService(),
-    affectService = new CompanionAffectService()
+    affectService = new CompanionAffectService(),
+    fallbackToStub = dialogueFallbackToStub
   } = {}) {
     this.memoryService = memoryService;
     this.ragService = ragService;
@@ -30,6 +32,7 @@ export class DialogueOrchestrationService {
     this.promptBuilder = promptBuilder;
     this.personaService = personaService;
     this.affectService = affectService;
+    this.fallbackToStub = fallbackToStub;
   }
 
   async run(payload = {}) {
@@ -63,56 +66,56 @@ export class DialogueOrchestrationService {
     });
 
     if (isLocalStubProvider(provider)) {
-      const reply = buildLocalStubReply(message, memory, rag, persona);
-      const updatedMemory = await this.appendMemoryExchange({
-        enabled: options.useMemory,
-        sessionId,
-        avatarId,
+      return this.buildStubResponse({
         message,
-        reply
-      });
-      const responseMemory = updatedMemory || memory;
-      const affect = this.affectService.decide({
-        message,
-        reply,
-        persona,
-        memory: responseMemory,
-        rag,
-        workflow
-      });
-      const meta = {
-        mode: 'llm_stub',
-        orchestration: 'agent_pipeline',
-        steps: buildStepMeta({ memory: responseMemory, rag, workflow }),
-        persona: toPersonaMeta(persona),
-        provider,
-        model: model || 'stub',
-        systemPromptReceived: Boolean(systemPrompt),
-        note: 'Local stub provider is for smoke tests and local boundary checks only.'
-      };
-      return buildDialogueResponse({
-        reply,
-        sources: rag.sources || [],
-        memory: responseMemory,
+        memory,
         rag,
         workflow,
-        affect,
-        meta
+        persona,
+        options,
+        sessionId,
+        avatarId,
+        provider,
+        model,
+        systemPrompt
       });
     }
 
-    const reply = await this.llmService.chat({
-      message,
-      provider,
-      model,
-      systemPrompt: this.promptBuilder.build({
-        systemPrompt,
-        persona,
+    let reply = '';
+    try {
+      reply = await this.llmService.chat({
+        message,
+        provider,
+        model,
+        systemPrompt: this.promptBuilder.build({
+          systemPrompt,
+          persona,
+          memory,
+          rag,
+          workflow
+        })
+      });
+      if (!String(reply || '').trim()) {
+        throw createCodedHttpError('LLM upstream returned an empty response.', 502, 'LLM_EMPTY_RESPONSE');
+      }
+    } catch (error) {
+      if (!this.fallbackToStub || !shouldFallbackToStub(error)) throw error;
+      return this.buildStubResponse({
+        message,
         memory,
         rag,
-        workflow
-      })
-    });
+        workflow,
+        persona,
+        options,
+        sessionId,
+        avatarId,
+        provider,
+        model,
+        systemPrompt,
+        fallback: buildFallbackMeta(error)
+      });
+    }
+
     const updatedMemory = await this.appendMemoryExchange({
       enabled: options.useMemory,
       sessionId,
@@ -138,6 +141,60 @@ export class DialogueOrchestrationService {
       provider,
       model: model || 'gpt-4o-mini',
       systemPromptReceived: Boolean(systemPrompt)
+    };
+    return buildDialogueResponse({
+      reply,
+      sources: rag.sources || [],
+      memory: responseMemory,
+      rag,
+      workflow,
+      affect,
+      meta
+    });
+  }
+
+  async buildStubResponse({
+    message,
+    memory,
+    rag,
+    workflow,
+    persona,
+    options,
+    sessionId,
+    avatarId,
+    provider,
+    model,
+    systemPrompt,
+    fallback = null
+  }) {
+    const reply = buildLocalStubReply(message, memory, rag, persona);
+    const updatedMemory = await this.appendMemoryExchange({
+      enabled: options.useMemory,
+      sessionId,
+      avatarId,
+      message,
+      reply
+    });
+    const responseMemory = updatedMemory || memory;
+    const affect = this.affectService.decide({
+      message,
+      reply,
+      persona,
+      memory: responseMemory,
+      rag,
+      workflow
+    });
+    const meta = {
+      mode: fallback ? 'llm_fallback_stub' : 'llm_stub',
+      orchestration: 'agent_pipeline',
+      steps: buildStepMeta({ memory: responseMemory, rag, workflow }),
+      persona: toPersonaMeta(persona),
+      provider,
+      model: model || (fallback ? 'gpt-4o-mini' : 'stub'),
+      systemPromptReceived: Boolean(systemPrompt),
+      ...(fallback
+        ? { fallback }
+        : { note: 'Local stub provider is for smoke tests and local boundary checks only.' })
     };
     return buildDialogueResponse({
       reply,
@@ -311,6 +368,32 @@ function normalizeOptions(options) {
 
 function isLocalStubProvider(provider) {
   return ['stub', 'local', 'boundary'].includes(provider);
+}
+
+function shouldFallbackToStub(error) {
+  return new Set([
+    'LLM_NOT_CONFIGURED',
+    'LLM_INVALID_API_KEY',
+    'LLM_UPSTREAM_TIMEOUT',
+    'LLM_UPSTREAM_ERROR',
+    'LLM_INVALID_RESPONSE',
+    'LLM_EMPTY_RESPONSE'
+  ]).has(error?.code);
+}
+
+function buildFallbackMeta(error) {
+  const reasonByCode = {
+    LLM_NOT_CONFIGURED: 'not_configured',
+    LLM_INVALID_API_KEY: 'not_configured',
+    LLM_UPSTREAM_TIMEOUT: 'timeout',
+    LLM_INVALID_RESPONSE: 'invalid_response',
+    LLM_EMPTY_RESPONSE: 'empty_response',
+    LLM_UPSTREAM_ERROR: 'upstream_error'
+  };
+  return {
+    applied: true,
+    reason: reasonByCode[error?.code] || 'upstream_error'
+  };
 }
 
 function buildLocalStubReply(message, memory, rag, persona = null) {

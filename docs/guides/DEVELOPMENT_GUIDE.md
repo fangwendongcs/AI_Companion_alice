@@ -6,6 +6,44 @@
 npm run dev
 ```
 
+### 环境变量注入
+
+当前仓库没有安装或调用 `dotenv`，`package.json` 的 `npm run dev` 实际执行 `node backend/server.js`，也没有附加 Node 的 `--env-file` 参数。因此：
+
+- `npm run dev` 只会读取启动进程已经拥有的 shell / 系统环境变量。
+- 仅创建或复制 `.env` / `.env.local` 不会自动生效；这些文件仍应保持未提交。
+- 真实 Key 不要写进命令历史、仓库文件、前端 UI 或 localStorage。长期本地开发可使用操作系统环境配置；部署时使用平台 Environment Variables / Secret Manager。
+
+macOS / Linux 临时注入单次命令：
+
+```bash
+OPENAI_API_KEY=replace_with_your_key npm run dev
+```
+
+或者先导出到当前 shell，再启动：
+
+```bash
+export OPENAI_API_KEY=replace_with_your_key
+export OPENAI_BASE_URL=https://api.openai.com/v1
+npm run dev
+```
+
+PowerShell：
+
+```powershell
+$env:OPENAI_API_KEY = "replace_with_your_key"
+$env:OPENAI_BASE_URL = "https://api.openai.com/v1"
+npm run dev
+```
+
+如果确实要从本地 `.env` 文件启动，Node 20+ 可以显式运行：
+
+```bash
+node --env-file=.env backend/server.js
+```
+
+这不是 `npm run dev` 的默认行为；`.env` 必须继续被 Git 忽略且只能包含本机 secret。所有可用变量名和 placeholder 以仓库根目录 `.env.example` 为准。
+
 默认地址：
 
 ```text
@@ -123,7 +161,7 @@ TTS 当前推荐返回统一 Audio Result：
 
 ### OpenAI / MiniMax TTS 失败
 
-前端不会保存 API Key。请用环境变量启动：
+前端不会保存 API Key。请按上面的环境变量注入规则启动，例如：
 
 ```bash
 OPENAI_API_KEY=... MINIMAX_API_KEY=... npm run dev
