@@ -2,7 +2,7 @@ import { createHttpError } from '../utils/httpError.js';
 import { MemoryService } from './MemoryService.js';
 import { N8nWorkflowService } from './N8nWorkflowService.js';
 import { RagService } from './RagService.js';
-import { LLMService } from './LLMService.js';
+import { LLMService, resolveLLMRequest } from './LLMService.js';
 import { PromptBuilder } from './PromptBuilder.js';
 import { PersonaService } from './PersonaService.js';
 import { CompanionAffectService } from './CompanionAffectService.js';
@@ -82,11 +82,16 @@ export class DialogueOrchestrationService {
     }
 
     let reply = '';
+    let resolvedRequest = {
+      provider,
+      model
+    };
     try {
-      reply = await this.llmService.chat({
+      resolvedRequest = resolveLLMRequest({ provider, model });
+      const llmInput = {
         message,
-        provider,
-        model,
+        provider: resolvedRequest.provider,
+        model: resolvedRequest.model,
         systemPrompt: this.promptBuilder.build({
           systemPrompt,
           persona,
@@ -94,7 +99,17 @@ export class DialogueOrchestrationService {
           rag,
           workflow
         })
-      });
+      };
+      if (typeof this.llmService.chatDetailed === 'function') {
+        const result = await this.llmService.chatDetailed(llmInput);
+        reply = result.reply;
+        resolvedRequest = {
+          provider: result.provider,
+          model: result.model
+        };
+      } else {
+        reply = await this.llmService.chat(llmInput);
+      }
       if (!String(reply || '').trim()) {
         throw createCodedHttpError('LLM upstream returned an empty response.', 502, 'LLM_EMPTY_RESPONSE');
       }
@@ -109,8 +124,8 @@ export class DialogueOrchestrationService {
         options,
         sessionId,
         avatarId,
-        provider,
-        model,
+        provider: resolvedRequest.provider,
+        model: resolvedRequest.model,
         systemPrompt,
         fallback: buildFallbackMeta(error)
       });
@@ -138,8 +153,8 @@ export class DialogueOrchestrationService {
       orchestration: 'agent_pipeline',
       steps: buildStepMeta({ memory: responseMemory, rag, workflow }),
       persona: toPersonaMeta(persona),
-      provider,
-      model: model || 'gpt-4o-mini',
+      provider: resolvedRequest.provider,
+      model: resolvedRequest.model,
       systemPromptReceived: Boolean(systemPrompt)
     };
     return buildDialogueResponse({
@@ -190,7 +205,7 @@ export class DialogueOrchestrationService {
       steps: buildStepMeta({ memory: responseMemory, rag, workflow }),
       persona: toPersonaMeta(persona),
       provider,
-      model: model || (fallback ? 'gpt-4o-mini' : 'stub'),
+      model: fallback ? (model || null) : (model || 'stub'),
       systemPromptReceived: Boolean(systemPrompt),
       ...(fallback
         ? { fallback }

@@ -1,14 +1,20 @@
 import { readFile } from 'node:fs/promises';
-import { LLMService } from '../backend/services/LLMService.js';
+import { LLMService, resolveLLMRequest } from '../backend/services/LLMService.js';
 import { DialogueOrchestrationService } from '../backend/services/DialogueOrchestrationService.js';
 import { ProviderStatusService } from '../backend/services/ProviderStatusService.js';
 import { redactForLog } from '../backend/utils/redact.js';
+import { providerDefaultModels } from '../backend/config/serverConfig.js';
+import { LLMSettingsController } from '../js/ui/LLMSettingsController.js';
+import { LLMClient } from '../js/ai/LLMClient.js';
 
 const failures = [];
 const fakeKey = 'test_llm_provider_key_123456';
 const fakeBaseUrl = 'https://llm-provider-fake.invalid/v1';
 
 await checkRealProviderSuccess();
+await checkProviderSpecificModelResolution();
+await checkDeepSeekModelResolution();
+await checkDeepSeekFrontendSelection();
 await checkMissingConfigurationFallback();
 await checkTimeoutFallback();
 await checkUpstreamErrorFallback();
@@ -50,6 +56,96 @@ async function checkRealProviderSuccess() {
     assert(request?.headers?.Authorization === `Bearer ${fakeKey}`, '需要 Key 的 provider 必须由后端添加 Authorization。');
     assert(JSON.parse(request?.body || '{}').model === 'gpt-4o-mini', 'LLM 请求必须保留请求 model。');
   });
+}
+
+async function checkProviderSpecificModelResolution() {
+  assert(resolveLLMRequest({ provider: 'openai' }).model === providerDefaultModels.openai, 'OpenAI 缺 model 时必须使用自己的 provider default。');
+  assert(resolveLLMRequest({ provider: 'qwen' }).model === providerDefaultModels.qwen, 'Qwen 缺 model 时必须使用 qwen-plus，不得回退到 gpt-4o-mini。');
+  try {
+    resolveLLMRequest({ provider: 'custom' });
+    failures.push('custom 缺 model 且无默认值时必须返回配置错误，不得回退到 gpt-4o-mini。');
+  } catch (error) {
+    assert(error?.code === 'LLM_NOT_CONFIGURED', `custom 缺 model 应返回 LLM_NOT_CONFIGURED，实际为 ${error?.code || 'missing code'}。`);
+  }
+}
+
+async function checkDeepSeekModelResolution() {
+  const requests = [];
+  await withEnv({
+    DEEPSEEK_API_KEY: fakeKey,
+    DEEPSEEK_BASE_URL: fakeBaseUrl,
+    LLM_API_KEY: undefined
+  }, async () => {
+    const service = createDialogueService({
+      fetchImpl: async (url, options) => {
+        const body = JSON.parse(options.body);
+        requests.push({ url, model: body.model });
+        return createJsonResponse({
+          choices: [{ message: { content: `DeepSeek fake ${body.model}` } }]
+        });
+      }
+    });
+
+    const defaultResult = await service.run({
+      message: 'DeepSeek default model check',
+      provider: 'deepseek',
+      options: { useMemory: false, useRag: false, useWorkflow: false }
+    });
+    assert(providerDefaultModels.deepseek === (String(process.env.DEEPSEEK_MODEL || '').trim() || 'deepseek-v4-flash'), 'DeepSeek 默认模型必须读取 DEEPSEEK_MODEL，并以 deepseek-v4-flash 兜底。');
+    assert(requests[0]?.model === providerDefaultModels.deepseek, 'DeepSeek 未传 model 时实际请求必须使用 providerDefaultModels.deepseek。');
+    assert(defaultResult.meta?.provider === 'deepseek', 'DeepSeek 默认请求 meta.provider 必须为 deepseek。');
+    assert(defaultResult.meta?.model === requests[0]?.model, 'DeepSeek 默认请求 meta.model 必须等于实际上游请求模型。');
+
+    const explicitResult = await service.run({
+      message: 'DeepSeek explicit model check',
+      provider: 'deepseek',
+      model: 'deepseek-v4-pro',
+      options: { useMemory: false, useRag: false, useWorkflow: false }
+    });
+    assert(requests[1]?.model === 'deepseek-v4-pro', '显式 deepseek-v4-pro 必须原样发送，不得被默认模型覆盖。');
+    assert(explicitResult.meta?.model === requests[1]?.model, '显式 DeepSeek 请求 meta.model 必须等于实际上游请求模型。');
+
+    const status = await new ProviderStatusService({
+      ttsRegistry: { checkHealth: async () => [], listStatus: () => [] }
+    }).getStatus();
+    const deepseek = status.llm.find((item) => item.provider === 'deepseek');
+    assert(deepseek?.defaultModel === providerDefaultModels.deepseek, 'ProviderStatusService DeepSeek defaultModel 必须与后端默认解析模型一致。');
+  });
+}
+
+async function checkDeepSeekFrontendSelection() {
+  const llmModel = {
+    value: 'gpt-4o-mini',
+    options: [
+      { value: 'deepseek-v4-flash' },
+      { value: 'deepseek-v4-pro' }
+    ]
+  };
+  const controller = new LLMSettingsController({ refs: { llmModel } });
+  controller.providerStatus = new Map([[
+    'deepseek',
+    { defaultModel: 'deepseek-v4-flash' }
+  ]]);
+  controller.applyProviderDefaultModel('deepseek');
+  assert(llmModel.value === 'deepseek-v4-flash', '切换到 DeepSeek 时必须把其他 provider 模型替换为 readiness defaultModel。');
+  llmModel.value = 'deepseek-v4-pro';
+  controller.applyProviderDefaultModel('deepseek');
+  assert(llmModel.value === 'deepseek-v4-pro', '用户显式选择 deepseek-v4-pro 后不得被默认模型覆盖。');
+
+  let requestBody = null;
+  const client = new LLMClient('/api/dialogue', {
+    apiClient: {
+      json: async (_path, options) => {
+        requestBody = options.body;
+        return { reply: 'frontend fake ok' };
+      }
+    }
+  });
+  await client.chat('frontend model check', {
+    provider: 'deepseek',
+    model: 'deepseek-v4-pro'
+  });
+  assert(requestBody?.provider === 'deepseek' && requestBody?.model === 'deepseek-v4-pro', 'LLMClient 必须保留前端显式选择的 DeepSeek model。');
 }
 
 async function checkMissingConfigurationFallback() {
@@ -241,21 +337,26 @@ async function checkFallbackSafetyAndDocumentation() {
   assert(response?.reply_text?.trim(), 'fallback 后 reply_text 永不为空。');
   assert(response?.contract?.version === 'dialogue.v1', 'fallback 后必须保留完整 dialogue.v1 contract。');
 
-  const [envExample, apiContract, developmentGuide, backendReadme, orchestration] = await Promise.all([
+  const [envExample, apiContract, developmentGuide, backendReadme, orchestration, html, settings] = await Promise.all([
     readFile('.env.example', 'utf8'),
     readFile('docs/api/API_CONTRACT.md', 'utf8'),
     readFile('docs/guides/DEVELOPMENT_GUIDE.md', 'utf8'),
     readFile('backend/README.md', 'utf8'),
-    readFile('backend/services/DialogueOrchestrationService.js', 'utf8')
+    readFile('backend/services/DialogueOrchestrationService.js', 'utf8'),
+    readFile('index.html', 'utf8'),
+    readFile('js/ui/LLMSettingsController.js', 'utf8')
   ]);
   assert(envExample.includes('DIALOGUE_FALLBACK_TO_STUB=true'), '.env.example 必须说明默认 LLM fallback 开关。');
   assert(envExample.includes('CUSTOM_API_KEY_OPTIONAL=false'), '.env.example 必须默认关闭 custom 无 Key 开关。');
+  assert(envExample.includes('DEEPSEEK_MODEL=deepseek-v4-flash'), '.env.example 必须声明 DeepSeek 默认模型。');
   assert(envExample.includes('http://localhost:11434/v1'), '.env.example 必须给出通用 OpenAI-compatible /v1 示例。');
   assert(apiContract.includes('llm_fallback_stub') && apiContract.includes('CUSTOM_API_KEY_OPTIONAL'), 'API 契约必须说明 fallback 与 custom 无 Key 决策。');
   assert(developmentGuide.includes('没有安装或调用 `dotenv`') && developmentGuide.includes('只会读取启动进程已经拥有的 shell / 系统环境变量'), '开发文档必须明确 npm run dev 不会自动加载 .env。');
   assert(developmentGuide.includes('node --env-file=.env backend/server.js'), '开发文档必须给出显式本地 .env 注入方式。');
   assert(backendReadme.includes('没有使用 `dotenv`') && backendReadme.includes('单独创建 `.env` 不会自动生效'), 'Backend README 必须提示环境变量注入边界。');
   assert(orchestration.includes("'llm_fallback_stub'"), '编排服务必须实现 llm_fallback_stub mode。');
+  assert(html.includes('deepseek-v4-flash') && html.includes('deepseek-v4-pro') && !html.includes('deepseek-chat'), 'Web 模型列表必须只保留当前 DeepSeek v4 模型。');
+  assert(settings.includes('applyProviderDefaultModel') && settings.includes('defaultModel') && settings.includes('DEEPSEEK_MODELS'), '切换 DeepSeek provider 时必须使用 /api/providers defaultModel，并保留显式 v4-pro。');
 }
 
 function createDialogueService({ fetchImpl = fetch, fallbackToStub = true, memoryService } = {}) {

@@ -161,6 +161,15 @@ validate input -> memory context -> rag context -> optional workflow -> PromptBu
 }
 ```
 
+`model` 可以省略。LLM 模型解析遵循统一规则：
+
+1. 请求显式提供非空 `model` 时，保留客户端指定值。
+2. 未提供或传入空 `model` 时，使用 `providerDefaultModels[provider]`。
+3. `deepseek` 默认读取后端 `DEEPSEEK_MODEL`，未配置时为 `deepseek-v4-flash`。
+4. `qwen` 使用自己的 `qwen-plus` 默认值；`custom` 没有默认模型时返回安全配置错误。DeepSeek、Qwen、custom 都不会回退到 `gpt-4o-mini`。
+
+真实调用成功后，`meta.provider` 和 `meta.model` 来自 `LLMService` 的最终 resolved request，必须与本次实际发送到上游的 provider / model 一致。`GET /api/providers` 的 `defaultModel` 使用同一份 `providerDefaultModels` 配置。
+
 当前成功返回：
 
 ```json
@@ -282,6 +291,8 @@ validate input -> memory context -> rag context -> optional workflow -> PromptBu
 - `POST /api/chat` 是旧兼容入口，不启用此 fallback，仍直接复用 `LLMService` 的成功或安全错误结果。
 
 `custom` 是通用 OpenAI-compatible adapter，不是 Ollama adapter。默认 `CUSTOM_API_KEY_OPTIONAL=false`，因此仍需 `CUSTOM_API_KEY`。仅在后端明确受控且端点不需要认证时，才可设置 `CUSTOM_API_KEY_OPTIONAL=true`，此时 `CUSTOM_BASE_URL` 可指向兼容 `/v1` 的服务，例如本机 Ollama 的 `http://localhost:11434/v1`；前端不接触该 URL 或任何 Key。
+
+DeepSeek 当前 Web 默认模型为 `deepseek-v4-flash`，同时允许用户显式选择 `deepseek-v4-pro`。切换到 DeepSeek provider 时，Web 使用 `/api/providers` 返回的 `defaultModel` 替换不兼容的其他 provider 模型；用户已经显式选择 `deepseek-v4-pro` 时不会被默认值覆盖。
 
 ### GET /api/memory / DELETE /api/memory
 

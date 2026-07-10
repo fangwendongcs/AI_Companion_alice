@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { ProviderStatusService } from '../backend/services/ProviderStatusService.js';
 import { LLMService } from '../backend/services/LLMService.js';
+import { providerDefaultModels } from '../backend/config/serverConfig.js';
 
 const failures = [];
 
@@ -42,6 +43,8 @@ async function checkProviderStatusContract() {
   assert(!status.tts.some((item) => ['higgs', 'openai', 'minimax'].includes(item.provider)), '公开 TTS provider status 当前只能暴露 mock / cosyvoice。');
   assert(status.tts.every((item) => item.capabilities), 'TTS provider status 必须包含 capabilities。');
   assertNoSecretFields(status, 'Provider status');
+  const deepseek = status.llm.find((item) => item.provider === 'deepseek');
+  assert(deepseek?.defaultModel === providerDefaultModels.deepseek, 'Provider status DeepSeek defaultModel 必须与后端默认模型一致。');
 }
 
 async function checkLLMErrorCodes() {

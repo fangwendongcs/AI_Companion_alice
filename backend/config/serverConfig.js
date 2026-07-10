@@ -50,7 +50,7 @@ export const providerDefaultModels = {
   stub: 'stub',
   openai: 'gpt-4o-mini',
   qwen: 'qwen-plus',
-  deepseek: 'deepseek-chat',
+  deepseek: String(process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash').trim() || 'deepseek-v4-flash',
   custom: ''
 };
 

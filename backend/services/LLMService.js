@@ -2,6 +2,7 @@ import {
   customApiKeyOptional,
   providerBaseUrlEnv,
   providerBaseUrls,
+  providerDefaultModels,
   providerKeyEnv
 } from '../config/serverConfig.js';
 import { createHttpError } from '../utils/httpError.js';
@@ -14,15 +15,21 @@ export class LLMService {
     this.customKeyOptional = customKeyOptional;
   }
 
-  async chat({
+  async chat(input = {}) {
+    return (await this.chatDetailed(input)).reply;
+  }
+
+  async chatDetailed({
     message = '',
     provider = 'openai',
-    model = 'gpt-4o-mini',
+    model = '',
     systemPrompt = '',
     maxTokens = 200,
     temperature = 0.8
   } = {}) {
-    const normalizedProvider = normalizeProvider(provider);
+    const resolvedRequest = resolveLLMRequest({ provider, model });
+    const normalizedProvider = resolvedRequest.provider;
+    const resolvedModel = resolvedRequest.model;
     const baseUrl = resolveProviderBaseUrl(normalizedProvider);
     const apiKey = resolveApiKey(normalizedProvider);
 
@@ -52,7 +59,7 @@ export class LLMService {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          model: String(model || 'gpt-4o-mini').trim() || 'gpt-4o-mini',
+          model: resolvedModel,
           messages: [
             { role: 'system', content: String(systemPrompt || '你是 Alice，一个简短回复的 3D 数字伙伴。') },
             { role: 'user', content: String(message || '') }
@@ -76,11 +83,32 @@ export class LLMService {
         throw createCodedHttpError('LLM upstream returned invalid JSON.', 502, 'LLM_INVALID_RESPONSE');
       }
 
-      return extractReplyText(data);
+      return {
+        reply: extractReplyText(data),
+        provider: normalizedProvider,
+        model: resolvedModel
+      };
     } catch (error) {
       throw normalizeUpstreamError(error);
     }
   }
+}
+
+export function resolveLLMRequest({ provider = 'openai', model = '' } = {}) {
+  const normalizedProvider = normalizeProvider(provider);
+  const explicitModel = String(model || '').trim();
+  const resolvedModel = explicitModel || String(providerDefaultModels[normalizedProvider] || '').trim();
+  if (!resolvedModel) {
+    throw createCodedHttpError(
+      'Provider model is not configured in the backend environment.',
+      400,
+      'LLM_NOT_CONFIGURED'
+    );
+  }
+  return {
+    provider: normalizedProvider,
+    model: resolvedModel
+  };
 }
 
 function normalizeProvider(provider) {

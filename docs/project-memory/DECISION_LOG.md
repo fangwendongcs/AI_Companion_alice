@@ -16,6 +16,7 @@
 | 2026-07-03 | `assets/avatars/test-vrm/` 和 `assets/motions/` 默认是本地 QA / debug 资源，不自动产品化。 | 测试资产可能缺授权、体积/质量/retarget 未过关。 | VRM QA、资产管理、registry | `docs/architecture/VRM_RENDERER_MVP.md`、`docs/architecture/VRM_MOTION_READINESS.md` |
 | 2026-07-10 | `/api/dialogue` 默认在真实 LLM 可恢复失败时降级到现有 stub，并以 `meta.mode=llm_fallback_stub` 标识。 | 无真实 Key 的本地 MVP、短暂上游故障和异常回复都应保留完整 `dialogue.v1` 与 Web 体验；显式 stub 保持原语义。 | `DialogueOrchestrationService`、Web dialogue、自动检查、API 契约 | `backend/services/DialogueOrchestrationService.js`、`docs/api/API_CONTRACT.md` |
 | 2026-07-10 | 不实现专用 Ollama adapter；`custom` 保持通用 OpenAI-compatible 路径，并以 `CUSTOM_API_KEY_OPTIONAL=false` 默认要求 Key。 | 避免扩展 provider 适配面；仅允许后端显式开启无 Key 端点，客户端不保存 URL 或 Key。 | `LLMService`、`ProviderStatusService`、环境配置、文档 | `backend/services/LLMService.js`、`.env.example`、`docs/api/API_CONTRACT.md` |
+| 2026-07-10 | LLM model 统一按“显式请求值优先，否则 provider default”解析；DeepSeek 默认读取 `DEEPSEEK_MODEL`，默认值为 `deepseek-v4-flash`。 | 保证真实上游请求、`/api/providers.defaultModel` 与 dialogue `meta.model` 一致，并阻止 DeepSeek / Qwen / custom 缺 model 时误用 OpenAI 默认模型。 | `serverConfig`、`LLMService`、Dialogue、Provider readiness、Web Settings | `backend/config/serverConfig.js`、`backend/services/LLMService.js`、`backend/services/DialogueOrchestrationService.js`、`docs/api/API_CONTRACT.md` |
 
 ## 新增决策模板
 

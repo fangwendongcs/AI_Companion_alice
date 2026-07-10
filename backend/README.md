@@ -54,6 +54,7 @@ http://localhost:3000
 - `HIGGS_API_KEY`：可选 Higgs Audio v3 服务鉴权 Key
 - `QWEN_API_KEY`：通义千问 OpenAI-compatible 接口
 - `DEEPSEEK_API_KEY`：DeepSeek OpenAI-compatible 接口
+- `DEEPSEEK_MODEL`：DeepSeek 默认模型，默认 `deepseek-v4-flash`；请求显式传入 model 时仍以请求值为准
 - `CUSTOM_API_KEY`：自定义 OpenAI-compatible 接口
 - `CUSTOM_API_KEY_OPTIONAL`：是否允许 `custom` 在无 Key 时调用，默认 `false`；只对受控无鉴权端点开启
 - `LLM_API_KEY`：通用兜底 Key

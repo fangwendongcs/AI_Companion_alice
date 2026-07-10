@@ -1,3 +1,5 @@
+const DEEPSEEK_MODELS = new Set(['deepseek-v4-flash', 'deepseek-v4-pro']);
+
 export class LLMSettingsController {
   constructor({ refs, registry, store, apiClient, llmClient, getConfig, setConfig, readFormConfig, patchState, statusView }) {
     this.refs = refs;
@@ -29,6 +31,7 @@ export class LLMSettingsController {
 
     this.registry.addEventListener(this.refs.llmProvider, 'change', (event) => {
       this.applyProviderHint(event.target.value);
+      this.applyProviderDefaultModel(event.target.value);
       this.showProviderStatus(event.target.value);
     });
 
@@ -93,10 +96,32 @@ export class LLMSettingsController {
         timeoutMs: 6000
       });
       this.providerStatus = new Map((status?.llm || []).map((item) => [item.provider, item]));
+      this.applyProviderDefaultModel(provider || this.refs.llmProvider.value);
       this.showProviderStatus(provider || this.refs.llmProvider.value);
     } catch (error) {
       this.statusView.showLLM('error', `Provider 状态读取失败：${error.message.slice(0, 80)}`);
     }
+  }
+
+  applyProviderDefaultModel(provider) {
+    if (provider !== 'deepseek') return;
+    const currentModel = String(this.refs.llmModel.value || '').trim();
+    const defaultModel = String(
+      this.providerStatus.get(provider)?.defaultModel || 'deepseek-v4-flash'
+    ).trim();
+    const allowedModels = new Set([...DEEPSEEK_MODELS, defaultModel].filter(Boolean));
+    if (allowedModels.has(currentModel)) return;
+
+    this.ensureModelOption(defaultModel);
+    this.refs.llmModel.value = defaultModel;
+  }
+
+  ensureModelOption(model) {
+    if (!model || Array.from(this.refs.llmModel.options || []).some((option) => option.value === model)) return;
+    const option = document.createElement('option');
+    option.value = model;
+    option.textContent = model;
+    this.refs.llmModel.appendChild(option);
   }
 
   showProviderStatus(provider) {

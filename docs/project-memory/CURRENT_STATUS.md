@@ -23,7 +23,7 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 | Avatar registry / manifest | 可用 | `public/avatars/registry.json`、`docs/architecture/AVATAR_ARCHITECTURE.md` |
 | Alice / Shiro / Wambo | 可用 | `public/avatars/*/manifest.json` |
 | `/api/dialogue` 主链路 | 可用 | `docs/contracts/DIALOGUE_CONTRACT.md` |
-| LLM Provider MVP | 可用；真实 Key live 回包待各 provider 环境验证 | `backend/services/LLMService.js`、`docs/api/API_CONTRACT.md` |
+| LLM Provider MVP | 可用；DeepSeek `deepseek-v4-flash` 已通过项目内 live 验证 | `backend/services/LLMService.js`、`docs/api/API_CONTRACT.md` |
 | `dialogue.v1` 语义契约 | 可用 | `backend/contracts/dialogueContract.js` |
 | SQLite-backed Memory | 可用 | `docs/architecture/PHASE5_MEMORY_ARCHITECTURE.md` |
 | Persona / Affect | 可用 | `backend/config/avatarPersonas.js`、`backend/services/CompanionAffectService.js` |
@@ -45,7 +45,7 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 | VRM | 手动浏览器 QA Shiro / Wambo / local girl test；外部动作只走 QA gate，不直接产品化。 |
 | Memory / Persona | 继续打磨中文陪伴连续性、长期记忆可解释和清理体验。 |
 | Security | 公网前仍需正式鉴权、域名、HTTPS、secret manager 和部署平台策略。 |
-| LLM Provider | 用真实 Key 分别验证 OpenAI / Qwen / DeepSeek 的实际模型权限、模型名和响应兼容性；默认 fallback 已覆盖无 Key 与上游失败。 |
+| LLM Provider | 后续用真实 Key 验证 OpenAI / Qwen；DeepSeek 默认 `deepseek-v4-flash` 已完成项目内 `/api/dialogue` live 验证。 |
 
 ## 当前风险摘要
 
@@ -54,7 +54,7 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 - `docs/mobile-handoff/` 是已有移动端交接资料，本轮不是重点；Web 项目当前权威以 `docs/project-memory/`、`docs/contracts/`、`docs/architecture/` 为准。
 - 单 token API auth 是部署前 baseline，不是完整公开产品鉴权方案。
 - Alice 自有模型/素材的商业授权仍需在正式分发前复核。
-- OpenAI / Qwen / DeepSeek 的真实返回细节、账户权限和模型名需要在各自真实 Key 环境中单独验证；仓库自动检查只使用 fake endpoint，不保存真实 Key。
+- OpenAI / Qwen 的真实返回细节仍需在各自真实 Key 环境中验证；DeepSeek `deepseek-v4-pro` 目前只有 fake endpoint 覆盖，尚未产生额外 live 费用。
 
 ## 最近验证
 
@@ -73,7 +73,8 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 - `git diff --check`：通过。
 - `npm run check`：通过，包含 `check:llm-provider-flow`、契约、安全与既有 TTS / VRM 回归。
 - `npm run smoke`：通过，使用无真实 Key 的默认 stub 链路。
-- 未使用或保存任何真实 LLM Key；OpenAI / Qwen / DeepSeek 仍需在各自授权环境中做 live 验证。
+- DeepSeek 项目内 live：通过 `/api/dialogue` 发起 1 次未显式提供 model 的请求，HTTP 200，实际解析为 `deepseek-v4-flash`，`meta.mode=llm_only`，Memory / TTS pending / AvatarDirective / `dialogue.v1` 均正常，耗时约 1.86 秒，未进入 fallback。
+- live 响应当前不透传上游 usage，因此本次项目内 token 数不可获得；日志只记录 requestId、method、path、statusCode、durationMs，未记录 Key 或 Authorization。
 
 ## 本次项目记忆更新记录
 
@@ -81,3 +82,4 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 | --- | --- |
 | 2026-07-03 | 新增项目记忆体系；明确当前状态、权威文档、更新规则、风险与交接验证路径。 |
 | 2026-07-10 | 实现 LLM Provider MVP fallback：真实 provider 缺配置、超时、上游错误、非法/空回复时 `/api/dialogue` 默认降级为完整 `dialogue.v1` stub；新增 fake endpoint 自动检查。 |
+| 2026-07-10 | 统一 LLM resolved model：显式 model 优先，否则使用 provider default；DeepSeek 默认改为 `deepseek-v4-flash` 并完成 1 次项目内真实 `/api/dialogue` 验证。 |
