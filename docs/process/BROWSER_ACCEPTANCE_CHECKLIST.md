@@ -192,6 +192,58 @@ http://localhost:3000?debug=1
 - `js/voice/TTSService.js`
 - `js/app/AppController.js`
 
+## 5.1 真实 CosyVoice2 长音频与 VRM 口型
+
+前置条件：CosyVoice2 runtime 已启动，Web Settings 选择 `cosyvoice`，使用支持 mouth morph 的 VRM（推荐 `local_girl_vrm_test`）。
+
+操作步骤：
+
+- 发送预计 30–120 秒的中文文本。
+- 播放超过原文本估算时长后继续观察模型和 Debug Panel。
+- 播放中再发送一句短文本，验证旧音频被替代。
+- 再分别验证自然结束、TTS fallback / error、播放中切换角色。
+
+预期 Debug Panel：
+
+- 后端音频期间 `lipSync.mode = audio-driven`。
+- `lipSync.audioDriven = true`，`lipSync.amplitude` 和 `lipSync.mouth` 持续变化。
+- 长音频未真实结束前不会因文本 timer 提前变成 `idle`。
+- 被替代的旧音频不会在新音频期间延迟触发 end。
+- 每条结束 / 错误 / 切换路径最终均为 `lipSync.mode = idle`、`isSpeaking = false`、`currentState = idle`。
+
+预期 UI：
+
+- 嘴部随声音强弱变化，无长时间锁死张嘴、数值发散或结束后残留。
+- 表情和 speaking / gesture 动作可并行，但音频结束后安全回到 idle。
+- 控制台无 AudioContext、media element source、morph target 或未处理 Promise 错误。
+
+失败优先检查：
+
+- `js/avatar/presentation/PresentationOrchestrator.js`
+- `js/avatar/presentation/LipSyncController.js`
+- `js/avatar/presentation/AudioAmplitudeSampler.js`
+- `js/avatar/renderers/VRMRenderer.js`
+- `js/voice/TTSService.js`
+- `js/app/AppController.js`
+
+### 2026-07-10 P2 实测记录
+
+当前结论：**部分通过，不是完整验收通过**。
+
+| 场景 | 结果 | 证据 / 说明 |
+| --- | --- | --- |
+| CosyVoice2 runtime / live | 通过 | 官方 FastAPI 前台运行；live 返回 WAV，`streaming=false`、`upstreamStreaming=true`。 |
+| `local_girl_vrm_test` + Provider readiness | 通过 | Web Settings 显示 CosyVoice2 可用、voice `中文女`、服务已连接。 |
+| 5–10 秒短中文语音 | 通过 | 实际 `6.64s`；63 个 `audio-driven` 样本，amplitude `0–0.327`，mouth `0.03–0.112`，五元音组均出现。 |
+| 表情 / 动作 / 口型并行 | 通过（短语音范围） | speaking body motion、neutral expression、blink 与 mouth morph 同时存在。 |
+| 短语音自然结束清理 | 通过 | lip-sync 回 idle，mouth amount / mouth morph 全归零，`isSpeaking=false`、Avatar state idle。 |
+| 30–60 秒长中文语音 | 阻塞，未验收 | 浏览器控制权限在近景复验前因 Codex 使用额度限制被拒绝。 |
+| 连续快速两段语音 | 阻塞，未验收 | 同上；不能用自动化 session-epoch 测试代替真实浏览器结论。 |
+| 播放中取消 / 静音 | 阻塞，未验收 | 同上。 |
+| TTS 错误 / 中断恢复 | 阻塞，未验收 | 同上。 |
+
+口型参数保持不变。全身视角下嘴型较克制，但没有足够的面部近景证据证明是明确视觉缺陷；不得仅凭 `mouthAmount` 数值调整增益。
+
 ## 6. 短期 Memory 开关
 
 操作步骤：

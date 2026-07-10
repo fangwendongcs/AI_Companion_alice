@@ -28,6 +28,15 @@ Each default avatar now has a backend persona baseline:
 
 The goal is not only to switch 3D models. The goal is to switch companion personalities.
 
+P1A establishes the first deterministic quality gate for that goal:
+
+- Persona identity, relationship, and safety boundaries are controlled by the backend.
+- The Web `systemPrompt` field is only a low-priority response preference and no longer hardcodes Alice.
+- Recent dialogue keeps native `user` / `assistant` roles instead of being promoted into the system prompt.
+- Explicit section and history budgets preserve core rules, Persona, and the newest complete context.
+
+See `docs/product/DIALOGUE_QUALITY_BASELINE.md` for the zero-cost checks and deferred live-quality boundary.
+
 ## Conversation Continuity
 
 Phase 5 now has the first loop for:

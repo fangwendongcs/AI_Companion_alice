@@ -9,7 +9,10 @@ export class AudioManager {
 
   async speak(text, { muted = false, affect = null } = {}) {
     const config = applyVoiceAffect(this.getConfig?.() || {}, affect);
-    if (muted) return;
+    if (muted) {
+      this.stop();
+      return;
+    }
     let usedFallbackVoice = false;
 
     this.eventBus?.emit(EVENT_NAMES.AUDIO_REQUEST, {

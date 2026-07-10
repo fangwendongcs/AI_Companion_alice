@@ -88,17 +88,19 @@ export class DialogueOrchestrationService {
     };
     try {
       resolvedRequest = resolveLLMRequest({ provider, model });
+      const dialogueContext = this.promptBuilder.buildDialogueContext({
+        systemPrompt,
+        persona,
+        memory,
+        rag,
+        workflow
+      });
       const llmInput = {
         message,
         provider: resolvedRequest.provider,
         model: resolvedRequest.model,
-        systemPrompt: this.promptBuilder.build({
-          systemPrompt,
-          persona,
-          memory,
-          rag,
-          workflow
-        })
+        systemPrompt: dialogueContext.systemPrompt,
+        history: dialogueContext.history
       };
       if (typeof this.llmService.chatDetailed === 'function') {
         const result = await this.llmService.chatDetailed(llmInput);

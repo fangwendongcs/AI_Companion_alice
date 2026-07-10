@@ -29,6 +29,10 @@ export class DefaultAvatarRenderer {
     return null;
   }
 
+  getPresentationController() {
+    return null;
+  }
+
   getCapabilities() {
     return {
       ...(this.manifest.capabilities || {}),

@@ -114,7 +114,9 @@ async function checkRendererModules() {
   assert(debugPanel.includes('QA motion') && debugPanel.includes('motion.quality') && debugPanel.includes('motion.secondary'), 'Debug Panel 应提供 QA 动作选择与质量/secondary 策略可观测。');
   assert(!appController.includes("request?.layer === 'fullBody' && request?.meta?.mode === 'vrma'"), 'secondary motion suppress 不应继续按 fullBody+vrma 硬编码。');
   assert(orchestrator.includes('class PresentationOrchestrator'), '应存在 PresentationOrchestrator 表现编排骨架。');
-  assert(orchestrator.includes('createNoopController'), 'PresentationOrchestrator 应预留后续 controller safe no-op 接口。');
+  assert(orchestrator.includes('createRendererController'), 'PresentationOrchestrator 应动态桥接当前 renderer 的表现控制器。');
+  assert(!orchestrator.includes("controllers.lipSync || createNoopController('lipSync')"), 'PresentationOrchestrator 不应再把默认 lip-sync 接到 noop。');
+  assert(characterManager.includes('getAvatarPresentationController'), 'CharacterManager 应暴露当前 renderer 的动态表现控制器入口。');
   assert(orchestrator.includes('MotionController'), 'PresentationOrchestrator 应委托 MotionController 处理动作表现。');
   assert(orchestrator.includes('TTSController'), 'PresentationOrchestrator 应委托 TTSController 处理 TTS 生命周期。');
   assert(orchestrator.includes('getDebugState'), 'PresentationOrchestrator 应暴露表现层 debug snapshot。');
@@ -127,6 +129,7 @@ async function checkRendererModules() {
   assert(audioSampler.includes('createAudioAmplitudeSampler'), '应存在可选 audio amplitude sampler 供 lip-sync 使用。');
   assert(vrmRenderer.includes('ExpressionController'), 'VRMRenderer 应委托 ExpressionController 处理表情 / blink。');
   assert(vrmRenderer.includes('LipSyncController'), 'VRMRenderer 应委托 LipSyncController 处理 speaking mouth loop。');
+  assert(vrmRenderer.includes('getPresentationController'), 'VRMRenderer 应向表现编排层暴露 renderer-owned controller。');
   assert(vrmRenderer.includes('this.vrm?.update'), 'VRMRenderer.update 应推进 three-vrm runtime。');
   assert(vrmRenderer.includes('setLookAt'), 'VRMRenderer 应暴露 setLookAt 执行入口。');
   assert(vrmRenderer.includes('hasSpringBoneManager'), 'VRMRenderer capability 应暴露 springBone runtime 状态。');
@@ -141,12 +144,49 @@ async function checkRendererModules() {
 
 async function checkPresentationOrchestrator() {
   const appliedDirectives = [];
+  const directiveOptions = [];
+  const expressionDirectives = [];
+  const lipSyncDirectives = [];
+  const lipSyncStarts = [];
+  const lipSyncEnds = [];
   const requestedSlots = [];
+  const rendererControllers = {
+    expression: {
+      applyDirective(directive) {
+        expressionDirectives.push(directive);
+        return { ok: true, applied: true };
+      }
+    },
+    lipSync: {
+      applyDirective(directive) {
+        lipSyncDirectives.push(directive);
+        return { ok: true, applied: directive?.state === 'speaking' };
+      },
+      onAudioStart(payload) {
+        lipSyncStarts.push(payload);
+        return { ok: true, audioDriven: Boolean(payload?.audioSource) };
+      },
+      onAudioEnd(payload) {
+        lipSyncEnds.push(payload);
+        return { ok: true };
+      },
+      getDebugState() {
+        return {
+          active: lipSyncStarts.length > lipSyncEnds.length,
+          mode: lipSyncStarts.length > lipSyncEnds.length ? 'audio-driven' : 'idle'
+        };
+      }
+    }
+  };
   const orchestrator = new PresentationOrchestrator({
     characterManager: {
-      applyAvatarDirective(directive) {
+      applyAvatarDirective(directive, options) {
         appliedDirectives.push(directive);
-        return { ok: true };
+        directiveOptions.push(options);
+        return { ok: true, directive };
+      },
+      getAvatarPresentationController(name) {
+        return rendererControllers[name] || null;
       }
     },
     motionManager: {
@@ -175,8 +215,14 @@ async function checkPresentationOrchestrator() {
 
   assert(dialogue.directive.tone === 'playful', 'PresentationOrchestrator 应把 affect tone 合并到 AvatarDirective。');
   assert(appliedDirectives.at(-1)?.emotion === 'happy', 'PresentationOrchestrator 应把 AvatarDirective 转交给 CharacterManager。');
+  assert(directiveOptions.at(-1)?.applyPresentation === false, 'PresentationOrchestrator 应避免 renderer.applyDirective 与 controller bridge 重复执行表现。');
+  assert(expressionDirectives.at(-1)?.emotion === 'happy', 'PresentationOrchestrator 应把语义表情交给当前 renderer controller。');
+  assert(lipSyncDirectives.at(-1)?.state === 'speaking', 'PresentationOrchestrator 应把口型 directive 交给当前 renderer controller。');
 
-  orchestrator.handleAudioStart();
+  const audioSource = { type: 'test-audio', getAmplitude: () => 0.6 };
+  orchestrator.handleAudioStart({ audioSource });
+  assert(lipSyncStarts.at(-1)?.audioSource === audioSource, 'audio:start 的 audioSource 必须抵达当前 renderer 的 LipSyncController。');
+  assert(orchestrator.getDebugState().lipSync?.mode === 'audio-driven', '表现层 debug 应读取当前 renderer 的 lip-sync 状态。');
   assert(requestedSlots.some((request) => request.slot === 'speaking'), 'audio:start 应请求 speaking motion slot。');
   assert(requestedSlots.some((request) => request.slot === 'chat'), 'soft_nod / happy 应能映射到 chat motion slot。');
   assert(orchestrator.controllers.tts.getState().status === TTSLifecycleStatus.PLAYING, 'audio:start 应把 TTSController 标记为 playing。');
@@ -190,6 +236,7 @@ async function checkPresentationOrchestrator() {
 
   orchestrator.handleAudioEnd({ currentState: 'speaking', emotion: 'neutral' });
   assert(appliedDirectives.at(-1)?.state === 'idle', 'audio:end 应恢复 idle directive。');
+  assert(lipSyncEnds.length === 1, 'audio:end 应清理当前 renderer 的 lip-sync。');
   assert(requestedSlots.at(-1)?.slot === 'idle', 'speaking 结束后应请求 idle motion slot。');
   assert(orchestrator.controllers.tts.getState().status === TTSLifecycleStatus.ENDED, 'audio:end 应把 TTSController 标记为 ended。');
 
@@ -346,6 +393,25 @@ async function checkPresentationControllers() {
   assert(lipSync.getDebugState().fallback === true, 'LipSyncController debug 应标记缺少 audioSource 时的 fallback。');
   lipSync.applyDirective({ state: 'idle', lip_sync: 'none', intensity: 0 });
   assert(fakeMesh.morphTargetInfluences[2] === 0 && fakeMesh.morphTargetInfluences[3] === 0, 'LipSyncController 应在 idle 时清理 mouth。');
+
+  let sampleIndex = 0;
+  lipSync.applyDirective({ state: 'speaking', lip_sync: 'auto', intensity: 0.72, tone: 'gentle' });
+  lipSync.onAudioStart({
+    directive: { state: 'speaking', lip_sync: 'auto', intensity: 0.72, tone: 'gentle' },
+    audioSource: {
+      getAmplitude() {
+        sampleIndex += 1;
+        return 0.12 + (sampleIndex % 17) / 25;
+      }
+    }
+  });
+  for (let frame = 0; frame < 2400; frame += 1) lipSync.update(0.05);
+  const longAudioDebug = lipSync.getDebugState();
+  assert(longAudioDebug.active === true && longAudioDebug.mode === 'audio-driven', '模拟 120 秒音频期间 lip-sync 应持续 active/audio-driven。');
+  assert(Number.isFinite(longAudioDebug.mouthAmount) && longAudioDebug.mouthAmount > 0, '长音频口型强度应保持有限且大于 0。');
+  lipSync.onAudioEnd();
+  assert(lipSync.getDebugState().mode === 'idle', '长音频结束后 lip-sync 应稳定回到 idle。');
+  assert(fakeMesh.morphTargetInfluences[2] === 0 && fakeMesh.morphTargetInfluences[3] === 0, '长音频结束后所有口型 influence 应归零。');
 }
 
 async function checkVrmManifestCapabilities() {
@@ -576,6 +642,36 @@ async function checkDirectiveApplication() {
     intensity: 0.8
   });
   assert(fakeMesh.morphTargetInfluences[2] > 0, 'angry emotion 应映射到 angry morph group。');
+
+  const rendererManager = {
+    applyAvatarDirective(directive, options) {
+      return renderer.applyDirective(directive, options);
+    },
+    getAvatarPresentationController(name) {
+      return renderer.getPresentationController(name);
+    }
+  };
+  const rendererOrchestrator = new PresentationOrchestrator({ characterManager: rendererManager });
+  rendererOrchestrator.applyDialogueResponse({
+    avatarDirective: {
+      state: 'speaking',
+      emotion: 'warm',
+      gesture: 'none',
+      gaze: 'user',
+      lip_sync: 'auto',
+      intensity: 0.75
+    },
+    affect: { emotion: 'warm', tone: 'gentle' }
+  });
+  const rendererAudioSource = { getAmplitude: () => 0.8 };
+  rendererOrchestrator.handleAudioStart({ audioSource: rendererAudioSource });
+  renderer.update(0.05);
+  assert(renderer.lipSyncController.audioSampler?.type === 'function', '真实 Orchestrator -> VRMRenderer 路径必须创建 audio amplitude sampler。');
+  assert(rendererOrchestrator.getDebugState().lipSync?.mode === 'audio-driven', '真实 Orchestrator -> VRMRenderer 路径必须进入 audio-driven debug 状态。');
+  rendererOrchestrator.handleAudioEnd({ currentState: 'speaking', emotion: 'neutral' });
+  assert(rendererOrchestrator.getDebugState().lipSync?.mode === 'idle', '真实 Orchestrator -> VRMRenderer 路径在 audio:end 后必须回到 idle。');
+  assert(fakeMesh.morphTargetInfluences.slice(4, 9).every((value) => value === 0), '真实 VRMRenderer 口型在 audio:end 后必须全部归零。');
+  rendererOrchestrator.destroy();
 
   const resetResult = renderer.resetSecondaryMotion('qa-test');
   assert(resetResult.ok === true && fakeVrm.springBoneManager.wasReset === true, 'VRMRenderer resetSecondaryMotion 应调用 springBoneManager.reset。');

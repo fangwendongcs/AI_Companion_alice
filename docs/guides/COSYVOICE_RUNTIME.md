@@ -261,6 +261,24 @@ npm run cosyvoice:verify
 6. 停止 runtime；
 7. 验证服务停止后 TTS 降级且 Dialogue 文本仍返回。
 
+## Web 长音频口型验收
+
+`check:cosyvoice-live` 证明 provider 能返回有效 WAV，但不能证明浏览器口型观感。完成 runtime 验证后，再打开：
+
+```text
+http://localhost:3000?debug=1&avatar=local_girl_vrm_test
+```
+
+发送一段预计 30–120 秒的中文文本，并确认：
+
+1. 音频真正开始后，Debug Panel 的 `lipSync.mode` 为 `audio-driven`，`amplitude` 与 `mouth` 持续变化。
+2. 播放时间超过文本估算时长后，口型和 speaking 动作仍随真实音频继续，不会提前回到 idle。
+3. 播放中再次发送文本时，旧音频停止；旧请求不会在新音频期间延迟触发 `audio:end`。
+4. 自然结束、播放错误和角色切换三条路径都应回到 `lipSync.mode=idle`，mouth influence 归零，动作回到 idle。
+5. 浏览器控制台无 `createMediaElementSource`、AudioContext、morph target 或未处理 Promise 错误。
+
+自动化已经覆盖 120 秒模拟振幅稳定性、`audioSource` 到当前 VRM controller 的对象级透传，以及旧播放 session 失效；真实 CosyVoice2 的声音振幅和视觉同步仍以本节手动结果为准。
+
 ## 停止服务
 
 ```bash

@@ -57,7 +57,7 @@ js/avatar/presentation/
 
 The existing `MotionManager` and animation slot queue remain responsible for body actions. VRMRenderer only handles presentation-level expression / basic lip-sync hints.
 
-`PresentationOrchestrator` is the Web-side coordinator between app events and presentation execution. It owns the first layer of directive application, affect tone hinting, audio start / end presentation fallback, and controller coordination. It does not decide persona, memory, dialogue policy, backend provider behavior, or model-specific renderer behavior.
+`PresentationOrchestrator` is the Web-side coordinator between app events and presentation execution. It owns directive application, affect tone hinting, audio start / end presentation fallback, and controller coordination. Its expression / lip-sync adapters resolve the active renderer controller dynamically through `CharacterManager`, so avatar switches do not leave a stale renderer reference and the default path no longer stops at a noop controller. It does not decide persona, memory, dialogue policy, backend provider behavior, or model-specific renderer behavior.
 
 `ExpressionController` and `LipSyncController` keep `VRMRenderer` close to the execution layer:
 
@@ -72,7 +72,14 @@ The existing `MotionManager` and animation slot queue remain responsible for bod
 
 `AudioManager` and `TTSService` remain the owners of audio playback, browser fallback, and backend `/api/tts` provider behavior. `TTSController` only gives the presentation layer one stable lifecycle state for request / playing / fallback / end / error so lip-sync and motion can respond from a single place.
 
-For backend audio playback, `TTSService` can pass a local `HTMLAudioElement` as a non-secret `audioSource`. `LipSyncController` uses it only for amplitude sampling. Browser `speechSynthesis` does not expose a safe audio stream, so browser fallback remains on the basic speaking loop. This phase does not add Higgs Audio, OpenAI TTS, Azure, ElevenLabs, phoneme / viseme metadata, or a new provider.
+For backend audio playback, `TTSService` passes a local `HTMLAudioElement` as a non-secret `audioSource` through `AudioManager -> AppController -> PresentationOrchestrator -> active VRMRenderer LipSyncController`. `LipSyncController` uses it only for amplitude sampling. Browser `speechSynthesis` does not expose a safe audio stream, so browser fallback remains on the basic speaking loop. This phase does not add Higgs Audio, OpenAI TTS, Azure, ElevenLabs, phoneme / viseme metadata, or a new provider.
+
+Long playback lifecycle rules:
+
+- `audio:start` cancels the pre-playback text-duration watchdog, so real audio duration owns the speaking lifetime.
+- A newer TTS request invalidates older playback callbacks; stale `audio:start` / `audio:end` events cannot reset the new renderer state.
+- Cancelling an `HTMLAudioElement` settles its playback Promise and clears playback references, avoiding unresolved long-audio tasks and delayed cleanup.
+- `audio:end` / `audio:error` clear amplitude sampling, zero mouth influences, and request idle recovery through the same presentation boundary.
 
 `AppController` syncs the lip-sync debug snapshot into `state.presentation.lipSync` only while lip-sync is active or when audio lifecycle changes. The Debug Panel reads that state to show mode, amplitude, fallback status, and current mouth group without storing audio objects, morph target names, provider keys, or renderer-specific paths.
 
@@ -193,6 +200,9 @@ This verifies:
 - `VRMRenderer` can drive girl-style happy / sad / angry / surprised expression groups, five-vowel speaking mouth movement, and automatic blink.
 - `ExpressionController` and `LipSyncController` are covered directly so expression / blink / lip-sync policy does not drift back into `VRMRenderer`.
 - `LipSyncController` is covered for optional audio-amplitude mouth intensity and for fallback when no audio source is available.
+- `PresentationOrchestrator` is covered for object-identity delivery of `audioSource` to the active renderer-owned `LipSyncController`, rather than a static source-code string check.
+- A simulated 120-second amplitude stream verifies that mouth values stay finite and active, then return to idle with all tested mouth influences reset.
+- TTS playback replacement is covered so stale long-audio callbacks are ignored and cancelled `HTMLAudioElement` playback settles cleanly.
 - `MotionController` is covered directly so gesture / affect / audio lifecycle motion mapping does not drift back into `PresentationOrchestrator` or `VRMRenderer`.
 - `TTSController` is covered directly so audio lifecycle state does not drift back into `AppController`, `AudioManager`, or `VRMRenderer`.
 - Backend business services do not depend on renderer-specific fields.
@@ -201,9 +211,12 @@ This verifies:
 
 ## Current Visual Validation Status
 
-Shiro and Wambo are existing small CC0 VRM assets, but this phase does not claim a full visual QA pass unless the browser checklist is run manually. Use `http://localhost:3000?debug=1`, switch to Shiro / Wambo, send a stub dialogue, and confirm:
+Shiro and Wambo are existing small CC0 VRM assets, but this phase does not claim a full visual QA pass unless the browser checklist is run manually. The P2 wiring fix is automated; real CosyVoice2 amplitude quality and long-audio visual timing still require a browser run. Use `http://localhost:3000?debug=1`, switch to Shiro / Wambo, send a stub dialogue, and confirm:
 
 - model remains visible;
 - dialogue state reaches speaking then idle;
+- Debug Panel shows `lipSync.mode=audio-driven` for backend audio, changing amplitude / mouth values during playback, then `idle` after audio ends;
 - click interactions still trigger motion slots;
 - console has no new errors or warnings.
+
+2026-07-10 real-browser status: `local_girl_vrm_test` short CosyVoice2 playback (`6.64s`) passed audio-driven sampling, five-vowel cycling, expression/blink/body-motion coexistence, and mouth reset at end. Mouth amount observed `0.03–0.112`; no parameter change was made because the available full-body screenshot did not prove a visual defect. Long playback, rapid replacement, mute/cancel, and error recovery remain unverified after browser control was blocked by the current Codex usage limit. See `docs/process/BROWSER_ACCEPTANCE_CHECKLIST.md` for the scenario matrix.

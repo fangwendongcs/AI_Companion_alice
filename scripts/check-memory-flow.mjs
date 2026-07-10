@@ -121,14 +121,15 @@ async function checkMemoryContextFeedsRealProviderPrompt() {
     message: '第二轮追问',
     provider: 'openai',
     model: 'gpt-4o-mini',
-    systemPrompt: '你是 Alice。',
+    systemPrompt: '请简短回复。',
     sessionId,
     options: { useMemory: true }
   });
 
   const secondCall = calls[1];
-  assert(secondCall.systemPrompt.includes('短期对话记忆'), '真实 provider prompt 必须包含短期记忆标题。');
-  assert(secondCall.systemPrompt.includes('第一轮资料'), '真实 provider prompt 必须包含上一轮 memory context。');
+  assert(!secondCall.systemPrompt.includes('第一轮资料'), '历史用户消息不得进入真实 provider systemPrompt。');
+  assert(secondCall.history?.some((item) => item.role === 'user' && item.content === '第一轮资料'), '真实 provider 必须以 user role 接收上一轮用户消息。');
+  assert(secondCall.history?.some((item) => item.role === 'assistant' && item.content === '真实 provider mock 回复'), '真实 provider 必须以 assistant role 接收上一轮回复。');
 }
 
 async function checkExplicitLongTermMemory() {

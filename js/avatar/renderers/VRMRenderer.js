@@ -67,17 +67,20 @@ export class VRMRenderer extends DefaultAvatarRenderer {
     };
   }
 
-  applyDirective(directive = {}) {
+  applyDirective(directive = {}, { applyPresentation = true } = {}) {
     const normalized = normalizeDirective(directive);
     this.lastDirective = normalized;
-    this.expressionController.applyDirective(normalized);
-    this.lipSyncController.applyDirective(normalized);
+    if (applyPresentation) {
+      this.expressionController.applyDirective(normalized);
+      this.lipSyncController.applyDirective(normalized);
+    }
 
     return {
       ok: true,
       type: this.type,
       applied: true,
       directive: normalized,
+      presentationApplied: applyPresentation,
       expressionCount: this.detectedExpressions.size,
       mouthGroups: this.mouthGroups
     };
@@ -212,6 +215,12 @@ export class VRMRenderer extends DefaultAvatarRenderer {
 
   getCurrentMouthGroup() {
     return this.lipSyncController.getCurrentMouthGroup();
+  }
+
+  getPresentationController(name) {
+    if (name === 'expression') return this.expressionController;
+    if (name === 'lipSync') return this.lipSyncController;
+    return null;
   }
 
   resetExpressionGroups(groups) {

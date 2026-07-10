@@ -170,9 +170,10 @@
             </select>
           </div>
           <div class="setting-group">
-            <span class="setting-label">角色设定 Prompt</span>
+            <span class="setting-label">补充回复规则</span>
             <textarea class="custom-input" id="systemPromptInput" rows="3"
-              placeholder="你是 Alice，一个元气满满的青少年 AI 伙伴。请用简短活泼的语气回复，每次控制在 50 字以内。"></textarea>
+              placeholder="例如：请使用简短、自然的中文回复，每次尽量控制在 60 字以内。"></textarea>
+            <div class="setting-help">这是低优先级的回复偏好；角色身份、关系和安全边界由后端 Persona 控制。</div>
           </div>
           <div style="display: flex; gap: 8px;">
             <button class="custom-btn" id="saveLLMConfigBtn">💾 保存偏好</button>

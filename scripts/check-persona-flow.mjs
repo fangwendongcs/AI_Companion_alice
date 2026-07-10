@@ -33,9 +33,9 @@ function checkPersonaRegistry() {
 function checkPromptBuilderPersonaSection() {
   const persona = new PersonaService().getPersona('osa_shiro');
   const prompt = new PromptBuilder().build({ persona });
-  assert(prompt.includes('角色人格与对话边界'), 'PromptBuilder 必须包含 persona 标题。');
+  assert(prompt.includes('Persona 核心身份与关系'), 'PromptBuilder 必须包含 persona 核心身份标题。');
   assert(prompt.includes('Shiro'), 'PromptBuilder 必须注入角色名称。');
-  assert(prompt.includes('边界'), 'PromptBuilder 必须注入对话边界。');
+  assert(prompt.includes('Persona 边界'), 'PromptBuilder 必须注入对话边界。');
 }
 
 async function checkDialoguePersonaMetaAndPrompt() {

@@ -24,6 +24,7 @@ export class LLMService {
     provider = 'openai',
     model = '',
     systemPrompt = '',
+    history = [],
     maxTokens = 200,
     temperature = 0.8
   } = {}) {
@@ -60,10 +61,7 @@ export class LLMService {
         headers,
         body: JSON.stringify({
           model: resolvedModel,
-          messages: [
-            { role: 'system', content: String(systemPrompt || '你是 Alice，一个简短回复的 3D 数字伙伴。') },
-            { role: 'user', content: String(message || '') }
-          ],
+          messages: buildLLMMessages({ systemPrompt, history, message }),
           max_tokens: maxTokens,
           temperature
         }),
@@ -92,6 +90,20 @@ export class LLMService {
       throw normalizeUpstreamError(error);
     }
   }
+}
+
+export function buildLLMMessages({ systemPrompt = '', history = [], message = '' } = {}) {
+  const messages = [{
+    role: 'system',
+    content: String(systemPrompt || '你是 Alice，一个简短回复的 3D 数字伙伴。')
+  }];
+  for (const item of Array.isArray(history) ? history : []) {
+    const role = item?.role === 'assistant' ? 'assistant' : item?.role === 'user' ? 'user' : '';
+    const content = String(item?.content || '').trim();
+    if (role && content) messages.push({ role, content });
+  }
+  messages.push({ role: 'user', content: String(message || '') });
+  return messages;
 }
 
 export function resolveLLMRequest({ provider = 'openai', model = '' } = {}) {

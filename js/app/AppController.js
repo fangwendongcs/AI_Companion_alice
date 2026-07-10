@@ -322,6 +322,7 @@ export class AppController {
       });
     }));
     this.registry.add(this.eventBus.on(EVENT_NAMES.AUDIO_START, ({ engine, affect, audioSource } = {}) => {
+      this.clearSpeechTimer();
       this.patchState({ isSpeaking: true }, EVENT_NAMES.AUDIO_START);
       const presentation = this.presentation.handleAudioStart({
         engine,
@@ -1012,7 +1013,7 @@ export class AppController {
   }
 
   speakText(text, { affect = null } = {}) {
-    if (this.state.speechTimer) clearTimeout(this.state.speechTimer);
+    this.clearSpeechTimer();
 
     const estimatedDuration = Math.max(UI_TIMING.speechMinMs, text.length * UI_TIMING.speechMsPerChar);
     this.state.speechTimer = this.registry.addTimeout(() => this.resetSpeakingState('audio:timer'), estimatedDuration);
@@ -1022,11 +1023,14 @@ export class AppController {
     });
   }
 
+  clearSpeechTimer() {
+    if (!this.state.speechTimer) return;
+    clearTimeout(this.state.speechTimer);
+    this.state.speechTimer = null;
+  }
+
   resetSpeakingState(source = 'audio:reset', audioEvent = {}) {
-    if (this.state.speechTimer) {
-      clearTimeout(this.state.speechTimer);
-      this.state.speechTimer = null;
-    }
+    this.clearSpeechTimer();
     this.patchState({ isSpeaking: false }, source);
     if (source === EVENT_NAMES.AUDIO_ERROR) {
       this.presentation.handleAudioError({

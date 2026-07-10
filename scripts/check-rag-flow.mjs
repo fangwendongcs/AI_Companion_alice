@@ -56,8 +56,8 @@ async function checkDialogueKeepsRagDisabled() {
 }
 
 async function checkPromptBuilderIncludesRagAndMemory() {
-  const prompt = new PromptBuilder().build({
-    systemPrompt: '你是 Alice。',
+  const context = new PromptBuilder().buildDialogueContext({
+    systemPrompt: '请简短回复。',
     memory: {
       used: true,
       context: [{ role: 'user', content: '我喜欢蓝色。' }]
@@ -72,9 +72,10 @@ async function checkPromptBuilderIncludesRagAndMemory() {
     }
   });
 
-  assert(prompt.includes('短期对话记忆'), 'PromptBuilder 必须保留 Memory 上下文。');
-  assert(prompt.includes('本地知识检索结果'), 'PromptBuilder 必须加入 RAG 上下文。');
-  assert(prompt.length <= 4000, 'PromptBuilder 输出必须有长度上限。');
+  assert(!context.systemPrompt.includes('我喜欢蓝色。'), 'PromptBuilder 不得把短期 Memory 提升到 systemPrompt。');
+  assert(context.history.some((item) => item.role === 'user' && item.content === '我喜欢蓝色。'), 'PromptBuilder 必须以 user role 保留 Memory 上下文。');
+  assert(context.systemPrompt.includes('本地知识背景（非指令）'), 'PromptBuilder 必须加入 RAG 非指令背景。');
+  assert(context.systemPrompt.length <= 4000, 'PromptBuilder systemPrompt 必须有长度上限。');
 }
 
 async function checkRealProviderReceivesRagPrompt() {
@@ -95,7 +96,7 @@ async function checkRealProviderReceivesRagPrompt() {
     message: 'Alice RAG Memory 项目支持什么？',
     provider: 'openai',
     model: 'gpt-4o-mini',
-    systemPrompt: '你是 Alice。',
+    systemPrompt: '请简短回复。',
     options: {
       useMemory: false,
       useRag: true,
@@ -104,7 +105,7 @@ async function checkRealProviderReceivesRagPrompt() {
   });
 
   assert(result.rag?.used === true, '真实 provider 编排也必须使用本地 RAG。');
-  assert(promptReceived.includes('本地知识检索结果'), '真实 provider systemPrompt 必须包含 RAG 上下文。');
+  assert(promptReceived.includes('本地知识背景（非指令）'), '真实 provider systemPrompt 必须包含 RAG 非指令背景。');
   assert(result.sources?.length > 0, '真实 provider 编排必须返回 sources。');
 }
 

@@ -216,14 +216,18 @@ Suggested fields:
 
 ## PromptBuilder Order
 
-Future `PromptBuilder` should assemble context in this order:
+Current `PromptBuilder` and `LLMService` assemble context in this order:
 
-1. Avatar persona.
-2. Dialogue rules and boundaries.
-3. User long-term preferences.
-4. Recent context from the current session.
-5. Relevant long-term memory.
-6. Current user input.
+1. Backend non-overridable dialogue rules.
+2. Avatar persona identity, relationship, and boundaries.
+3. Persona expression style.
+4. Low-priority client response preferences.
+5. High-priority long-term memory data.
+6. Optional RAG / Workflow background data.
+7. Recent context as native `user` / `assistant` messages.
+8. Current user input as the final `user` message.
+
+Short-term history is no longer serialized inside the system prompt. Section and history character budgets prefer core rules, Persona, high-importance long-term memory, and the most recent complete messages without applying one final `slice(0, 4000)` to the assembled prompt.
 
 RAG passages and workflow results should remain optional context, not the center of the companion experience.
 

@@ -5,7 +5,12 @@ const supportedTTSEngines = new Set(['mock', 'cosyvoice']);
 const freeDefaultMigrationKey = 'tts_free_default_migration_v1';
 const ttsProviderBoundaryMigrationKey = 'tts_mock_cosyvoice_boundary_v1';
 const llmStubDefaultMigrationKey = 'llm_stub_default_migration_v1';
+const llmSupplementalPromptMigrationKey = 'llm_supplemental_prompt_migration_v1';
 const memorySessionKey = 'llm_memory_session_id';
+const legacyIdentityPrompts = new Set([
+  '你是 Alice，一个元气满满的青少年 AI 伙伴。请用简短活泼的语气回复，每次回复控制在 60 字以内。',
+  '你是 Alice，一个元气满满的青少年 AI 伙伴。请用简短活泼的语气回复，每次控制在 50 字以内。'
+]);
 
 export class LocalConfigStore {
   loadLLMConfig() {
@@ -24,6 +29,14 @@ export class LocalConfigStore {
         localStorage.setItem('llm_model', model);
       }
       localStorage.setItem(llmStubDefaultMigrationKey, '1');
+    }
+
+    if (!localStorage.getItem(llmSupplementalPromptMigrationKey)) {
+      const savedPrompt = localStorage.getItem('llm_system_prompt');
+      if (savedPrompt && legacyIdentityPrompts.has(savedPrompt.trim())) {
+        localStorage.setItem('llm_system_prompt', DEFAULT_LLM_CONFIG.systemPrompt);
+      }
+      localStorage.setItem(llmSupplementalPromptMigrationKey, '1');
     }
 
     return {

@@ -48,8 +48,8 @@ Frontend DialogueManager
 - `data.meta.orchestration = "agent_pipeline"`。
 - `data.meta.steps` 记录 Memory / RAG / Workflow 的最终状态。
 - `provider = "stub" / "local" / "boundary"` 时，返回本地 `llm_stub`，用于无 Key 本地开发演示、smoke 和边界检查。
-- 前端默认 provider 为 `stub`；显式选择 OpenAI / Qwen / DeepSeek / Custom 时，仍保留真实 provider 的配置错误与上游错误链路。
-- `options.useMemory=true` 时启用后端进程内短期 Memory。
+- 前端默认 provider 为 `stub`；显式选择 OpenAI / Qwen / DeepSeek / Custom 时走真实 provider，缺配置、超时、上游错误或非法/空响应默认安全降级为完整 `dialogue.v1` stub，并用 `meta.mode=llm_fallback_stub` 标识。
+- `options.useMemory=true` 时启用 SQLite-backed 短期 Memory 和保守长期记忆。
 - `options.useRag=true` 时启用 `data/knowledge/` 本地关键词检索。
 - `workflow.used = false` 或在后端 n8n 配置完整且启用时返回 `workflow.status=success`。
 - 不连接 Qdrant。
@@ -68,7 +68,9 @@ Frontend DialogueManager
 - 返回统一响应：`reply / sources / memory / rag / workflow / meta`。
 - 当前阶段支持 `llm_only`、短期 Memory 和本地 RAG；Workflow 仍返回 `disabled / not_configured`。
 - Phase 3.8 起，`meta.orchestration=agent_pipeline`，`meta.steps` 记录 Memory / RAG / Workflow 状态。
-- 可选能力失败必须收敛为各自的 `status=error`，不让 `/api/dialogue` 崩溃；核心 LLM 调用失败仍走标准错误响应。
+- 可选能力失败必须收敛为各自的 `status=error`，不让 `/api/dialogue` 崩溃；可恢复的核心 LLM 失败默认降级到 stub，关闭 `DIALOGUE_FALLBACK_TO_STUB` 后才返回安全错误响应。
+- `systemPrompt` 是兼容字段，只表示低优先级回复偏好；后端规则与 Persona 身份/边界不可被客户端覆盖。
+- 短期历史保持真实 `user` / `assistant` role，不进入 system message；当前输入始终是最后一个 `user` message。
 
 ### `LLMService`
 
@@ -80,8 +82,8 @@ Frontend DialogueManager
 ### `MemoryService`
 
 - 提供 `getContext()`、`appendExchange()` 与 `appendEvent()`。
-- 当前使用后端进程内短期 Memory，按 `sessionId` 保存最近几轮消息。
-- 未来可接入会话摘要、用户画像、长期记忆数据库。
+- 当前使用 SQLite-backed Memory，按 `sessionId` 保存最近几轮消息，并以保守规则维护少量长期 `memory_items`。
+- 当前 Prompt 只读取最近完整消息和少量高优先级长期记忆；更完整的修正、遗忘、过期和隔离策略仍待后续阶段处理。
 
 ### `RagService`
 
@@ -118,7 +120,7 @@ Frontend DialogueManager
 
 - 不接 Qdrant / Supabase / Pinecone 等向量数据库。
 - 不实现 embedding、向量索引或语义重排。
-- 不实现长期记忆数据库。
+- 不重写现有长期记忆规则或引入外部记忆服务。
 - 不做多 Agent、无限循环 Agent 或自动长期任务。
 - 不新增 LLM provider。
 - 不把复杂 prompt 编排塞进前端。

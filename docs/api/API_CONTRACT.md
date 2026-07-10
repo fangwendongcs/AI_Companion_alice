@@ -161,6 +161,10 @@ validate input -> memory context -> rag context -> optional workflow -> PromptBu
 }
 ```
 
+`systemPrompt` 保留为兼容字段，但后端只把它解释为低优先级的“补充回复偏好”，适合表达语言、长度、格式和语气偏好。它不是可信的 system 权限，不能重新定义后端 Persona 核心身份、角色关系、安全边界或真实能力；发生冲突时以后端规则与 Persona 为准。Web 不在前端复制 Persona Prompt。
+
+真实 LLM messages 的内部结构为：一个由后端规则、Persona、低优先级偏好、长期记忆和可选背景资料组成的 `system` message；随后是保持原始 `user` / `assistant` role 和顺序的最近短期上下文；当前用户输入始终是最后一个且只出现一次的 `user` message。历史用户文本不会被拼入 system message。该内部调整不改变 `/api/dialogue` 请求字段或 `dialogue.v1` 响应字段。
+
 `model` 可以省略。LLM 模型解析遵循统一规则：
 
 1. 请求显式提供非空 `model` 时，保留客户端指定值。

@@ -164,11 +164,15 @@ export class CharacterManager {
     return this.avatarLoader.createFallback();
   }
 
-  applyAvatarDirective(directive) {
+  applyAvatarDirective(directive, options = {}) {
     if (!this.renderer?.applyDirective) {
       return { ok: false, reason: 'renderer_not_ready' };
     }
-    return this.renderer.applyDirective(directive);
+    return this.renderer.applyDirective(directive, options);
+  }
+
+  getAvatarPresentationController(name) {
+    return this.renderer?.getPresentationController?.(name) || null;
   }
 
   updateAvatarRenderer(delta) {

@@ -9,8 +9,8 @@ export class PresentationOrchestrator {
     this.motionManager = motionManager;
     this.log = log;
     this.controllers = {
-      expression: controllers.expression || createNoopController('expression'),
-      lipSync: controllers.lipSync || createNoopController('lipSync'),
+      expression: controllers.expression || createRendererController(characterManager, 'expression'),
+      lipSync: controllers.lipSync || createRendererController(characterManager, 'lipSync'),
       tts: controllers.tts || new TTSController({ log }),
       motion: controllers.motion || new MotionController({ motionManager, log })
     };
@@ -22,8 +22,7 @@ export class PresentationOrchestrator {
     this.lastDialogueAffect = affect || null;
     const directive = this.withAffectDirectiveHints(avatarDirective, affect);
     this.lastAvatarDirective = directive || null;
-    const result = this.applyAvatarDirective(directive, source);
-    this.controllers.expression.applyDirective?.(directive, { affect, source });
+    const result = this.applyAvatarDirective(directive, source, { affect });
     return {
       directive,
       affect: this.lastDialogueAffect,
@@ -44,7 +43,7 @@ export class PresentationOrchestrator {
   handleAudioStart({ engine = null, affect = null, audioSource = null, source = 'audio:start' } = {}) {
     const activeAffect = affect || this.lastDialogueAffect || null;
     const directive = this.lastAvatarDirective || createSpeakingDirective(activeAffect);
-    const result = this.applyAvatarDirective(directive, source);
+    const result = this.applyAvatarDirective(directive, source, { affect: activeAffect });
     const tts = this.controllers.tts.onStart?.({ engine, affect: activeAffect, directive, source });
     const lipSync = this.controllers.lipSync.onAudioStart?.({ directive, affect: activeAffect, audioSource, source });
     this.controllers.motion.onAudioStart?.({ affect: activeAffect, directive, source });
@@ -80,7 +79,7 @@ export class PresentationOrchestrator {
     const directive = createIdleDirective(emotion);
     const activeAffect = affect || this.lastDialogueAffect || null;
     const tts = this.controllers.tts.onError?.({ engine, message, error, affect: activeAffect, source });
-    const result = this.applyAvatarDirective(directive, source);
+    const result = this.applyAvatarDirective(directive, source, { affect: activeAffect });
     const lipSync = this.controllers.lipSync.onAudioEnd?.({ directive, source });
     this.controllers.motion.onAudioEnd?.({ currentState, source });
     return {
@@ -96,12 +95,17 @@ export class PresentationOrchestrator {
     return this.controllers.motion.requestAffectMotion?.(affect, fallbackSlot, avatarDirective);
   }
 
-  applyAvatarDirective(avatarDirective, source = 'avatar:directive') {
+  applyAvatarDirective(avatarDirective, source = 'avatar:directive', { affect = null } = {}) {
     if (!avatarDirective) return null;
-    const result = this.characterManager?.applyAvatarDirective?.(avatarDirective) || {
+    const result = this.characterManager?.applyAvatarDirective?.(avatarDirective, {
+      applyPresentation: false
+    }) || {
       ok: false,
       reason: 'character_manager_not_ready'
     };
+    const presentationDirective = result?.directive || avatarDirective;
+    this.controllers.expression.applyDirective?.(presentationDirective, { affect, source });
+    this.controllers.lipSync.applyDirective?.(presentationDirective, { affect, source });
     if (result?.ok === false) {
       this.log?.debug?.('Avatar directive 未应用:', source, result.reason);
     }
@@ -192,5 +196,32 @@ function createNoopController(name) {
       return { ok: true, applied: false, reason: `${name}_controller_pending` };
     },
     destroy() {}
+  };
+}
+
+function createRendererController(characterManager, name) {
+  const fallback = createNoopController(name);
+  const invoke = (method, args = []) => {
+    const controller = characterManager?.getAvatarPresentationController?.(name);
+    return controller?.[method]?.(...args) ?? fallback[method]?.(...args) ?? null;
+  };
+
+  return {
+    name: `active-renderer:${name}`,
+    applyDirective(...args) {
+      return invoke('applyDirective', args);
+    },
+    onAudioStart(...args) {
+      return invoke('onAudioStart', args);
+    },
+    onAudioEnd(...args) {
+      return invoke('onAudioEnd', args);
+    },
+    getDebugState(...args) {
+      return invoke('getDebugState', args);
+    },
+    destroy() {
+      // Renderer-owned controllers are destroyed by the renderer during avatar switches.
+    }
   };
 }

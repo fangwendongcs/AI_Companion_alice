@@ -4,6 +4,7 @@ import { EventBus } from '../js/core/EventBus.js';
 import { EVENT_NAMES } from '../js/core/events/eventNames.js';
 import { LLMClient } from '../js/ai/LLMClient.js';
 import { normalizeApiResponse } from '../js/services/api/ApiClient.js';
+import { TTSService } from '../js/voice/TTSService.js';
 
 const failures = [];
 
@@ -18,6 +19,7 @@ await checkAudioSuccessFlow();
 await checkAudioMutedFlow();
 await checkAudioFallbackFlow();
 await checkAudioUnexpectedErrorFlow();
+await checkTTSPlaybackLifecycle();
 
 if (failures.length) {
   console.error('[check-mvp-flow] MVP 主链路验收失败:');
@@ -330,6 +332,96 @@ async function checkAudioUnexpectedErrorFlow() {
     EVENT_NAMES.AUDIO_REQUEST,
     EVENT_NAMES.AUDIO_ERROR
   ], 'AudioManager 异常链路必须回到 audio:error。');
+}
+
+async function checkTTSPlaybackLifecycle() {
+  const originalWindow = globalThis.window;
+  const originalAudio = globalThis.Audio;
+  const fakeSpeechSynthesis = {
+    cancel() {},
+    getVoices() {
+      return [];
+    }
+  };
+  globalThis.window = { speechSynthesis: fakeSpeechSynthesis };
+
+  try {
+    const service = new TTSService('/api/tts');
+    const pending = [createDeferred(), createDeferred()];
+    const lifecycle = [];
+    let invocation = 0;
+    service.speakWithBackend = async (_text, _config, _provider, { onStart } = {}) => {
+      const index = invocation;
+      invocation += 1;
+      await pending[index].promise;
+      onStart?.({ audioSource: { id: index } });
+    };
+
+    const first = service.speak('first', { engine: 'mock' }, {
+      onStart: () => lifecycle.push('first:start'),
+      onEnd: () => lifecycle.push('first:end')
+    });
+    const second = service.speak('second', { engine: 'mock' }, {
+      onStart: () => lifecycle.push('second:start'),
+      onEnd: () => lifecycle.push('second:end')
+    });
+
+    pending[1].resolve();
+    await second;
+    pending[0].resolve();
+    await first;
+    assert(
+      JSON.stringify(lifecycle) === JSON.stringify(['second:start', 'second:end']),
+      `新语音替代旧长音频请求后，不应收到陈旧 start/end。实际：${lifecycle.join(' -> ')}`
+    );
+
+    let fakeAudio = null;
+    globalThis.Audio = class FakeAudio {
+      constructor(url) {
+        this.url = url;
+        this.paused = false;
+        this.onended = null;
+        this.onerror = null;
+        fakeAudio = this;
+      }
+
+      play() {
+        return Promise.resolve();
+      }
+
+      pause() {
+        this.paused = true;
+      }
+    };
+
+    let audioSource = null;
+    const playback = service.playAudioUrl('blob:test-audio', {
+      onStart: (detail) => {
+        audioSource = detail.audioSource;
+      }
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    service.stop();
+    await playback;
+    assert(audioSource?.audioElement === fakeAudio, 'HTMLAudioElement 必须作为安全 audioSource 暴露给表现层。');
+    assert(fakeAudio?.paused === true, 'stop() 必须暂停被替代的长音频。');
+    assert(service.currentPlayback === null && service.currentAudio === null, '被替代的长音频 Promise 必须完成并清理当前播放引用。');
+    service.destroy();
+  } finally {
+    if (originalWindow === undefined) delete globalThis.window;
+    else globalThis.window = originalWindow;
+    if (originalAudio === undefined) delete globalThis.Audio;
+    else globalThis.Audio = originalAudio;
+  }
+}
+
+function createDeferred() {
+  let resolve;
+  const promise = new Promise((settle) => {
+    resolve = settle;
+  });
+  return { promise, resolve };
 }
 
 function createTrackedBus(events, names) {
