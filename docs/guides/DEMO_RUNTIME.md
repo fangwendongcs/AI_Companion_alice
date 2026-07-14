@@ -17,6 +17,8 @@ http://localhost:3000
 http://localhost:3000?debug=1
 ```
 
+页面加载后会读取 `/api/providers`。如果浏览器仍停留在历史默认的 `stub` / `mock`，且后端报告 DeepSeek `ready`、CosyVoice `live ready`，Web 会一次性迁移到 `deepseek` / `cosyvoice` 并保存选择。迁移后用户仍可在开发设置中手动切回 Stub 或 Mock，后续加载不会再次覆盖明确选择。
+
 ### `demo:start`
 
 - 使用根目录 Git-ignored `.env` 读取 DeepSeek Key 和其他后端配置，但不会写回文件。
@@ -68,6 +70,7 @@ runtime/demo/logs/cosyvoice.log
 - readiness 或真实 LLM / TTS 检查失败：`demo:start` 返回失败并停止本次创建的服务，避免留下半启动状态。
 - stale state：先运行 `npm run demo:stop`；脚本只处理仍能通过进程指纹确认的本实例进程。
 - 未管理端口占用：脚本报告端口并退出，需要用户自行判断占用来源。
+- 页面有端口但回复仍是本地演示文案：检查设置与 localStorage 是否为 `llm_provider=stub` / `tts_engine=mock`；新版 Web 会在真实 provider ready 时做一次性迁移，不要求清空全部浏览器数据。
 
 ## 环境边界
 

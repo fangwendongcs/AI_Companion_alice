@@ -42,6 +42,19 @@
 7. 在启动成功提示中区分 `process_started`、`endpoint_ready`、`provider_ready`、`live_verified`，避免把端口开放误报为完整 LLM/TTS 链路可用。
 8. 配置校验应识别 `replace_with_*`、`example.invalid` 等 placeholder，readiness 中按 `not_configured` 处理，并提供生成“最小本地 `.env`”的安全脚本，避免直接复制整份 `.env.example`。
 
+## 2026-07-14 Demo 页面无回复 / 无声音排查记录
+
+| 检查项 | 真实结果 | 处理 |
+| --- | --- | --- |
+| 浏览器是否发请求 | 页面确实发出 `/api/dialogue` 与 `/api/tts`，均为 HTTP 200。 | 不再用“端口已监听”推断页面链路可用，直接检查 Network 请求体与响应。 |
+| Dialogue 是否真实 | 故障请求为 `provider=stub/model=stub`，约 3ms 返回固定本地演示文案，`meta.mode=llm_stub`。 | 后端 DeepSeek ready 且浏览器仍是历史默认时，一次性迁移到 `deepseek` 和后端默认 model。 |
+| TTS 是否真实 | 故障请求为 `provider=mock`，约 2ms 返回 `mock_silence`；CosyVoice 日志没有收到对话文本。 | CosyVoice `available=true/health.live=true` 时，一次性迁移到 `cosyvoice`。 |
+| `.env` / 后端 | DeepSeek Key 已配置，model 为 `deepseek-v4-flash`，Base URL 为官方 DeepSeek host；Demo 子进程将空 CosyVoice URL 安全覆盖为本机 `127.0.0.1:50000`。 | 不修改、不输出 Key；以 `/api/providers` 和真实请求结果确认运行态读取。 |
+| 页面回复显示 | HTML 原设计明确只播语音、不显示文字；在 Mock 静音时表现为“完全没有回复”。 | 增加可见、`aria-live` 的当前回复区域，并显示 thinking/error 状态。 |
+| 自动播放 | 修复后第二轮真实 CosyVoice 音频为 5.12 秒，浏览器采样确认非静音播放且时间持续推进。 | 保持后端音频播放链路，不改 TTS/Dialogue 契约。 |
+
+修复后连续两轮浏览器验收均为 DeepSeek `llm_only` + CosyVoice HTTP 200。当前 Console 仍有既存 `public/models/animations/boot.fbx` 与 favicon 404；它们不影响本次 Dialogue/TTS 闭环，但应在后续独立资源清理任务中处理，避免掩盖新的 Console 错误。
+
 ## 待验证项
 
 | 待验证 | 建议命令/方式 |

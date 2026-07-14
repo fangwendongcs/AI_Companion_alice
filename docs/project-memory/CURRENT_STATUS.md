@@ -14,6 +14,7 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 - LLM 已支持后端 OpenAI-compatible `openai` / `qwen` / `deepseek` / `custom`；真实 provider 失败时，`/api/dialogue` 默认安全降级到完整 `dialogue.v1` stub 回复。
 - 本地 `npm run dev` 使用 Node 原生 `--env-file-if-exists=.env`：存在本地忽略配置时自动加载，不存在时仍可用 stub/mock 启动。
 - 完整本地 Demo 已提供 `demo:start/status/stop`：Node supervisor 统一托管 Alice 与 CosyVoice2，并以真实 DeepSeek 回复和有效 WAV 作为 ready 标准。
+- Web 会在后端 DeepSeek / CosyVoice 真实 ready 时一次性迁移历史 `stub` / `mock` 默认，并在页面显示当前 Alice 回复；用户之后的明确 provider 选择继续保留。
 - P1A 已收口 Prompt/Persona 基础正确性：后端控制不可覆盖规则和 Persona，Web `systemPrompt` 只作为低优先级回复偏好，短期历史保持原始 `user` / `assistant` role。
 - P1B 已收口 Memory 确定性问题：偏好保留否定极性，写入指令与召回问句分离，短期消息按 `sessionId + avatarId` 隔离，敏感用户轮次及 assistant 同轮回复不进入 SQLite。
 - P1C 已将 LLM 回复上限配置化为 `LLM_MAX_TOKENS`（默认 `320`），内部保留安全 finish reason / token usage 诊断，并收口舞台提示、emoji 和记忆确认表达边界。
@@ -25,7 +26,7 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 | 能力 | 状态 | 权威入口 |
 | --- | --- | --- |
 | Web 本地运行 | 可用 | `README.md`、`docs/guides/DEVELOPMENT_GUIDE.md` |
-| 完整 Demo 一键启停 | 可用；支持幂等 start、真实 status、进程所有权停服与日志 | `docs/guides/DEMO_RUNTIME.md`、`scripts/demo/demo-manager.mjs` |
+| 完整 Demo 一键启停 | 可用；支持幂等 start、真实 status、进程所有权停服、日志及 Web 旧 provider 默认自愈 | `docs/guides/DEMO_RUNTIME.md`、`scripts/demo/demo-manager.mjs` |
 | Avatar registry / manifest | 可用 | `public/avatars/registry.json`、`docs/architecture/AVATAR_ARCHITECTURE.md` |
 | Alice / Shiro / Wambo | 可用 | `public/avatars/*/manifest.json` |
 | `/api/dialogue` 主链路 | 可用 | `docs/contracts/DIALOGUE_CONTRACT.md` |
@@ -165,6 +166,15 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 - `npm run check`、`npm run smoke`、`check:demo-lifecycle`、`check:security-boundaries`、`git diff --check` 均通过。
 - `.env` 与真实 API Key 未被修改或打印；状态文件不保存 env/Prompt/音频，CosyVoice 子进程不继承 credential-shaped 环境变量。
 
+2026-07-14 Demo 页面“无回复、无声音”端到端排查与修复：
+
+- 真实浏览器复现时页面发出了 `/api/dialogue` 和 `/api/tts`，但请求体分别为 `provider=stub/model=stub` 与 `provider=mock`；响应仅需 `3ms/2ms`，Dialogue 明确标记 `meta.mode=llm_stub`，CosyVoice 日志没有收到该文本。
+- 同一页面的 `/api/providers` 已显示 DeepSeek `configured=true/status=ready/defaultModel=deepseek-v4-flash`，CosyVoice `available=true/health.live=true`；安全检查确认 `.env` 中 DeepSeek Key 已配置，未读取或打印 Key 内容。
+- 根因是 Web 历史默认与 localStorage 迁移停留在 `stub/mock`，同时 `index.html` 明确不显示回复文字；服务端口和独立 live 检查正常无法发现这个浏览器配置问题。
+- 修复后用同一个浏览器恢复旧 `stub/mock` 状态并 reload，localStorage 自动迁移为 `deepseek/deepseek-v4-flash/cosyvoice`，无需清空全部浏览器数据。
+- 连续两轮页面发送均通过：Dialogue HTTP 200，分别 `1333ms/2307ms`，均为 `provider=deepseek/model=deepseek-v4-flash/mode=llm_only`；TTS HTTP 200，分别 `3812ms/7393ms`，请求均为 `provider=cosyvoice`。
+- 页面显示真实回复；第二轮 `HTMLAudioElement` 为 `paused=false/muted=false/volume=1`，`currentTime` 从 `0.03s` 推进到 `0.47s`，媒体时长 `5.12s`。Console 无 Dialogue/TTS/播放错误，原有 `boot.fbx` 与 favicon 404 仍单独保留。
+
 ## 本次项目记忆更新记录
 
 | 日期 | 更新内容 |
@@ -181,3 +191,4 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 | 2026-07-14 | 完成 P1C 回复完整性与自然表达收口：默认 max tokens 提升并配置化为 `320`，内部保留安全截断/usage 诊断，Prompt 限制舞台提示、emoji、记忆扩写和永久承诺；公开契约不变。 |
 | 2026-07-14 | 记录本地全服务启动现场问题：端口权限、detached CosyVoice 存活、readiness、运行 env、残留父子进程与端口竞态；明确后续 `dev:full + status + stop/restart` 优化方向。 |
 | 2026-07-14 | 完成 `demo:start/status/stop`：detached Node supervisor 统一托管 Alice 与 CosyVoice2，真实验证 DeepSeek/WAV，支持幂等启动、PID 指纹停服、状态/日志和再次冷启动。 |
+| 2026-07-14 | 修复 Demo 页面历史 `stub/mock` 配置导致的假可用：根据 `/api/providers` 一次性迁移到 ready 的 DeepSeek/CosyVoice，恢复可见回复，并完成连续两轮浏览器 LLM + TTS + 自动播放验收。 |

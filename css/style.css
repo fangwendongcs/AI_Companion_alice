@@ -140,6 +140,35 @@ body {
   border: 0;
 }
 
+.dialogue-caption {
+  position: absolute;
+  left: 50%;
+  bottom: 116px;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: min(680px, calc(100vw - 48px));
+  padding: 10px 16px;
+  border: 1px solid rgba(0, 229, 255, 0.24);
+  border-radius: 16px;
+  background: rgba(8, 12, 18, 0.78);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.36);
+  backdrop-filter: blur(16px);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 15px;
+  line-height: 1.6;
+  text-align: center;
+  pointer-events: none;
+}
+
+.dialogue-caption[data-state='thinking'] {
+  color: rgba(255, 213, 79, 0.92);
+}
+
+.dialogue-caption[data-state='error'] {
+  border-color: rgba(255, 82, 82, 0.35);
+  color: #ffb3b3;
+}
+
 .debug-panel {
   position: fixed;
   left: 16px;
@@ -1164,6 +1193,12 @@ select.custom-input:hover {
   .interaction-hint {
     font-size: 10px;
     bottom: 70px;
+  }
+
+  .dialogue-caption {
+    bottom: 104px;
+    max-width: calc(100vw - 32px);
+    font-size: 14px;
   }
 }
 

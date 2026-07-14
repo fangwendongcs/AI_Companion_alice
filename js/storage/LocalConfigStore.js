@@ -5,6 +5,8 @@ const supportedTTSEngines = new Set(['mock', 'cosyvoice']);
 const freeDefaultMigrationKey = 'tts_free_default_migration_v1';
 const ttsProviderBoundaryMigrationKey = 'tts_mock_cosyvoice_boundary_v1';
 const llmStubDefaultMigrationKey = 'llm_stub_default_migration_v1';
+const llmLiveDefaultMigrationKey = 'llm_live_default_migration_v1';
+const ttsLiveDefaultMigrationKey = 'tts_live_default_migration_v1';
 const llmSupplementalPromptMigrationKey = 'llm_supplemental_prompt_migration_v1';
 const memorySessionKey = 'llm_memory_session_id';
 const legacyIdentityPrompts = new Set([
@@ -56,6 +58,27 @@ export class LocalConfigStore {
     localStorage.setItem('llm_system_prompt', config.systemPrompt);
     localStorage.setItem('llm_use_memory', config.useMemory ? '1' : '0');
     if (config.sessionId) localStorage.setItem(memorySessionKey, config.sessionId);
+    localStorage.setItem(llmLiveDefaultMigrationKey, '1');
+  }
+
+  adoptReadyLLMDefault(config, providerStatuses = []) {
+    if (localStorage.getItem(llmLiveDefaultMigrationKey)) return null;
+    if (config?.provider !== DEFAULT_LLM_CONFIG.provider) {
+      localStorage.setItem(llmLiveDefaultMigrationKey, '1');
+      return null;
+    }
+
+    const deepseek = providerStatuses.find((item) => item?.provider === 'deepseek');
+    if (!deepseek?.configured || deepseek.status !== 'ready' || deepseek.mode !== 'real') return null;
+
+    const next = {
+      ...config,
+      provider: 'deepseek',
+      baseUrl: '',
+      model: String(deepseek.defaultModel || 'deepseek-v4-flash').trim() || 'deepseek-v4-flash'
+    };
+    this.saveLLMConfig(next);
+    return next;
   }
 
   loadMemorySessionId() {
@@ -103,6 +126,27 @@ export class LocalConfigStore {
     localStorage.setItem('tts_browser_voice', config.browserVoice || DEFAULT_TTS_CONFIG.browserVoice);
     localStorage.setItem('tts_rate', String(config.rate));
     localStorage.setItem('tts_pitch', String(config.pitch));
+    localStorage.setItem(ttsLiveDefaultMigrationKey, '1');
+  }
+
+  adoptReadyTTSDefault(config, providerStatuses = []) {
+    if (localStorage.getItem(ttsLiveDefaultMigrationKey)) return null;
+    if (config?.engine !== DEFAULT_TTS_CONFIG.engine) {
+      localStorage.setItem(ttsLiveDefaultMigrationKey, '1');
+      return null;
+    }
+
+    const cosyvoice = providerStatuses.find((item) => item?.provider === 'cosyvoice');
+    if (!cosyvoice?.configured || !cosyvoice.available || cosyvoice.status !== 'ready' || cosyvoice.health?.live !== true) {
+      return null;
+    }
+
+    const next = {
+      ...config,
+      engine: 'cosyvoice'
+    };
+    this.saveTTSConfig(next);
+    return next;
   }
 
   saveMemory({ name, birthday, likes }) {

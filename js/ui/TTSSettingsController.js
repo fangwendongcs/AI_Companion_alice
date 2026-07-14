@@ -95,10 +95,21 @@ export class TTSSettingsController {
         source: 'providers',
         timeoutMs: 6000
       });
-      this.providerStatus = new Map((status?.tts || [])
-        .filter((item) => DISPLAYED_TTS_PROVIDERS.includes(item.provider))
-        .map((item) => [item.provider, item]));
-      this.showProviderStatus(this.refs.ttsEngine.value);
+      const providers = (status?.tts || [])
+        .filter((item) => DISPLAYED_TTS_PROVIDERS.includes(item.provider));
+      this.providerStatus = new Map(providers.map((item) => [item.provider, item]));
+      let activeProvider = this.refs.ttsEngine.value;
+      const currentConfig = this.getConfig();
+      const canAdoptLiveDefault = activeProvider === currentConfig?.engine;
+      const adoptedConfig = canAdoptLiveDefault
+        ? this.store.adoptReadyTTSDefault(currentConfig, providers)
+        : null;
+      if (adoptedConfig) {
+        this.setConfig(adoptedConfig);
+        this.refs.ttsEngine.value = adoptedConfig.engine;
+        activeProvider = adoptedConfig.engine;
+      }
+      this.showProviderStatus(activeProvider);
     } catch (error) {
       this.statusView.showTTS('error', `TTS 状态读取失败：${error.message.slice(0, 80)}`);
       this.renderStatusSummary(null, '状态读取失败');

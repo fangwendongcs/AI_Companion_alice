@@ -32,7 +32,7 @@ export class UIController {
         registry: this.registry,
         statusView: this.statusView
       }),
-      new ChatPanelController({ refs: this.refs, registry: this.registry, actions: deps.actions }),
+      new ChatPanelController({ refs: this.refs, registry: this.registry, actions: deps.actions, eventBus: deps.eventBus }),
       new SceneControlsController({ ...deps, registry: this.registry }),
       this.avatarPanel,
       new LLMSettingsController({

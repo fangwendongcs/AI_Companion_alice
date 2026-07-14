@@ -2,6 +2,7 @@ export function createDomRefs(root = document) {
   const byId = (id) => root.getElementById(id);
   return {
     promptInput: byId('promptInput'),
+    dialogueCaption: byId('dialogueCaption'),
     sendBtn: byId('sendBtn'),
     statusText: byId('statusText'),
     statusBadge: byId('statusBadge'),

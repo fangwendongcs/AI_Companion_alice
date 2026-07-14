@@ -11,6 +11,8 @@ await collectFiles('backend', backendFiles);
 await checkFrontendSecretBoundary();
 await checkFrontendIntegrationClients();
 await checkFrontendStubProviderBoundary();
+await checkFrontendLiveDemoDefaults();
+await checkVisibleDialogueFeedback();
 await checkBackendDialogueBoundary();
 await checkDocsBoundary();
 
@@ -106,6 +108,58 @@ async function checkFrontendStubProviderBoundary() {
   assert(html.includes('value="stub"'), '设置面板必须提供 stub provider / model 选项。');
 }
 
+async function checkFrontendLiveDemoDefaults() {
+  const previousLocalStorage = globalThis.localStorage;
+  const storage = createMemoryStorage({
+    llm_stub_default_migration_v1: '1',
+    llm_supplemental_prompt_migration_v1: '1',
+    tts_free_default_migration_v1: '1',
+    tts_mock_cosyvoice_boundary_v1: '1',
+    tts_engine: 'mock'
+  });
+  globalThis.localStorage = storage;
+
+  try {
+    const { LocalConfigStore } = await import('../js/storage/LocalConfigStore.js');
+    const store = new LocalConfigStore();
+    const llmConfig = store.loadLLMConfig();
+    const ttsConfig = store.loadTTSConfig();
+    const adoptedLLM = store.adoptReadyLLMDefault(llmConfig, [{
+      provider: 'deepseek',
+      configured: true,
+      status: 'ready',
+      mode: 'real',
+      defaultModel: 'deepseek-v4-flash'
+    }]);
+    const adoptedTTS = store.adoptReadyTTSDefault(ttsConfig, [{
+      provider: 'cosyvoice',
+      configured: true,
+      available: true,
+      status: 'ready',
+      health: { live: true }
+    }]);
+
+    assert(adoptedLLM?.provider === 'deepseek', '后端 DeepSeek ready 时，旧 stub 默认应一次性迁移到真实 provider。');
+    assert(adoptedLLM?.model === 'deepseek-v4-flash', '真实 DeepSeek 默认模型必须来自后端 provider 状态。');
+    assert(adoptedTTS?.engine === 'cosyvoice', '后端 CosyVoice live ready 时，旧 mock 默认应一次性迁移。');
+    assert(store.adoptReadyLLMDefault({ ...adoptedLLM, provider: 'stub' }, []) === null, 'LLM live 默认迁移不得重复覆盖用户后续选择。');
+    assert(store.adoptReadyTTSDefault({ ...adoptedTTS, engine: 'mock' }, []) === null, 'TTS live 默认迁移不得重复覆盖用户后续选择。');
+  } finally {
+    if (previousLocalStorage === undefined) delete globalThis.localStorage;
+    else globalThis.localStorage = previousLocalStorage;
+  }
+}
+
+async function checkVisibleDialogueFeedback() {
+  const html = await readFile('index.html', 'utf8');
+  const domRefs = await readFile('js/ui/domRefs.js', 'utf8');
+  const chatPanel = await readFile('js/ui/ChatPanelController.js', 'utf8');
+  assert(html.includes('id="dialogueCaption"'), '页面必须提供真实回复的可见状态区域。');
+  assert(html.includes('aria-live="polite"'), '回复区域必须支持无障碍动态播报。');
+  assert(domRefs.includes("byId('dialogueCaption')"), 'DOM refs 必须暴露回复区域。');
+  assert(chatPanel.includes('DIALOGUE_ASSISTANT') && chatPanel.includes('showDialogueFeedback'), 'ChatPanel 必须把真实 Dialogue 回复渲染到页面。');
+}
+
 async function checkBackendDialogueBoundary() {
   const requiredFiles = [
     'backend/services/DialogueOrchestrationService.js',
@@ -173,4 +227,22 @@ async function checkDocsBoundary() {
 
 function assert(condition, message) {
   if (!condition) failures.push(message);
+}
+
+function createMemoryStorage(initial = {}) {
+  const entries = new Map(Object.entries(initial));
+  return {
+    getItem(key) {
+      return entries.has(key) ? entries.get(key) : null;
+    },
+    setItem(key, value) {
+      entries.set(String(key), String(value));
+    },
+    removeItem(key) {
+      entries.delete(String(key));
+    },
+    clear() {
+      entries.clear();
+    }
+  };
 }

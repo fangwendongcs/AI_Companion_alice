@@ -95,9 +95,24 @@ export class LLMSettingsController {
         source: 'providers',
         timeoutMs: 6000
       });
-      this.providerStatus = new Map((status?.llm || []).map((item) => [item.provider, item]));
-      this.applyProviderDefaultModel(provider || this.refs.llmProvider.value);
-      this.showProviderStatus(provider || this.refs.llmProvider.value);
+      const providers = status?.llm || [];
+      this.providerStatus = new Map(providers.map((item) => [item.provider, item]));
+      let activeProvider = provider || this.refs.llmProvider.value;
+      const currentConfig = this.getConfig();
+      const canAdoptLiveDefault = this.refs.llmProvider.value === currentConfig?.provider;
+      const adoptedConfig = canAdoptLiveDefault
+        ? this.store.adoptReadyLLMDefault(currentConfig, providers)
+        : null;
+      if (adoptedConfig) {
+        this.setConfig(adoptedConfig);
+        this.refs.llmProvider.value = adoptedConfig.provider;
+        this.ensureModelOption(adoptedConfig.model);
+        this.refs.llmModel.value = adoptedConfig.model;
+        this.applyProviderHint(adoptedConfig.provider);
+        activeProvider = adoptedConfig.provider;
+      }
+      this.applyProviderDefaultModel(activeProvider);
+      this.showProviderStatus(activeProvider);
     } catch (error) {
       this.statusView.showLLM('error', `Provider 状态读取失败：${error.message.slice(0, 80)}`);
     }
