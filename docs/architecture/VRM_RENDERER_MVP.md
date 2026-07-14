@@ -125,7 +125,7 @@ assets/avatars/test-vrm/manifest.boy.json
 assets/avatars/test-vrm/manifest.girl.json
 ```
 
-They are injected into the Web avatar list only when `?debug=1` or `?localVrm=1` is present and the referenced model file exists. The default registry and public avatar list remain unchanged.
+They are injected into the Web avatar list only when `?debug=1` or `?localVrm=1` is present and the referenced model file exists. The local test avatar IDs remain outside the public registry. Since 2026-07-14, the official `alice` manifest intentionally points to the same `assets/avatars/test-vrm/girl.vrm` file so both the normal Demo and debug page default to the previously validated Girl VRM while retaining the stable `alice` identity.
 
 Use these URLs for local visual validation:
 
@@ -161,7 +161,7 @@ Missing local test files do not fail the check because these assets are intentio
 
 ## Girl VRM Expression Sample
 
-`local_girl_vrm_test` is the current MVP sample for Web VRM expression and state linkage. Its model-specific morph target names stay in `assets/avatars/test-vrm/manifest.girl.json`:
+`local_girl_vrm_test` is the source MVP sample for Web VRM expression and state linkage. The normal `alice` manifest now reuses the same model-specific expression map and five-vowel mouth groups so DeepSeek affect, CosyVoice playback and lip-sync drive the exact same Girl VRM:
 
 - `idle / listening`: neutral expression with automatic blink.
 - `speaking`: lightweight rhythmic mouth movement across `Fcl_MTH_A / I / U / E / O`.
@@ -176,7 +176,7 @@ Tone remains a presentation hint. `VRMRenderer` can use it to scale expression /
 
 ## Fallback Strategy
 
-- If no `.vrm` test file exists, the app continues to use Alice / current avatars.
+- If the default `girl.vrm` file is missing or invalid, Alice reports a model loading error and uses the existing explicit fallback mesh only when there is no previous working avatar; it must not silently return to `avatar_v2.glb` or another FBX/GLB model.
 - If a VRM has no matching morph targets, `VRMRenderer` becomes a safe no-op for expressions while the regular motion slot system still works.
 - If a VRM has no five-vowel mouth groups, `VRMRenderer` falls back to a generic `mouth` group when available.
 - If a VRM model fails to load, existing avatar switch error handling retains the previous working avatar or uses the existing fallback mesh.
@@ -193,7 +193,8 @@ npm run check:vrm-renderer-flow
 This verifies:
 
 - VRM manifests declare renderer and capabilities.
-- the local VRM test manifest is renderer-gated and not in the public registry;
+- local VRM test avatar IDs remain renderer-gated and outside the public registry;
+- the official default `alice` manifest resolves to `assets/avatars/test-vrm/girl.vrm`, declares `renderer.type=vrm`, and retains all expression / mouth mappings;
 - `CharacterManager` owns the active renderer adapter.
 - `AppController` forwards `AvatarDirective`.
 - `VRMRenderer` can apply expression and basic mouth movement on a fake morph-target avatar.
@@ -206,8 +207,8 @@ This verifies:
 - `MotionController` is covered directly so gesture / affect / audio lifecycle motion mapping does not drift back into `PresentationOrchestrator` or `VRMRenderer`.
 - `TTSController` is covered directly so audio lifecycle state does not drift back into `AppController`, `AudioManager`, or `VRMRenderer`.
 - Backend business services do not depend on renderer-specific fields.
-- Local test VRM assets are ignored unless explicitly promoted.
-- `alice_test.vrm`, `boy.vrm`, and `girl.vrm` can be audited locally without entering the official registry.
+- Local VRM binaries remain ignored until licensing and distribution are resolved.
+- `alice_test.vrm`, `boy.vrm`, and `girl.vrm` can be audited locally; `girl.vrm` is also the current machine's official Alice model dependency.
 
 ## Current Visual Validation Status
 
@@ -220,3 +221,5 @@ Shiro and Wambo are existing small CC0 VRM assets, but this phase does not claim
 - console has no new errors or warnings.
 
 2026-07-14 real-browser status: `local_girl_vrm_test` passed short CosyVoice2 playback (`6.64s`), long playback (`37.12s`), rapid replacement, mute/cancel, and upstream interruption/recovery. The long run captured 359 audio-driven samples, amplitude `0–0.308`, mouth amount `0.03–0.11`, all five vowel groups, neutral/blink expressions, and speaking body motion; natural end returned lip-sync, all mouth expressions, Avatar state, and motion to idle. Browser QA exposed and closed two lifecycle defects: TTS now has a 90-second backend upstream timeout with a 100-second Web request window, and cancelling an active playback emits `audio:end(cancelled=true)` before a replacement or mute path proceeds. Lip-sync gain, smoothing, clamp, and mouth interval remain unchanged because no clear visual defect was observed. See `docs/process/BROWSER_ACCEPTANCE_CHECKLIST.md` for the scenario matrix and evidence limits.
+
+2026-07-14 default-model correction: normal `/` and `/?debug=1` both performed an actual HTTP 200 `GET /assets/avatars/test-vrm/girl.vrm` and initialized `VRMRenderer` with VRM runtime, humanoid, expression manager, lookAt, spring bone and A/I/U/E/O mouth groups. Refresh retained the model with `localStorage.avatar_id=alice`. Two Web dialogue rounds returned real DeepSeek `llm_only` replies and CosyVoice playback with `fallback=false`; an active playback capture on the same `alice` renderer observed `audio-driven` mouth changes across E/A/U/O/I before returning to idle. No VRM load error appeared in Console.

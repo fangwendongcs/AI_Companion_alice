@@ -13,7 +13,7 @@ public/
       meta.json              # 仅保留给旧链路兼容，不再作为新增角色必需文件
       motions.json
       skeleton.mixamo.json
-      model.vrm            # 新角色推荐放这里；Alice 当前复用 public/models/characters/avatar_v2.glb
+      model.vrm            # 新角色推荐放这里；Alice 当前目标模型暂为本机 assets/avatars/test-vrm/girl.vrm
     osa_shiro/
       model.vrm            # Open Source Avatars / 100Avatars, CC0
       manifest.json
@@ -41,10 +41,12 @@ js/
 ## 当前内置角色
 
 ```text
-alice      -> 项目原始角色
+alice      -> 当前 Demo 目标角色，使用 girl.vrm + VRMRenderer
 osa_shiro  -> Shiro，Open Source Avatars / 100Avatars，CC0
 osa_wambo  -> Wambo，Open Source Avatars / 100Avatars，CC0
 ```
+
+`alice` 的角色身份保持不变，但当前 `public/avatars/alice/manifest.json` 已将模型、renderer、表情映射和口型映射切到 `assets/avatars/test-vrm/girl.vrm`。这样历史 `localStorage.avatar_id=alice` 仍会加载正确目标模型，而不会被旧配置带回 `avatar_v2.glb`。该 VRM 文件当前仍是 Git-ignored 本机资产，正式分发前必须确认授权并迁移到可发布路径。
 
 `osa_shiro` 和 `osa_wambo` 都走同一套 `CharacterManager -> MotionManager -> InteractionManager` 链路，切换角色后会重新加载模型、动作槽、骨骼映射和点击命中区域。上传角色功能仍然使用 `POST /api/avatars`，不会被内置角色影响。
 

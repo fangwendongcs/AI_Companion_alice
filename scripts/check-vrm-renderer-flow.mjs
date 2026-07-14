@@ -33,6 +33,7 @@ await checkPresentationOrchestrator();
 await checkPresentationControllers();
 await checkMotionController();
 await checkTTSController();
+await checkDefaultAliceGirlVrm();
 await checkVrmManifestCapabilities();
 await checkLocalTestManifests();
 await checkLocalGirlWaveMotionConfig();
@@ -88,6 +89,9 @@ async function checkRendererModules() {
   assert(indexHtml.includes('@pixiv/three-vrm-animation'), 'index.html import map 应声明 @pixiv/three-vrm-animation。');
   assert(avatarLoader.includes('VRMLoaderPlugin'), 'AvatarLoader 应使用 three-vrm VRMLoaderPlugin 加载 VRM。');
   assert(avatarLoader.includes('vrmRuntime'), 'AvatarLoader 应暴露 VRM runtime capability 快照。');
+  assert(avatarLoader.includes('loaderContext.vrmRuntimeRequested && !vrm'), 'VRM manifest 加载后必须确认 runtime 真实存在。');
+  assert(avatarLoader.includes('未提供可用的 VRM runtime'), 'VRM runtime 缺失时应返回明确错误。');
+  assert(!avatarLoader.includes('回退到普通 GLTFLoader'), 'VRM runtime 缺失时不得静默降级为普通 GLTFLoader。');
   assert(animationController.includes('VRMAnimationLoaderPlugin'), 'AnimationController 应使用 VRMAnimationLoaderPlugin 加载 VRMA。');
   assert(animationController.includes('createVRMAnimationClip'), 'AnimationController 应把 VRMA 转换为 AnimationClip。');
   assert(animationController.includes('loadVRMAClip'), 'AnimationController 应提供 VRMA clip 加载入口。');
@@ -427,6 +431,25 @@ async function checkVrmManifestCapabilities() {
     });
     assert(manifest.capabilities?.renderer === 'vrm', `${avatar.id} capabilities.renderer 应为 vrm。`);
   }
+}
+
+async function checkDefaultAliceGirlVrm() {
+  const registry = await readJson('public/avatars/registry.json');
+  const defaultAvatarId = registry.defaultAvatarId;
+  const defaultAvatar = (registry.avatars || []).find((avatar) => avatar.id === defaultAvatarId);
+
+  assert(defaultAvatarId === 'alice', '公开 Demo 默认 avatar id 应保持为 alice。');
+  assert(Boolean(defaultAvatar?.manifest), '公开 Demo 默认 alice 必须声明 manifest。');
+
+  const manifest = await readJson(defaultAvatar?.manifest || 'public/avatars/alice/manifest.json');
+  assert(manifest.id === 'alice', '默认 manifest 应保留 alice 角色身份。');
+  assert(manifest.model?.url === 'assets/avatars/test-vrm/girl.vrm', '默认 Alice 必须加载目标 girl.vrm。');
+  assert(manifest.model?.format === 'vrm', '默认 Alice 的模型格式必须为 vrm。');
+  assert(manifest.renderer?.type === 'vrm', '默认 Alice 必须使用 VRMRenderer。');
+  assert(manifest.capabilities?.renderer === 'vrm', '默认 Alice capability 必须声明 renderer=vrm。');
+  ['neutral', 'happy', 'sad', 'angry', 'surprised', 'blink', 'mouthA', 'mouthI', 'mouthU', 'mouthE', 'mouthO'].forEach((group) => {
+    assert(Array.isArray(manifest.renderer?.expressionMap?.[group]) && manifest.renderer.expressionMap[group].length > 0, `默认 Alice expressionMap 应包含 ${group}。`);
+  });
 }
 
 async function checkLocalTestManifests() {

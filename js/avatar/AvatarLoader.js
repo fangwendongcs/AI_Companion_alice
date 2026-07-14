@@ -25,6 +25,9 @@ export class AvatarLoader {
     });
 
     const vrm = gltf.userData?.vrm || null;
+    if (loaderContext.vrmRuntimeRequested && !vrm) {
+      throw new Error(`VRM 模型加载失败：${modelUrl} 未提供可用的 VRM runtime。`);
+    }
     const avatar = vrm?.scene || gltf.scene;
     avatar.userData.vrm = vrm;
     avatar.userData.vrmRuntime = this.createVrmRuntimeInfo(vrm, loaderContext);
@@ -82,13 +85,10 @@ export class AvatarLoader {
       };
     } catch (error) {
       const message = error?.message || String(error);
-      log.warn(`three-vrm runtime 不可用，回退到普通 GLTFLoader: ${message}`);
-      return {
-        loader: this.loader,
-        vrmRuntimeRequested: true,
-        vrmRuntimeAvailable: false,
-        vrmRuntimeError: message
-      };
+      log.error(`three-vrm runtime 初始化失败: ${message}`);
+      throw new Error(`VRM runtime 初始化失败，无法加载 ${this.getModelUrl(characterManifest)}。`, {
+        cause: error
+      });
     }
   }
 

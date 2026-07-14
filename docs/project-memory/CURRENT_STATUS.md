@@ -20,6 +20,7 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 - P1C 已将 LLM 回复上限配置化为 `LLM_MAX_TOKENS`（默认 `320`），内部保留安全 finish reason / token usage 诊断，并收口舞台提示、emoji 和记忆确认表达边界。
 - TTS 当前公开主线是 `mock` 和 `cosyvoice`；其他 provider adapter 可留在后端实验层，但不进入 Web Settings 公开选择。
 - VRMRenderer 已进入 Web MVP：业务层输出 `AvatarDirective`，Renderer 负责表达、眨眼、基础 lip-sync；P2 已完成真实 CosyVoice2 浏览器验收，含 37.12 秒长音频、快速替换、静音取消与上游中断恢复。
+- 普通 Demo 与 debug 页的默认 `alice` 已统一指向历史 TTS×VRM 验证模型 `assets/avatars/test-vrm/girl.vrm`，保留 `alice` 身份与 localStorage 兼容，并强制使用 `VRMRenderer`。
 
 ## 已完成能力
 
@@ -175,6 +176,14 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 - 连续两轮页面发送均通过：Dialogue HTTP 200，分别 `1333ms/2307ms`，均为 `provider=deepseek/model=deepseek-v4-flash/mode=llm_only`；TTS HTTP 200，分别 `3812ms/7393ms`，请求均为 `provider=cosyvoice`。
 - 页面显示真实回复；第二轮 `HTMLAudioElement` 为 `paused=false/muted=false/volume=1`，`currentTime` 从 `0.03s` 推进到 `0.47s`，媒体时长 `5.12s`。Console 无 Dialogue/TTS/播放错误，原有 `boot.fbx` 与 favicon 404 仍单独保留。
 
+2026-07-14 Avatar 默认模型错误修复与浏览器验收：
+
+- 根因是 registry 默认 `alice` 的 manifest 仍指向 `public/models/characters/avatar_v2.glb` 且声明 default renderer；`girl.vrm` 只作为 debug 本地测试项注入，历史 `localStorage.avatar_id=alice` 又持续选择旧 manifest。
+- 保留稳定角色 id `alice`，将其 manifest 的模型、VRM renderer、expression map、五元音 mouth map、transform 和 motion 配置对齐到截图中的 `local_girl_vrm_test`；不改 Dialogue/TTS 契约。
+- 普通 `/`、debug `/?debug=1` 与普通页刷新后均实际 `GET /assets/avatars/test-vrm/girl.vrm` HTTP 200；运行态为 `VRMRenderer`，VRM runtime / humanoid / expression manager / lookAt / spring bone 均为 true，Console 无 VRM 加载错误。
+- 连续两轮网页消息均返回真实 DeepSeek `provider=deepseek/model=deepseek-v4-flash/mode=llm_only`；CosyVoice 生命周期完成且 `fallback=false`。播放采样确认同一 `alice/girl.vrm` 上 `lipSync.mode=audio-driven`，E/A/U/O/I 五组口型随振幅变化并在结束后归零。
+- `girl.vrm` 当前仍是 `.gitignore` 排除的 local-only 大文件；本机 Demo 可用，但正式分发前需确认授权并迁移到可发布资产路径。
+
 ## 本次项目记忆更新记录
 
 | 日期 | 更新内容 |
@@ -192,3 +201,4 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 | 2026-07-14 | 记录本地全服务启动现场问题：端口权限、detached CosyVoice 存活、readiness、运行 env、残留父子进程与端口竞态；明确后续 `dev:full + status + stop/restart` 优化方向。 |
 | 2026-07-14 | 完成 `demo:start/status/stop`：detached Node supervisor 统一托管 Alice 与 CosyVoice2，真实验证 DeepSeek/WAV，支持幂等启动、PID 指纹停服、状态/日志和再次冷启动。 |
 | 2026-07-14 | 修复 Demo 页面历史 `stub/mock` 配置导致的假可用：根据 `/api/providers` 一次性迁移到 ready 的 DeepSeek/CosyVoice，恢复可见回复，并完成连续两轮浏览器 LLM + TTS + 自动播放验收。 |
+| 2026-07-14 | 修复默认 Avatar 选择：保留 `alice` id 并绑定截图中的 `girl.vrm + VRMRenderer`，普通/debug/刷新和两轮 DeepSeek×CosyVoice×五元音口型已完成真实浏览器验收。 |

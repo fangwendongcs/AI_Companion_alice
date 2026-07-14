@@ -1,79 +1,75 @@
 {
   "id": "alice",
   "name": "Alice",
-  "type": "humanoid-gltf",
+  "type": "humanoid-vrm",
   "model": {
-    "url": "public/models/characters/avatar_v2.glb",
-    "format": "glb"
+    "url": "assets/avatars/test-vrm/girl.vrm",
+    "format": "vrm"
   },
   "renderer": {
-    "type": "default",
-    "fallback": "default"
+    "type": "vrm",
+    "fallback": "default",
+    "expressionMap": {
+      "neutral": ["fcl_all_neutral", "fcl_mth_neutral"],
+      "happy": ["fcl_all_joy", "fcl_all_fun", "fcl_mth_joy", "fcl_eye_joy", "fcl_mth_fun", "happy", "joy", "smile", "fun", "relaxed"],
+      "sad": ["fcl_all_sorrow", "fcl_mth_sorrow", "fcl_eye_sorrow", "sad", "sorrow", "trouble"],
+      "angry": ["fcl_all_angry", "fcl_mth_angry", "fcl_eye_angry", "angry"],
+      "surprised": ["fcl_all_surprised", "fcl_mth_surprised", "fcl_eye_surprised", "surprised", "surprise"],
+      "blinkRight": ["fcl_eye_close_r"],
+      "blinkLeft": ["fcl_eye_close_l"],
+      "blink": ["fcl_eye_close", "blink", "eyeclose", "eye_close"],
+      "mouthA": ["fcl_mth_a"],
+      "mouthI": ["fcl_mth_i"],
+      "mouthU": ["fcl_mth_u"],
+      "mouthE": ["fcl_mth_e"],
+      "mouthO": ["fcl_mth_o"],
+      "mouth": ["mouth", "aa", "ah", "oh", "ou", "viseme", "fcl_mth"]
+    }
   },
   "capabilities": {
     "states": ["idle", "listening", "thinking", "speaking"],
-    "emotions": ["neutral", "warm", "happy", "sad", "concerned"],
+    "emotions": ["neutral", "warm", "happy", "sad", "angry", "surprised", "concerned", "apologetic"],
     "gestures": ["none", "soft_nod", "thinking", "wave"],
     "gaze": ["user", "away", "down"],
     "lipSync": ["none", "auto", "basic"],
-    "expressions": ["neutral"],
-    "renderer": "default"
+    "expressions": ["neutral", "happy", "sad", "angry", "surprised", "blink", "mouthA", "mouthI", "mouthU", "mouthE", "mouthO"],
+    "renderer": "vrm"
   },
   "thumbnail": "",
-  "motionManifest": "public/avatars/alice/motions.json",
-  "skeletonMap": "public/avatars/alice/skeleton.mixamo.json",
+  "motionManifest": "assets/avatars/test-vrm/motions.json",
+  "skeletonMap": "assets/avatars/test-vrm/skeleton.mixamo.json",
   "skeleton": {
     "type": "humanoid",
-    "map": "public/avatars/alice/skeleton.mixamo.json"
+    "map": "assets/avatars/test-vrm/skeleton.mixamo.json"
   },
   "animations": {
-    "manifest": "public/avatars/alice/motions.json",
+    "manifest": "assets/avatars/test-vrm/motions.json",
     "standardSlots": true
   },
   "transform": {
-    "targetHeight": 120,
+    "targetHeight": 128,
     "position": { "x": 0, "y": 0, "z": 0 },
-    "rotation": { "x": 0, "y": 0, "z": 0 },
+    "rotation": { "x": 0, "y": 3.141592653589793, "z": 0 },
     "scale": 1
   },
   "camera": {
-    "targetY": 90,
+    "targetY": 92,
     "minDistance": 100,
-    "maxDistance": 600
+    "maxDistance": 620
   },
   "hitRegions": {
-    "head": ["head", "neck"],
-    "arm": ["arm", "hand", "shoulder"],
-    "leg": ["leg", "foot", "toe"]
+    "head": ["head", "neck", "headtop"],
+    "arm": ["arm", "hand", "shoulder", "forearm"],
+    "leg": ["leg", "foot", "toe", "upleg"]
   },
   "interactions": {
-    "head": { "motionSlot": "headTap" },
-    "leg": { "motionSlot": "legTap" },
-    "arm": { "motionSlot": "armTap" },
-    "body": { "motionSlot": "bodyTap" },
-    "chat": { "motionSlot": "chat" }
-  },
-  "retargeting": {
-    "adapter": "mixamoHumanoidMap"
+    "head": { "motionIntent": "interaction.headTap", "motionSlot": "headTap" },
+    "leg": { "motionIntent": "interaction.legTap", "motionSlot": "legTap" },
+    "arm": { "motionIntent": "interaction.greeting", "motionSlot": "armTap" },
+    "body": { "motionIntent": "interaction.tap", "motionSlot": "bodyTap" },
+    "chat": { "motionIntent": "interaction.chat", "motionSlot": "chat" }
   },
   "voice": {
     "defaultEngine": "browser"
-  },
-  "skins": [
-    {
-      "id": "festival",
-      "name": "帝皇帝皇 (祭典皮肤)",
-      "active": true
-    },
-    {
-      "id": "school",
-      "name": "校园休闲",
-      "active": false
-    },
-    {
-      "id": "tactical",
-      "name": "机能战衣",
-      "active": false
-    }
-  ]
+  }
 }

@@ -10,6 +10,7 @@
 | VRM / VRMA / FBX 动作质量无法只靠自动化证明。 | 中 | 外部动作进入 QA-only gate；产品动作需视觉验证。 | `docs/architecture/VRM_MOTION_READINESS.md`、`docs/architecture/VRM_MOTION_QUALITY_V1.md` |
 | 部分早期文档是历史阶段记录，容易被误读为当前状态。 | 中 | 新建 project-memory 作为导航；docs index 标注历史参考。 | `docs/project-memory/DOCUMENT_AUDIT.md` |
 | Alice 模型、测试模型、motion 素材授权需要正式分发前复核。 | 中 | 已有 motion license 目录；正式产品化前不能跳过授权检查。 | `docs/assets/licenses/MOTION_ASSET_LICENSES.md`、`docs/architecture/VRM_MOTION_READINESS.md` |
+| 当前默认 Alice 依赖 Git-ignored 的本机 `assets/avatars/test-vrm/girl.vrm`。 | 高 | 普通页与 debug 页已固定加载该模型，缺失/损坏时明确报错并仅启用既有 fallback；不静默切回旧 GLB。 | 正式分发前确认模型授权，将二进制迁移到可发布资产路径并更新 manifest。 |
 | `runtime/cosyvoice/` 是本地未提交 runtime，其他机器默认不存在。 | 低 | 文档和脚本说明准备流程。 | `.gitignore`、`docs/guides/COSYVOICE_RUNTIME.md` |
 | 真实 CosyVoice2 长音频的振幅分布、口型观感和动作/表情并行质量仍依赖浏览器视觉 QA。 | 中 | 已修复 renderer 接线、旧播放竞争和 timer 提前结束；自动模拟 120 秒生命周期。 | `docs/architecture/VRM_RENDERER_MVP.md`、浏览器 Debug Panel |
 | P1A/P1B 自动化只能证明 Prompt 与 Memory 的确定性逻辑，不会证明真实中文陪伴质量。 | 中 | 已建立零费用质量逻辑基线；真实模型评测必须另行授权，并使用固定用例/人工量表。 | `docs/product/DIALOGUE_QUALITY_BASELINE.md` |
@@ -54,6 +55,18 @@
 | 自动播放 | 修复后第二轮真实 CosyVoice 音频为 5.12 秒，浏览器采样确认非静音播放且时间持续推进。 | 保持后端音频播放链路，不改 TTS/Dialogue 契约。 |
 
 修复后连续两轮浏览器验收均为 DeepSeek `llm_only` + CosyVoice HTTP 200。当前 Console 仍有既存 `public/models/animations/boot.fbx` 与 favicon 404；它们不影响本次 Dialogue/TTS 闭环，但应在后续独立资源清理任务中处理，避免掩盖新的 Console 错误。
+
+## 2026-07-14 Avatar 默认模型错误排查记录
+
+| 检查项 | 修复前真实结果 | 修复后真实结果 |
+| --- | --- | --- |
+| 目标资产 | 截图中的历史验证模型是 `local_girl_vrm_test`，准确文件为 `assets/avatars/test-vrm/girl.vrm`。 | 文件存在，为有效 GLB/VRM 2.0 容器；普通与 debug 页面共用该准确路径。 |
+| 默认选择 | registry 默认 id 为 `alice`，其 manifest 指向 `public/models/characters/avatar_v2.glb`；debug 仅对 `girl.vrm` 做 HEAD 探测。 | `alice` 身份不变，manifest 指向 `girl.vrm`；两页均发生实际 GET 200。 |
+| localStorage | 历史 `avatar_id=alice` 会持续强化旧 GLB 选择。 | 同一历史值现在稳定选择目标 VRM，刷新后仍正确，无需清空用户配置。 |
+| renderer / fallback | 旧 manifest 声明 `renderer.type=default`，运行态为 `DefaultAvatarRenderer`。 | 运行态为 `VRMRenderer`；fallback 只在目标模型加载失败且无既有可用 avatar 时启用，并显示明确加载错误。 |
+| 联动 | DeepSeek、CosyVoice、表情和口型曾在 local girl 测试 ID 上验证，但普通 Demo 未绑定该模型。 | 连续两轮 DeepSeek `llm_only` + CosyVoice `fallback=false`；当前 `alice/girl.vrm` 播放中捕获 E/A/U/O/I 五元音与音频振幅联动。 |
+
+当前剩余高风险是目标 `girl.vrm` 仍被 `.gitignore` 排除且授权状态标为 local-only。当前机器 Demo 可用，但新 clone、CI 或其他机器不会自动获得该二进制；在授权明确前不应擅自提交或复制大模型文件。
 
 ## 待验证项
 
