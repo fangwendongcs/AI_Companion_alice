@@ -1,6 +1,6 @@
 # Current Status
 
-最后更新：2026-07-10
+最后更新：2026-07-14
 
 ## 当前阶段
 
@@ -13,8 +13,9 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 - `/api/dialogue` 是主对话入口，并已提供 `dialogue.v1` 语义字段供 Web 表现层消费。
 - LLM 已支持后端 OpenAI-compatible `openai` / `qwen` / `deepseek` / `custom`；真实 provider 失败时，`/api/dialogue` 默认安全降级到完整 `dialogue.v1` stub 回复。
 - P1A 已收口 Prompt/Persona 基础正确性：后端控制不可覆盖规则和 Persona，Web `systemPrompt` 只作为低优先级回复偏好，短期历史保持原始 `user` / `assistant` role。
+- P1B 已收口 Memory 确定性问题：偏好保留否定极性，写入指令与召回问句分离，短期消息按 `sessionId + avatarId` 隔离，敏感用户轮次及 assistant 同轮回复不进入 SQLite。
 - TTS 当前公开主线是 `mock` 和 `cosyvoice`；其他 provider adapter 可留在后端实验层，但不进入 Web Settings 公开选择。
-- VRMRenderer 已进入 Web MVP：业务层输出 `AvatarDirective`，Renderer 负责表达、眨眼、基础 lip-sync；P2 已修复表现编排器 noop 接线并让后端音频振幅真正进入当前 VRM controller。
+- VRMRenderer 已进入 Web MVP：业务层输出 `AvatarDirective`，Renderer 负责表达、眨眼、基础 lip-sync；P2 已完成真实 CosyVoice2 浏览器验收，含 37.12 秒长音频、快速替换、静音取消与上游中断恢复。
 
 ## 已完成能力
 
@@ -26,7 +27,7 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 | `/api/dialogue` 主链路 | 可用 | `docs/contracts/DIALOGUE_CONTRACT.md` |
 | LLM Provider MVP | 可用；DeepSeek `deepseek-v4-flash` 已通过项目内 live 验证 | `backend/services/LLMService.js`、`docs/api/API_CONTRACT.md` |
 | `dialogue.v1` 语义契约 | 可用 | `backend/contracts/dialogueContract.js` |
-| SQLite-backed Memory | 可用 | `docs/architecture/PHASE5_MEMORY_ARCHITECTURE.md` |
+| SQLite-backed Memory | 可用；P1B 极性、召回问句拦截、短期 avatar 隔离与敏感写入防线已收口 | `docs/architecture/PHASE5_MEMORY_ARCHITECTURE.md` |
 | Persona / Affect | 可用 | `backend/config/avatarPersonas.js`、`backend/services/CompanionAffectService.js` |
 | P1A 对话质量逻辑基线 | 可用；零真实费用 | `docs/product/DIALOGUE_QUALITY_BASELINE.md`、`scripts/check-dialogue-quality-logic.mjs` |
 | Local RAG | 可用 | `docs/guides/KNOWLEDGE_GUIDE.md` |
@@ -43,9 +44,9 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 | 方向 | 当前下一步 |
 | --- | --- |
 | Project Memory | 后续每次阶段性变更维护 `docs/project-memory/*`，避免聊天记录成为唯一上下文。 |
-| TTS | 保持 Mock 稳定；CosyVoice2 runtime 前置已通过，真实听感/延迟与 30–120 秒浏览器播放仍需验证。 |
-| VRM | 手动浏览器 QA Shiro / Wambo / local girl test，重点观察真实长音频口型、表情和动作结束清理；外部动作只走 QA gate。 |
-| Memory / Persona | P1A Prompt/Persona 基础正确性已完成；下一步进入 P1B Memory 否定极性、修正/遗忘、avatar 隔离和敏感短期持久化策略。 |
+| TTS | 保持 Mock 稳定；CosyVoice2 已通过 6.64 秒与 37.12 秒真实浏览器播放，TTS 独立上游超时默认 90 秒。 |
+| VRM | `local_girl_vrm_test` 已完成真实长/短音频、快速替换、静音取消和中断恢复 QA；Shiro / Wambo 及 60–120 秒更长音频仍是后续扩展验收。 |
+| Memory / Persona | P1B 确定性修复已完成；记忆修正、遗忘、过期、语义去重仍保持后续独立阶段，真实质量评测需另行授权。 |
 | Security | 公网前仍需正式鉴权、域名、HTTPS、secret manager 和部署平台策略。 |
 | LLM Provider | 后续用真实 Key 验证 OpenAI / Qwen；DeepSeek 默认 `deepseek-v4-flash` 已完成项目内 `/api/dialogue` live 验证。 |
 
@@ -59,6 +60,8 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 - Alice 自有模型/素材的商业授权仍需在正式分发前复核。
 - OpenAI / Qwen 的真实返回细节仍需在各自真实 Key 环境中验证；DeepSeek `deepseek-v4-pro` 目前只有 fake endpoint 覆盖，尚未产生额外 live 费用。
 - P1A 只证明 Prompt 权限、message role、预算裁剪和契约生命周期正确；真实中文自然度、共情、模板化和多轮 Persona 稳定性仍需后续受控 live 评测。
+- P1B 不自动删除旧 SQLite 中可能已存在的敏感历史行；新写入已阻断，检测到的旧敏感记录不会进入活动上下文，旧库清理应由用户显式执行。
+- P2 本轮的真实长音频是 37.12 秒；60–120 秒真实生成及长时间视觉同步仍未覆盖，且本机生成首帧等待可达 58.4 秒。
 
 ## 最近验证
 
@@ -108,6 +111,21 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 - `npm run smoke`：通过；另在独立 `PORT=3101` 当前工作树服务上复验通过，所有对话使用 `stub`，TTS 使用 `mock`。
 - 本轮没有调用 DeepSeek 或其他真实 LLM provider，没有修改 `maxTokens=200`、`temperature=0.8`、Memory 写入策略、Affect、TTS 或 AvatarDirective 契约。
 
+2026-07-14 P1B Memory 确定性修复已执行：
+
+- `npm run check:memory-flow`：通过，覆盖正/负偏好极性、明确写入与召回问句分流、召回前后长期记忆计数不变、同 session 跨 avatar 隔离、同 avatar 跨 session 隔离、独立裁剪/清理、敏感 SQLite 写入拦截、普通持久化和契约生命周期。
+- `npm run check:dialogue-quality-logic`、`npm run check:dialogue-contract`、`npm run check`：通过；P1A 结构化 messages 与 `dialogue.v1`、Memory、TTS pending、AvatarDirective 生命周期保持稳定。
+- `npm run smoke`：在当前工作树 `PORT=3101` 服务上以 stub/mock 通过；默认端口首次因服务未启动而失败，不涉及实现错误。
+- `git diff --check`：通过；没有 schema 变化，没有真实 LLM 请求，没有读取或写入 API Key，没有修改 TTS×VRM 实现。
+
+2026-07-14 P2 真实浏览器验收已完成：
+
+- `local_girl_vrm_test` 真实长音频实际时长 `37.12s`，359 个 `audio-driven` 样本；amplitude `0–0.308`、smoothed amplitude `0–0.292`、mouth amount `0.03–0.11`，A/I/U/E/O、neutral、blink 与 speaking motion 并行。
+- 现场发现 45 秒通用上游超时无法覆盖本机长语音生成，已拆分 `TTS_UPSTREAM_TIMEOUT_MS=90000`，前端 TTS 等待 100 秒，不改 LLM 超时。
+- 现场发现快速替换/静音只停音频、未清理旧 lip-sync 周期；已让活动播放取消先发出 `audio:end(cancelled=true)`，复验时 150–200ms 内口型、Avatar 与 motion 全部 idle。
+- CosyVoice2 停机时页面安全转 browser fallback，结束后全部归零；服务重启后下一段 6.4 秒真实音频恢复 `audio-driven`。
+- 口型增益、平滑系数、上限与轮换间隔均未调整；全身视角偏克制，但无明确过小/过大、抖动、锁嘴或延迟证据。
+
 ## 本次项目记忆更新记录
 
 | 日期 | 更新内容 |
@@ -118,3 +136,5 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 | 2026-07-10 | 完成 P2 TTS×VRM 表现层接线：动态桥接 active renderer expression/lip-sync controller，传递真实 audioSource，修复长音频 timer 提前结束与旧播放回调竞争，并补 120 秒模拟回归。 |
 | 2026-07-10 | P2 真实浏览器补测完成短语音场景并确认 audio-driven、五元音变化、表情/动作并行和结束归零；其余长音频/替换/取消/错误场景因浏览器控制额度阻塞，保持待验收且未调参。 |
 | 2026-07-10 | 完成 P1A 零费用评测与 Prompt/Persona 基础正确性：客户端 systemPrompt 降为低优先级回复偏好，历史消息恢复真实 role，并以章节/历史预算替代整体字符串裁剪。 |
+| 2026-07-14 | 完成 P1B Memory 确定性修复：偏好保留正负谓词，短期消息读取/裁剪/清理按 session + avatar 组合隔离，敏感用户与同轮 assistant 原文不持久化；不改 schema 和 `dialogue.v1`。 |
+| 2026-07-14 | 完成 P2 真实 CosyVoice2 浏览器验收：37.12 秒长音频、快速替换、静音取消、上游中断/恢复均通过；现场修复 TTS 独立超时与取消时表现层清理，未调口型参数。 |

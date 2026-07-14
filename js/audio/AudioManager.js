@@ -10,9 +10,18 @@ export class AudioManager {
   async speak(text, { muted = false, affect = null } = {}) {
     const config = applyVoiceAffect(this.getConfig?.() || {}, affect);
     if (muted) {
-      this.stop();
+      this.stop({
+        emitEnd: true,
+        engine: config.engine,
+        affect
+      });
       return;
     }
+    this.stop({
+      emitEnd: true,
+      engine: config.engine,
+      affect
+    });
     let usedFallbackVoice = false;
 
     this.eventBus?.emit(EVENT_NAMES.AUDIO_REQUEST, {
@@ -55,8 +64,17 @@ export class AudioManager {
     }
   }
 
-  stop() {
-    this.ttsService?.stop?.();
+  stop({ emitEnd = false, engine = null, affect = null } = {}) {
+    const stopped = Boolean(this.ttsService?.stop?.());
+    if (stopped && emitEnd) {
+      this.eventBus?.emit(EVENT_NAMES.AUDIO_END, {
+        engine,
+        fallback: false,
+        cancelled: true,
+        affect
+      });
+    }
+    return stopped;
   }
 
   destroy() {

@@ -8,6 +8,7 @@ import { PersonaService } from './PersonaService.js';
 import { CompanionAffectService } from './CompanionAffectService.js';
 import { buildDialogueContract } from '../contracts/dialogueContract.js';
 import { dialogueFallbackToStub } from '../config/serverConfig.js';
+import { redactText } from '../utils/redact.js';
 
 const MAX_MESSAGE_CHARS = 4000;
 const MAX_SYSTEM_PROMPT_CHARS = 4000;
@@ -468,7 +469,7 @@ function buildStepMeta({ memory, rag, workflow }) {
 }
 
 function safeErrorMessage(error) {
-  return String(error?.message || 'optional context failed').slice(0, 200);
+  return redactText(error?.message || 'optional context failed').slice(0, 200);
 }
 
 function toPersonaMeta(persona = {}) {

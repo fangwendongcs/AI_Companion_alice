@@ -22,10 +22,12 @@ export class TTSService {
   stop() {
     this.playbackEpoch += 1;
     const playback = this.currentPlayback;
+    const hadPlayback = Boolean(playback);
     if (playback?.cancel) playback.cancel();
     else window.speechSynthesis?.cancel();
     if (this.currentPlayback === playback) this.currentPlayback = null;
     if (this.currentAudio === playback?.audio || !playback) this.currentAudio = null;
+    return hadPlayback;
   }
 
   destroy() {

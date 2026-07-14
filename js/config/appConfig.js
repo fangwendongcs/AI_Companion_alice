@@ -31,7 +31,7 @@ export const UI_TIMING = {
 
 export const REQUEST_TIMEOUTS = {
   llmMs: 30000,
-  ttsMs: 45000
+  ttsMs: 100000
 };
 
 export const INTERACTION_CONFIG = {

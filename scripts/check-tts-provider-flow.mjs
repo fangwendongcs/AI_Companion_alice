@@ -176,6 +176,7 @@ async function checkEnvExample() {
     'COSYVOICE_API_STYLE=official_fastapi',
     'COSYVOICE_API_MODE=sft',
     'COSYVOICE_MODEL=iic/CosyVoice2-0.5B',
+    'TTS_UPSTREAM_TIMEOUT_MS=90000',
     'HIGGS_BASE_URL=',
     'HIGGS_MODEL=higgs-audio-v3'
   ].forEach((snippet) => {

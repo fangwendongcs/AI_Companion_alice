@@ -24,7 +24,7 @@ export async function handleMemoryClear(req, res, url) {
   const requestedScope = url.searchParams.get('scope');
   const scope = requestedScope === 'avatar' || requestedScope === 'context' ? requestedScope : 'session';
   if (scope === 'context') {
-    const result = memoryService.clearShortTermContext(sessionId);
+    const result = memoryService.clearShortTermContext(sessionId, avatarId);
     sendOk(res, 200, {
       sessionId,
       avatarId,
@@ -39,7 +39,7 @@ export async function handleMemoryClear(req, res, url) {
     avatarId,
     scope
   });
-  if (scope === 'session') memoryService.clearSession(sessionId);
+  if (scope === 'session') memoryService.clearSession(sessionId, avatarId);
   sendOk(res, 200, {
     sessionId,
     avatarId,

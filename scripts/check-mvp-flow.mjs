@@ -17,6 +17,8 @@ await checkLLMClientDialogueErrorFlow();
 await checkDialogueMemoryEventFlow();
 await checkAudioSuccessFlow();
 await checkAudioMutedFlow();
+await checkAudioActiveMutedFlow();
+await checkAudioReplacementCleanupFlow();
 await checkAudioFallbackFlow();
 await checkAudioUnexpectedErrorFlow();
 await checkTTSPlaybackLifecycle();
@@ -281,6 +283,59 @@ async function checkAudioMutedFlow() {
   assert(events.length === 0, 'AudioManager 静音时不应发出音频事件。');
 }
 
+async function checkAudioActiveMutedFlow() {
+  const events = [];
+  const bus = createTrackedBus(events, [EVENT_NAMES.AUDIO_END]);
+  const manager = new AudioManager({
+    eventBus: bus,
+    getConfig: () => ({ engine: 'cosyvoice' }),
+    ttsService: {
+      stop: () => true,
+      speak: async () => {
+        throw new Error('静音时不应启动新播放');
+      }
+    }
+  });
+
+  await manager.speak('活动播放静音', { muted: true });
+  assertEventOrder(events, [EVENT_NAMES.AUDIO_END], '活动播放被静音时必须发出 audio:end 清理表现层。');
+  assert(events[0]?.detail?.cancelled === true, '静音取消的 audio:end 必须标记 cancelled=true。');
+}
+
+async function checkAudioReplacementCleanupFlow() {
+  const events = [];
+  let active = true;
+  const bus = createTrackedBus(events, [
+    EVENT_NAMES.AUDIO_END,
+    EVENT_NAMES.AUDIO_REQUEST,
+    EVENT_NAMES.AUDIO_START
+  ]);
+  const manager = new AudioManager({
+    eventBus: bus,
+    getConfig: () => ({ engine: 'cosyvoice' }),
+    ttsService: {
+      stop: () => {
+        const stopped = active;
+        active = false;
+        return stopped;
+      },
+      speak: async (_text, _config, hooks) => {
+        hooks.onStart?.();
+        hooks.onEnd?.();
+      }
+    }
+  });
+
+  await manager.speak('新语音替换旧语音');
+  assertEventOrder(events, [
+    EVENT_NAMES.AUDIO_END,
+    EVENT_NAMES.AUDIO_REQUEST,
+    EVENT_NAMES.AUDIO_START,
+    EVENT_NAMES.AUDIO_END
+  ], '新语音必须先结束旧表现层周期，再启动新播放。');
+  assert(events[0]?.detail?.cancelled === true, '替换旧语音的 audio:end 必须标记 cancelled=true。');
+}
+
 async function checkAudioFallbackFlow() {
   const events = [];
   const bus = createTrackedBus(events, [
@@ -402,8 +457,9 @@ async function checkTTSPlaybackLifecycle() {
     });
     await Promise.resolve();
     await Promise.resolve();
-    service.stop();
+    const stopped = service.stop();
     await playback;
+    assert(stopped === true, 'TTSService.stop() 必须报告是否取消了活动播放。');
     assert(audioSource?.audioElement === fakeAudio, 'HTMLAudioElement 必须作为安全 audioSource 暴露给表现层。');
     assert(fakeAudio?.paused === true, 'stop() 必须暂停被替代的长音频。');
     assert(service.currentPlayback === null && service.currentAudio === null, '被替代的长音频 Promise 必须完成并清理当前播放引用。');

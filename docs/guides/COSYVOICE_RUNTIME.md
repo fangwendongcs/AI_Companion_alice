@@ -240,6 +240,14 @@ Alice 后端会完整接收官方 FastAPI 返回的 raw PCM，再包装为完整
 
 不要把 `upstreamStreaming=true` 当成 Web / iOS 客户端可流式播放的语义。
 
+由于 Web 拿到完整 WAV 后才开始播放，本机 30+ 秒音频的生成时间可以高于 45 秒。Alice 将 TTS 上游超时与 LLM 通用超时分开：
+
+```bash
+TTS_UPSTREAM_TIMEOUT_MS=90000
+```
+
+后端 TTS 默认等待 90 秒，Web TTS 请求窗口为 100 秒；`UPSTREAM_TIMEOUT_MS=45000` 和 Web LLM 30 秒时限保持不变。如果本地运行时在 90 秒内仍无法生成目标长度，应记录为运行时性能风险，不要用 browser fallback 冒充 audio-driven 验收。
+
 ## 一键回归流程
 
 已经具备 runtime、模型和 speaker 后，可以用一条命令执行可复现回归：
@@ -277,7 +285,7 @@ http://localhost:3000?debug=1&avatar=local_girl_vrm_test
 4. 自然结束、播放错误和角色切换三条路径都应回到 `lipSync.mode=idle`，mouth influence 归零，动作回到 idle。
 5. 浏览器控制台无 `createMediaElementSource`、AudioContext、morph target 或未处理 Promise 错误。
 
-自动化已经覆盖 120 秒模拟振幅稳定性、`audioSource` 到当前 VRM controller 的对象级透传，以及旧播放 session 失效；真实 CosyVoice2 的声音振幅和视觉同步仍以本节手动结果为准。
+自动化已经覆盖 120 秒模拟振幅稳定性、`audioSource` 到当前 VRM controller 的对象级透传，以及旧播放 session 失效。2026-07-14 的真实浏览器验收中，`local_girl_vrm_test` 的 37.12 秒音频保持 `audio-driven`，并在自然结束后将 mouth/Avatar/motion 全部归零；快速替换、静音取消、CosyVoice2 停机 fallback 和重启恢复也通过。口型参数未调整。详细数据见 `docs/process/BROWSER_ACCEPTANCE_CHECKLIST.md`。
 
 ## 停止服务
 

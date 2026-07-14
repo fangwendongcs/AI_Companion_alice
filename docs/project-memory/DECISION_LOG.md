@@ -1,6 +1,6 @@
 # Decision Log
 
-最后更新：2026-07-10
+最后更新：2026-07-14
 
 本文件只记录会影响后续开发方向的关键决策。小修复、局部命名、纯样式调整不需要写入。
 
@@ -20,6 +20,7 @@
 | 2026-07-10 | 表现编排器通过 `CharacterManager` 动态解析当前 renderer-owned expression / lip-sync controller；renderer 只在直接调用时自行执行表现，编排路径避免重复执行。 | 修复默认 noop 接线和 `audioSource` 丢失，同时保证角色切换后不会持有旧 renderer 控制器。 | `PresentationOrchestrator`、`CharacterManager`、`VRMRenderer`、lip-sync debug | `docs/avatar/AVATAR_PRESENTATION_CONTRACT.md`、`docs/architecture/VRM_RENDERER_MVP.md` |
 | 2026-07-10 | TTS 播放采用 session epoch 隔离陈旧回调，真实 `audio:start` 取消文本时长 watchdog。 | 长 CosyVoice2 音频或连续发言时，旧播放不能延迟触发 end，也不能被文本估算 timer 提前切回 idle。 | `TTSService`、`AudioManager`、`AppController`、VRM 表现生命周期 | `js/voice/TTSService.js`、`js/app/AppController.js`、`docs/guides/LOCAL_TTS.md` |
 | 2026-07-10 | `/api/dialogue` 的 Prompt 权限由后端规则与 Persona 主导；兼容字段 `systemPrompt` 只作为低优先级回复偏好，短期上下文保持原始 role，并采用章节/历史字符预算。 | 防止 Web 固定 Alice 身份污染其他 Persona、历史用户指令被提升为 system，以及整体裁剪优先丢失最新上下文。 | `PromptBuilder`、`DialogueOrchestrationService`、`LLMService`、Web LLM Settings、零费用质量检查 | `docs/product/DIALOGUE_QUALITY_BASELINE.md`、`backend/services/PromptBuilder.js`、`scripts/check-dialogue-quality-logic.mjs` |
+| 2026-07-14 | P1B Memory 确定性策略使用现有 `messages.avatar_id` 形成 `(session_id, avatar_id)` 短期范围；偏好保存完整极性；敏感用户轮次整轮不持久化，并由 Repository 做二次防线。 | 避免跨角色历史污染、否定偏好翻转，以及用户或 assistant 复述的 secret 落入 SQLite；保持现有 schema、`dialogue.v1` 和结构化 LLM messages 不变。 | `MemoryService`、`MemoryRepository`、Memory routes、日志脱敏、零费用检查 | `docs/architecture/PHASE5_MEMORY_ARCHITECTURE.md`、`scripts/check-memory-flow.mjs` |
 
 ## 新增决策模板
 

@@ -273,7 +273,11 @@ validate input -> memory context -> rag context -> optional workflow -> PromptBu
 }
 ```
 
-如果 `options.useMemory=true`，当前会启用 SQLite-backed Memory，并按 `sessionId` 记录最近 N 轮 user/assistant 消息。用户显式表达“记住这个 / 以后你要记得 / 我喜欢 / 我的目标是”等稳定信息时，会保守写入 `memory_items`，并通过 `memory.longTerm` 与 `memory.longTermWrite` 返回轻量状态。普通闲聊不会自动进入长期记忆，敏感信息会被拒绝。
+如果 `options.useMemory=true`，当前会启用 SQLite-backed Memory，并按 `(sessionId, avatarId)` 记录最近 N 轮 user/assistant 消息。短期上下文的读取、裁剪和清理都使用这一组合范围：同一 session 下的不同角色不会读取或删除彼此消息，不同 session 下的同一角色也保持隔离。
+
+用户显式表达“记住这个 / 以后你要记得 / 我喜欢 / 我的目标是”等稳定信息时，会保守写入 `memory_items`，并通过 `memory.longTerm` 与 `memory.longTermWrite` 返回轻量状态。稳定偏好会保留完整谓词和极性，例如“我喜欢”“我不喜欢”“我讨厌”“我不想”不会只保存后面的对象文本。普通闲聊不会自动进入长期记忆；同时包含记忆召回语义与问句线索的“还记得……吗 / 让我记住了什么”等查询只用于召回，不会新增 `memory_items`。
+
+API Key、密码、token、secret、银行卡、身份证等敏感原文可以参与当前轮回复，但不会进入 `messages` 或 `memory_items`。当用户输入被识别为敏感时，同轮 assistant 回复也不持久化，避免模型复述原文后落入 SQLite；Repository 还有直接写入防线。日志和可选上下文错误正文使用同一敏感检测进行脱敏。该策略不改变本轮正常回复、`dialogue.v1`、TTS pending 或 AvatarDirective 语义。
 
 如果 `options.useRag=true`，当前会调用后端本地 `RagService`，读取 `data/knowledge/` 并返回 `rag.passages` 与顶层 `sources`。当前不调用 Qdrant、不做 embedding、不访问外部网络。
 
@@ -302,7 +306,7 @@ DeepSeek 当前 Web 默认模型为 `deepseek-v4-flash`，同时允许用户显�
 
 `GET /api/memory` 返回当前 session / avatar 的精简长期记忆摘要，不返回完整原始 messages。
 
-`DELETE /api/memory` 支持 `scope=context`、`scope=session` 或 `scope=avatar`。`scope=context` 只清除当前 session 的短期 messages，用于“清空上下文”，不会删除显式保存的长期 `memory_items`；`scope=session` / `scope=avatar` 用于清除当前会话或当前角色的长期记忆摘要。该接口属于敏感 API；`REQUIRE_API_AUTH=true` 或 production 模式下必须提供 API token。
+`DELETE /api/memory` 支持 `scope=context`、`scope=session` 或 `scope=avatar`。`scope=context` 只清除当前 `(sessionId, avatarId)` 的短期 messages，用于“清空上下文”，不会删除显式保存的长期 `memory_items`；`scope=session` 清理当前 session + avatar 的长期记忆和短期上下文，不会清理同 session 的其他角色；`scope=avatar` 用于清除当前角色的长期记忆摘要。该接口属于敏感 API；`REQUIRE_API_AUTH=true` 或 production 模式下必须提供 API token。
 
 无密钥本地演示和 smoke 可使用 `provider: "stub"`，当前前端默认也使用该 provider。此时返回：
 

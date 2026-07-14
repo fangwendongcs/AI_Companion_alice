@@ -4,7 +4,7 @@
 
 Phase 5 is about companion memory, persona, and continuity. AI Companion Alice is not an enterprise knowledge-base Q&A system, so the next engineering line should not be Qdrant-first or RAG-first.
 
-Current state after Phase 5.4 conservative long-term memory:
+Current state after the P1B deterministic Memory fixes:
 
 - Phase 4 closed the self-hosting and deployment security baseline. It did not close database work.
 - SQLite schema initialization and a minimal repository boundary now exist.
@@ -12,8 +12,12 @@ Current state after Phase 5.4 conservative long-term memory:
 - Enabled short-term dialogue memory now uses SQLite-backed storage through `MemoryService`.
 - Recent session context can be restored after reopening the SQLite database.
 - Conservative long-term Memory now writes a small number of explicit user-approved facts into `memory_items`.
+- Stable preference statements preserve their predicate and polarity, so `喜欢` / `不喜欢` / `讨厌` / `不想` are not collapsed into the same positive-looking object text.
 - Ordinary chat is not automatically promoted to long-term memory.
+- Memory recall questions are identified by a recall cue plus a question cue before write extraction, so phrases such as “还记得……” or “让你记住了什么？” cannot be promoted as new memory; explicit write commands remain anchored at the start of the input.
 - Sensitive content such as API keys, passwords, identity numbers, financial data, and secret-like tokens is rejected before long-term storage.
+- If the current user message is sensitive, neither that message nor the assistant reply from the same exchange is persisted; direct Repository writes are guarded as defense in depth.
+- Short-term message read, prune, and clear operations use the existing `(session_id, avatar_id)` pair. One avatar cannot consume or delete another avatar's history inside the same session.
 - Duplicate explicit memories are merged/updated instead of appended forever.
 - Short-term Memory, local keyword RAG, n8n workflow boundary, and Agent pipeline already exist, but they are intelligence baselines, not the final companion memory system.
 - RAG / Qdrant / embedding are deferred optional enhancements.
@@ -43,8 +47,8 @@ SQLite should be the source of truth for companion memory. Files should only sup
 
 | Layer | Purpose | Storage Direction | Notes |
 | --- | --- | --- | --- |
-| Raw Session | Traceable original session and message records | SQLite `sessions` + `messages` | Used for recovery, review, and controlled summarization. |
-| Short-term Memory | Recent N turns for the current session | SQLite `messages` | Drives immediate context continuity and can recover after server restart. |
+| Raw Session | Traceable eligible session and message records | SQLite `sessions` + `messages` | Sensitive exchanges are excluded rather than archived. |
+| Short-term Memory | Recent N turns for the current session and avatar | SQLite `messages` | Uses `(session_id, avatar_id)` and can recover after server restart. |
 | Long-term Memory | Stable preferences, facts, goals, relationship facts, important events | SQLite `memory_items` | Only explicit, non-sensitive, user-approved content is promoted. |
 | Persona Memory | Character persona, tone, boundaries, interaction style | SQLite/config `avatar_personas` | Alice / Shiro / Wambo should feel different beyond model assets. |
 | Memory Policy | Rules for write, update, forget, prohibited storage, privacy controls | SQLite/config `memory_settings` + policy docs | User control matters more than automatic hoarding. |
@@ -86,6 +90,8 @@ Rules:
 
 - Store only when memory is enabled or when the product explicitly needs session recovery.
 - Do not store secrets.
+- Every read, prune, and clear operation must match both `session_id` and `avatar_id`.
+- If a user message is sensitive, skip both sides of that exchange so an assistant repetition cannot enter SQLite.
 - Avoid turning this into a permanent raw transcript archive.
 
 ### `memory_items`
@@ -206,13 +212,18 @@ Suggested fields:
 
 ## Write Strategy
 
-1. All eligible dialogue messages first enter `messages`.
+1. Eligible non-sensitive dialogue messages first enter `messages`.
 2. Only important content should be promoted to `memory_items`.
 3. Do not store API keys, passwords, identity numbers, financial information, tokens, webhook secrets, or sensitive private data.
-4. Duplicate memory should merge/update, not endlessly append.
-5. Memory writes should be explainable through `memory_events`.
-6. Long-term memory should be clearable by session and avatar.
-7. Raw message retention should be capped or configurable before this becomes a product feature.
+4. Sensitive user content can be used for the current response, but the user message and same-turn assistant response must not be persisted.
+5. Preference memories must retain positive or negative predicates instead of saving only the preference object.
+6. Recall questions must be rejected before explicit write extraction; a memory-related phrase inside a question is not a write instruction.
+7. Duplicate memory should merge/update, not endlessly append.
+8. Memory writes should be explainable through `memory_events`.
+9. Long-term memory should be clearable by session and avatar.
+10. Raw message retention should be capped or configurable before this becomes a product feature.
+
+P1B uses the existing `messages.avatar_id`; it does not rebuild the schema. The `sessions.avatar_id` field remains session metadata, while short-term context authority comes from the composite message scope. Existing rows keep their stored `avatar_id`. Detected historical sensitive rows are excluded from active reads, but this release does not perform a destructive retroactive database purge.
 
 ## PromptBuilder Order
 

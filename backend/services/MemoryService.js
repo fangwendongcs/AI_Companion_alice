@@ -1,3 +1,5 @@
+import { containsSensitiveContent } from '../utils/redact.js';
+
 const DEFAULT_SESSION_ID = 'default';
 const DEFAULT_AVATAR_ID = 'alice';
 const DEFAULT_MAX_TURNS = 6;
@@ -5,16 +7,18 @@ const MAX_SESSION_ID_LENGTH = 80;
 const MAX_CONTENT_CHARS = 800;
 const MAX_MEMORY_ITEM_CHARS = 240;
 const MAX_LONG_TERM_ITEMS = 6;
-const MEMORY_INTENT_PATTERNS = [
-  /(?:请你)?记住(?:这个|一下)?[：:\s]*(.+)$/i,
-  /以后(?:你)?要记得[：:\s]*(.+)$/i,
-  /你要记得[：:\s]*(.+)$/i,
-  /帮我记住[：:\s]*(.+)$/i,
-  /我的目标是[：:\s]*(.+)$/i,
-  /我(?:很)?喜欢[：:\s]*(.+)$/i,
-  /我不喜欢[：:\s]*(.+)$/i
+const MEMORY_RECALL_CUE_PATTERN = /(?:还记得|你记得|让你记住|记住了)/i;
+const MEMORY_QUESTION_CUE_PATTERN = /(?:吗|么|什么|哪些|哪(?:个|些|条)?|是否|有没有|[？?])/i;
+const MEMORY_INTENT_RULES = [
+  { pattern: /^(?:请(?:你)?\s*)?记住(?:这个|一下)?[：:，,\s]*(.+)$/i },
+  { pattern: /^(?:以后(?:你)?要记得|你要记得)[：:，,\s]*(.+)$/i },
+  { pattern: /^帮我记(?:住|一下)[：:，,\s]*(.+)$/i },
+  { pattern: /^我的目标是[：:，,\s]*(.+)$/i },
+  {
+    pattern: /^(我(?:很)?(?:不喜欢|讨厌|不想|喜欢)\s*.+)$/i,
+    type: 'preference'
+  }
 ];
-const SENSITIVE_MEMORY_PATTERN = /(api[_\s-]?key|secret|token|bearer|sk-[a-zA-Z0-9_-]{8,}|密码|口令|身份证|银行卡|信用卡|金融账户|验证码|住址|家庭住址|手机号|电话号码)/i;
 
 export class MemoryService {
   constructor({ maxTurns = DEFAULT_MAX_TURNS, repository = null } = {}) {
@@ -38,7 +42,7 @@ export class MemoryService {
 
     const normalizedSessionId = normalizeSessionId(sessionId);
     const normalizedAvatarId = normalizeAvatarId(avatarId);
-    const context = this.getSessionMessages(normalizedSessionId);
+    const context = this.getSessionMessages(normalizedSessionId, normalizedAvatarId);
     const longTerm = this.getLongTermContext({
       sessionId: normalizedSessionId,
       avatarId: normalizedAvatarId
@@ -78,12 +82,15 @@ export class MemoryService {
     const now = new Date().toISOString();
     const userContent = normalizeContent(userMessage);
     const assistantContent = normalizeContent(assistantMessage);
+    const userContainsSensitiveContent = containsSensitiveContent(userContent);
+    const assistantContainsSensitiveContent = containsSensitiveContent(assistantContent);
     let longTermWrite = buildLongTermWrite({ status: 'skipped', reason: 'not_applicable' });
 
     if (this.repository) {
       this.repository.ensureSession({ sessionId: normalizedSessionId, avatarId: normalizedAvatarId });
       let userMessageId = null;
-      if (userContent) {
+      let assistantMessageId = null;
+      if (userContent && !userContainsSensitiveContent) {
         userMessageId = this.repository.appendMessage({
           sessionId: normalizedSessionId,
           avatarId: normalizedAvatarId,
@@ -91,8 +98,8 @@ export class MemoryService {
           content: userContent
         });
       }
-      if (assistantContent) {
-        this.repository.appendMessage({
+      if (assistantContent && !userContainsSensitiveContent && !assistantContainsSensitiveContent) {
+        assistantMessageId = this.repository.appendMessage({
           sessionId: normalizedSessionId,
           avatarId: normalizedAvatarId,
           role: 'assistant',
@@ -105,14 +112,18 @@ export class MemoryService {
         userMessage: userContent,
         sourceMessageIds: userMessageId ? [userMessageId] : []
       });
-      this.repository.pruneMessages({ sessionId: normalizedSessionId, keep: this.maxTurns * 2 });
-      const context = this.getSessionMessages(normalizedSessionId);
+      this.repository.pruneMessages({
+        sessionId: normalizedSessionId,
+        avatarId: normalizedAvatarId,
+        keep: this.maxTurns * 2
+      });
+      const context = this.getSessionMessages(normalizedSessionId, normalizedAvatarId);
       const longTerm = this.getLongTermContext({
         sessionId: normalizedSessionId,
         avatarId: normalizedAvatarId
       });
       return {
-        stored: true,
+        stored: Boolean(userMessageId || assistantMessageId),
         status: 'ready',
         sessionId: normalizedSessionId,
         avatarId: normalizedAvatarId,
@@ -123,15 +134,16 @@ export class MemoryService {
       };
     }
 
-    const messages = this.sessions.get(normalizedSessionId) || [];
-    if (userContent) {
+    const sessionAvatarKey = buildSessionAvatarKey(normalizedSessionId, normalizedAvatarId);
+    const messages = this.sessions.get(sessionAvatarKey) || [];
+    if (userContent && !userContainsSensitiveContent) {
       messages.push({
         role: 'user',
         content: userContent,
         at: now
       });
     }
-    if (assistantContent) {
+    if (assistantContent && !userContainsSensitiveContent && !assistantContainsSensitiveContent) {
       messages.push({
         role: 'assistant',
         content: assistantContent,
@@ -140,9 +152,13 @@ export class MemoryService {
     }
 
     const capped = capMessages(messages, this.maxTurns);
-    this.sessions.set(normalizedSessionId, capped);
+    this.sessions.set(sessionAvatarKey, capped);
+    const stored = Boolean(
+      (userContent && !userContainsSensitiveContent)
+      || (assistantContent && !userContainsSensitiveContent && !assistantContainsSensitiveContent)
+    );
     return {
-      stored: true,
+      stored,
       status: 'ready',
       sessionId: normalizedSessionId,
       avatarId: normalizedAvatarId,
@@ -162,37 +178,52 @@ export class MemoryService {
     }, { enabled });
   }
 
-  getSessionMessages(sessionId) {
+  getSessionMessages(sessionId, avatarId = DEFAULT_AVATAR_ID) {
     if (this.repository) {
       return this.repository
-        .listMessages({ sessionId: normalizeSessionId(sessionId), limit: this.maxTurns * 2 })
+        .listMessages({
+          sessionId: normalizeSessionId(sessionId),
+          avatarId: normalizeAvatarId(avatarId),
+          limit: this.maxTurns * 2
+        })
         .map((message) => ({
           role: message.role,
           content: message.content,
           at: message.created_at
         }));
     }
-    return (this.sessions.get(normalizeSessionId(sessionId)) || []).map((message) => ({ ...message }));
+    const sessionAvatarKey = buildSessionAvatarKey(
+      normalizeSessionId(sessionId),
+      normalizeAvatarId(avatarId)
+    );
+    return (this.sessions.get(sessionAvatarKey) || []).map((message) => ({ ...message }));
   }
 
-  clearSession(sessionId = DEFAULT_SESSION_ID) {
+  clearSession(sessionId = DEFAULT_SESSION_ID, avatarId = DEFAULT_AVATAR_ID) {
+    const normalizedSessionId = normalizeSessionId(sessionId);
+    const normalizedAvatarId = normalizeAvatarId(avatarId);
     if (this.repository) {
-      this.repository.clearSession(normalizeSessionId(sessionId));
+      this.repository.clearSession(normalizedSessionId, normalizedAvatarId);
       return;
     }
-    this.sessions.delete(normalizeSessionId(sessionId));
+    this.sessions.delete(buildSessionAvatarKey(normalizedSessionId, normalizedAvatarId));
   }
 
-  clearShortTermContext(sessionId = DEFAULT_SESSION_ID) {
+  clearShortTermContext(sessionId = DEFAULT_SESSION_ID, avatarId = DEFAULT_AVATAR_ID) {
     const normalizedSessionId = normalizeSessionId(sessionId);
+    const normalizedAvatarId = normalizeAvatarId(avatarId);
     if (this.repository) {
       return {
-        cleared: this.repository.clearMessages({ sessionId: normalizedSessionId }),
+        cleared: this.repository.clearMessages({
+          sessionId: normalizedSessionId,
+          avatarId: normalizedAvatarId
+        }),
         status: 'ready'
       };
     }
-    const cleared = (this.sessions.get(normalizedSessionId) || []).length;
-    this.sessions.delete(normalizedSessionId);
+    const sessionAvatarKey = buildSessionAvatarKey(normalizedSessionId, normalizedAvatarId);
+    const cleared = (this.sessions.get(sessionAvatarKey) || []).length;
+    this.sessions.delete(sessionAvatarKey);
     return { cleared, status: 'ready' };
   }
 
@@ -295,6 +326,10 @@ function capMessages(messages, maxTurns) {
   return messages.slice(Math.max(0, messages.length - maxTurns * 2));
 }
 
+function buildSessionAvatarKey(sessionId, avatarId) {
+  return `${sessionId}:${avatarId}`;
+}
+
 function countTurns(messages) {
   return Math.ceil(messages.length / 2);
 }
@@ -302,13 +337,16 @@ function countTurns(messages) {
 function extractLongTermCandidate(value) {
   const text = normalizeContent(value);
   if (!text) return null;
+  if (isMemoryRecallQuery(text)) return null;
 
   let content = '';
   let explicit = false;
-  for (const pattern of MEMORY_INTENT_PATTERNS) {
-    const match = text.match(pattern);
+  let explicitType = null;
+  for (const rule of MEMORY_INTENT_RULES) {
+    const match = text.match(rule.pattern);
     if (match?.[1]) {
       content = match[1];
+      explicitType = rule.type || null;
       explicit = true;
       break;
     }
@@ -318,16 +356,20 @@ function extractLongTermCandidate(value) {
 
   content = normalizeMemoryContent(content);
   if (!content || content.length < 3) return null;
-  if (SENSITIVE_MEMORY_PATTERN.test(content)) {
+  if (containsSensitiveContent(text) || containsSensitiveContent(content)) {
     return { rejected: true, reason: 'sensitive_content' };
   }
 
   return {
-    type: inferMemoryType(text, content),
+    type: explicitType || inferMemoryType(text, content),
     content,
     confidence: 0.78,
     importance: inferImportance(text, content)
   };
+}
+
+function isMemoryRecallQuery(text) {
+  return MEMORY_RECALL_CUE_PATTERN.test(text) && MEMORY_QUESTION_CUE_PATTERN.test(text);
 }
 
 function normalizeMemoryContent(value) {

@@ -226,23 +226,28 @@ http://localhost:3000?debug=1
 - `js/voice/TTSService.js`
 - `js/app/AppController.js`
 
-### 2026-07-10 P2 实测记录
+### 2026-07-14 P2 实测记录
 
-当前结论：**部分通过，不是完整验收通过**。
+当前结论：**完整通过本轮要求的 5–10 秒与 30–60 秒场景**。本轮使用真实 Chromium、CosyVoice2 官方 FastAPI、`local_girl_vrm_test`，没有用模拟音频替代以下结论。
 
 | 场景 | 结果 | 证据 / 说明 |
 | --- | --- | --- |
 | CosyVoice2 runtime / live | 通过 | 官方 FastAPI 前台运行；live 返回 WAV，`streaming=false`、`upstreamStreaming=true`。 |
 | `local_girl_vrm_test` + Provider readiness | 通过 | Web Settings 显示 CosyVoice2 可用、voice `中文女`、服务已连接。 |
 | 5–10 秒短中文语音 | 通过 | 实际 `6.64s`；63 个 `audio-driven` 样本，amplitude `0–0.327`，mouth `0.03–0.112`，五元音组均出现。 |
-| 表情 / 动作 / 口型并行 | 通过（短语音范围） | speaking body motion、neutral expression、blink 与 mouth morph 同时存在。 |
+| 表情 / 动作 / 口型并行 | 通过 | 短/长音频中均观察到 speaking body motion、neutral expression、blink 与 mouth morph 同时存在。 |
 | 短语音自然结束清理 | 通过 | lip-sync 回 idle，mouth amount / mouth morph 全归零，`isSpeaking=false`、Avatar state idle。 |
-| 30–60 秒长中文语音 | 阻塞，未验收 | 浏览器控制权限在近景复验前因 Codex 使用额度限制被拒绝。 |
-| 连续快速两段语音 | 阻塞，未验收 | 同上；不能用自动化 session-epoch 测试代替真实浏览器结论。 |
-| 播放中取消 / 静音 | 阻塞，未验收 | 同上。 |
-| TTS 错误 / 中断恢复 | 阻塞，未验收 | 同上。 |
+| 30–60 秒长中文语音 | 通过 | 实际 `37.12s`；359 个 `audio-driven` 样本，amplitude `0–0.308`，mouth `0.03–0.11`，五元音组均出现，结束后 mouth morph 全 0，motion idle 观测延迟约 1ms。 |
+| 连续快速两段语音 | 通过 | 旧音频在 1.69s 处暂停；新音频对象不同。修复后合成间隙口型/Avatar/motion 立即 idle，新音频开始后重新 audio-driven，无陈旧 end 干扰。 |
+| 播放中取消 / 静音 | 通过 | 点击页面真实“语音开关”；200ms 后旧音频 paused、`currentAudio=false`、lip-sync/mouth 归零，Avatar 与 motion idle。 |
+| TTS 错误 / 中断恢复 | 通过 | 停止 CosyVoice2 后观察到 browser fallback 的 `requested → playing → ended` 与 lip-sync `idle → loop → idle`；重启后下一段 `6.4s` 真实音频恢复 audio-driven。 |
 
-口型参数保持不变。全身视角下嘴型较克制，但没有足够的面部近景证据证明是明确视觉缺陷；不得仅凭 `mouthAmount` 数值调整增益。
+现场发现并修复两个非视觉参数问题：
+
+- 真实 30+ 秒音频生成首次耗时 49.6–58.4 秒，原 45 秒通用上游超时会提前 fallback；现已改为 TTS 独立默认 90 秒，前端 TTS 等待 100 秒，不改 LLM 时限。
+- 原快速替换/静音会暂停音频但保留旧 audio sampler；现已在取消活动播放时发出 `audio:end(cancelled=true)` 清理表现层。
+
+口型参数保持不变。全身视角下嘴型较克制，但数值变化连续（长音频 mouth 步进均值约 `0.00037`、最大 `0.017`），没有明确过小/过大、高频抖动、锁嘴或可见延迟证据。`short-active.png` 是有效全身播放中证据；`short-peak-closeup.png` 因头部被裁切仍不作为调参依据。
 
 ## 6. 短期 Memory 开关
 

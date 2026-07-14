@@ -23,7 +23,7 @@ import {
   ttsOutputFormat,
   ttsProviderBaseUrls,
   ttsProviderKeyEnv,
-  upstreamTimeoutMs
+  ttsUpstreamTimeoutMs
 } from '../../config/serverConfig.js';
 import { CosyVoiceTTSProvider } from './providers/CosyVoiceTTSProvider.js';
 import { HiggsTTSProvider } from './providers/HiggsTTSProvider.js';
@@ -94,7 +94,7 @@ export class TTSProviderRegistry {
       promptText: ttsCosyVoicePromptText,
       promptWavPath: ttsCosyVoicePromptWavPath,
       instructText: ttsCosyVoiceInstructText,
-      timeoutMs: upstreamTimeoutMs,
+      timeoutMs: ttsUpstreamTimeoutMs,
       fetchImpl: this.fetchImpl
     }));
     this.register(new HiggsTTSProvider({
@@ -105,7 +105,7 @@ export class TTSProviderRegistry {
       model: ttsHiggsModel,
       defaultVoice: ttsHiggsVoiceId,
       outputFormat: ttsOutputFormat,
-      timeoutMs: upstreamTimeoutMs,
+      timeoutMs: ttsUpstreamTimeoutMs,
       fetchImpl: this.fetchImpl
     }));
     this.register(new OpenAITTSProvider({
@@ -114,7 +114,7 @@ export class TTSProviderRegistry {
       apiKeyEnv: ttsProviderKeyEnv.openai,
       model: openaiModel,
       outputFormat: ttsOutputFormat,
-      timeoutMs: upstreamTimeoutMs,
+      timeoutMs: ttsUpstreamTimeoutMs,
       fetchImpl: this.fetchImpl
     }));
     this.register(new MiniMaxTTSProvider({
@@ -122,7 +122,7 @@ export class TTSProviderRegistry {
       apiKey: process.env[ttsProviderKeyEnv.minimax] || '',
       apiKeyEnv: ttsProviderKeyEnv.minimax,
       model: minimaxModel,
-      timeoutMs: upstreamTimeoutMs,
+      timeoutMs: ttsUpstreamTimeoutMs,
       fetchImpl: this.fetchImpl
     }));
   }

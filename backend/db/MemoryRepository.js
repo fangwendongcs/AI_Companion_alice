@@ -1,3 +1,5 @@
+import { containsSensitiveContent } from '../utils/redact.js';
+
 const DEFAULT_AVATAR_ID = 'alice';
 
 export class MemoryRepository {
@@ -30,6 +32,8 @@ export class MemoryRepository {
   appendMessage({ sessionId, avatarId = DEFAULT_AVATAR_ID, role, content, provider = null, model = null, metadata = null }) {
     const normalizedSessionId = normalizeText(sessionId, 'default');
     const normalizedAvatarId = normalizeText(avatarId, DEFAULT_AVATAR_ID);
+    const normalizedContent = normalizeText(content, '');
+    if (!normalizedContent || containsSensitiveContent(normalizedContent)) return null;
     this.ensureSession({ sessionId: normalizedSessionId, avatarId: normalizedAvatarId });
     this.database.prepare(`
       INSERT INTO messages (session_id, avatar_id, role, content, provider, model, metadata_json)
@@ -38,7 +42,7 @@ export class MemoryRepository {
       normalizedSessionId,
       normalizedAvatarId,
       normalizeRole(role),
-      normalizeText(content, ''),
+      normalizedContent,
       provider,
       model,
       metadata ? JSON.stringify(metadata) : null
@@ -46,38 +50,52 @@ export class MemoryRepository {
     return Number(this.database.prepare('SELECT last_insert_rowid() AS id').get().id);
   }
 
-  listMessages({ sessionId, limit = 20 } = {}) {
+  listMessages({ sessionId, avatarId = DEFAULT_AVATAR_ID, limit = 20 } = {}) {
     return this.database.prepare(`
       SELECT * FROM messages
       WHERE session_id = ?
+        AND avatar_id = ?
       ORDER BY id DESC
       LIMIT ?
-    `).all(normalizeText(sessionId, 'default'), normalizeLimit(limit)).reverse();
+    `).all(
+      normalizeText(sessionId, 'default'),
+      normalizeText(avatarId, DEFAULT_AVATAR_ID),
+      normalizeLimit(limit)
+    ).reverse().filter((message) => !containsSensitiveContent(message.content));
   }
 
-  pruneMessages({ sessionId, keep = 12 } = {}) {
+  pruneMessages({ sessionId, avatarId = DEFAULT_AVATAR_ID, keep = 12 } = {}) {
     this.database.prepare(`
       DELETE FROM messages
       WHERE session_id = ?
+        AND avatar_id = ?
         AND id NOT IN (
           SELECT id FROM messages
           WHERE session_id = ?
+            AND avatar_id = ?
           ORDER BY id DESC
           LIMIT ?
         )
-    `).run(normalizeText(sessionId, 'default'), normalizeText(sessionId, 'default'), normalizeLimit(keep));
+    `).run(
+      normalizeText(sessionId, 'default'),
+      normalizeText(avatarId, DEFAULT_AVATAR_ID),
+      normalizeText(sessionId, 'default'),
+      normalizeText(avatarId, DEFAULT_AVATAR_ID),
+      normalizeLimit(keep)
+    );
   }
 
-  clearSession(sessionId) {
-    this.database
-      .prepare('DELETE FROM sessions WHERE session_id = ?')
-      .run(normalizeText(sessionId, 'default'));
+  clearSession(sessionId, avatarId = DEFAULT_AVATAR_ID) {
+    return this.clearMessages({ sessionId, avatarId });
   }
 
-  clearMessages({ sessionId } = {}) {
+  clearMessages({ sessionId, avatarId = DEFAULT_AVATAR_ID } = {}) {
     const result = this.database
-      .prepare('DELETE FROM messages WHERE session_id = ?')
-      .run(normalizeText(sessionId, 'default'));
+      .prepare('DELETE FROM messages WHERE session_id = ? AND avatar_id = ?')
+      .run(
+        normalizeText(sessionId, 'default'),
+        normalizeText(avatarId, DEFAULT_AVATAR_ID)
+      );
     return Number(result?.changes || 0);
   }
 
@@ -92,7 +110,7 @@ export class MemoryRepository {
     sourceMessageIds = []
   } = {}) {
     const normalizedContent = normalizeText(content, '');
-    if (!normalizedContent) return null;
+    if (!normalizedContent || containsSensitiveContent(normalizedContent)) return null;
     const normalizedSessionId = sessionId ? normalizeText(sessionId, 'default') : null;
     const normalizedAvatarId = normalizeText(avatarId, DEFAULT_AVATAR_ID);
     const normalizedType = normalizeMemoryType(type);
@@ -177,9 +195,16 @@ export class MemoryRepository {
     );
   }
 
-  listMemoryItems({ sessionId = null, avatarId = DEFAULT_AVATAR_ID, scope = 'session', status = 'active', limit = 6 } = {}) {
+  listMemoryItems({
+    sessionId = null,
+    avatarId = DEFAULT_AVATAR_ID,
+    scope = 'session',
+    status = 'active',
+    limit = 6,
+    includeSensitive = false
+  } = {}) {
     if (scope === 'avatar') {
-      return this.database.prepare(`
+      const items = this.database.prepare(`
         SELECT * FROM memory_items
         WHERE status = ?
           AND avatar_id = ?
@@ -190,9 +215,10 @@ export class MemoryRepository {
         normalizeText(avatarId, DEFAULT_AVATAR_ID),
         normalizeLimit(limit)
       );
+      return includeSensitive ? items : items.filter((item) => !containsSensitiveContent(item.content));
     }
 
-    return this.database.prepare(`
+    const items = this.database.prepare(`
       SELECT * FROM memory_items
       WHERE status = ?
         AND avatar_id = ?
@@ -209,6 +235,7 @@ export class MemoryRepository {
       sessionId,
       normalizeLimit(limit)
     );
+    return includeSensitive ? items : items.filter((item) => !containsSensitiveContent(item.content));
   }
 
   deleteMemoryItem(id, { reason = 'manual_delete' } = {}) {
@@ -231,7 +258,7 @@ export class MemoryRepository {
   }
 
   clearMemoryItems({ sessionId = null, avatarId = DEFAULT_AVATAR_ID, scope = 'session', reason = 'manual_clear' } = {}) {
-    const items = this.listMemoryItems({ sessionId, avatarId, scope, limit: 100 });
+    const items = this.listMemoryItems({ sessionId, avatarId, scope, limit: 100, includeSensitive: true });
     for (const item of items) {
       this.deleteMemoryItem(item.id, { reason });
     }

@@ -31,6 +31,7 @@ export const rateLimitWindowMs = readNumber('RATE_LIMIT_WINDOW_MS', 60_000);
 export const rateLimitMaxRequests = readNumber('RATE_LIMIT_MAX_REQUESTS', 240);
 export const rateLimitSensitiveMaxRequests = readNumber('RATE_LIMIT_SENSITIVE_MAX_REQUESTS', 60);
 export const upstreamTimeoutMs = readNumber('UPSTREAM_TIMEOUT_MS', 45000);
+export const ttsUpstreamTimeoutMs = readNumber('TTS_UPSTREAM_TIMEOUT_MS', 90000);
 export const dialogueFallbackToStub = readBoolean('DIALOGUE_FALLBACK_TO_STUB', true);
 export const customApiKeyOptional = readBoolean('CUSTOM_API_KEY_OPTIONAL', false);
 export const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL || '';
