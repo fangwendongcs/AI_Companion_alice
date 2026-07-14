@@ -51,6 +51,9 @@ archive/                    # 历史配置/脚本，不应被新代码直接引�
 常用命令：
 
 ```bash
+npm run demo:start
+npm run demo:status
+npm run demo:stop
 npm run dev
 npm run check
 npm run smoke
@@ -58,6 +61,8 @@ npm run check:dialogue-contract
 npm run check:tts-provider-flow
 npm run check:vrm-renderer-flow
 ```
+
+完整真实本地 Demo 优先使用 `demo:*`；`npm run dev` 和 `cosyvoice:*` 保留用于单服务开发与底层排障。`demo:status` 会发起一条真实 DeepSeek 请求并生成短 WAV，不是零费用配置检查。
 
 CosyVoice2 真实服务是可选外部运行时：
 

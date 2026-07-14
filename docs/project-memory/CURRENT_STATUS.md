@@ -13,6 +13,7 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 - `/api/dialogue` 是主对话入口，并已提供 `dialogue.v1` 语义字段供 Web 表现层消费。
 - LLM 已支持后端 OpenAI-compatible `openai` / `qwen` / `deepseek` / `custom`；真实 provider 失败时，`/api/dialogue` 默认安全降级到完整 `dialogue.v1` stub 回复。
 - 本地 `npm run dev` 使用 Node 原生 `--env-file-if-exists=.env`：存在本地忽略配置时自动加载，不存在时仍可用 stub/mock 启动。
+- 完整本地 Demo 已提供 `demo:start/status/stop`：Node supervisor 统一托管 Alice 与 CosyVoice2，并以真实 DeepSeek 回复和有效 WAV 作为 ready 标准。
 - P1A 已收口 Prompt/Persona 基础正确性：后端控制不可覆盖规则和 Persona，Web `systemPrompt` 只作为低优先级回复偏好，短期历史保持原始 `user` / `assistant` role。
 - P1B 已收口 Memory 确定性问题：偏好保留否定极性，写入指令与召回问句分离，短期消息按 `sessionId + avatarId` 隔离，敏感用户轮次及 assistant 同轮回复不进入 SQLite。
 - TTS 当前公开主线是 `mock` 和 `cosyvoice`；其他 provider adapter 可留在后端实验层，但不进入 Web Settings 公开选择。
@@ -23,6 +24,7 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 | 能力 | 状态 | 权威入口 |
 | --- | --- | --- |
 | Web 本地运行 | 可用 | `README.md`、`docs/guides/DEVELOPMENT_GUIDE.md` |
+| 完整 Demo 一键启停 | 可用；支持幂等 start、真实 status、进程所有权停服与日志 | `docs/guides/DEMO_RUNTIME.md`、`scripts/demo/demo-manager.mjs` |
 | Avatar registry / manifest | 可用 | `public/avatars/registry.json`、`docs/architecture/AVATAR_ARCHITECTURE.md` |
 | Alice / Shiro / Wambo | 可用 | `public/avatars/*/manifest.json` |
 | `/api/dialogue` 主链路 | 可用 | `docs/contracts/DIALOGUE_CONTRACT.md` |
@@ -45,6 +47,7 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 | 方向 | 当前下一步 |
 | --- | --- |
 | Project Memory | 后续每次阶段性变更维护 `docs/project-memory/*`，避免聊天记录成为唯一上下文。 |
+| Demo Runtime | macOS 本机完整启停已验收；后续仅在需要跨平台时补 Windows 进程管理。 |
 | TTS | 保持 Mock 稳定；CosyVoice2 已通过 6.64 秒与 37.12 秒真实浏览器播放，TTS 独立上游超时默认 90 秒。 |
 | VRM | `local_girl_vrm_test` 已完成真实长/短音频、快速替换、静音取消和中断恢复 QA；Shiro / Wambo 及 60–120 秒更长音频仍是后续扩展验收。 |
 | Memory / Persona | P1B 确定性修复已完成；记忆修正、遗忘、过期、语义去重仍保持后续独立阶段，真实质量评测需另行授权。 |
@@ -63,6 +66,7 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 - P1A 只证明 Prompt 权限、message role、预算裁剪和契约生命周期正确；真实中文自然度、共情、模板化和多轮 Persona 稳定性仍需后续受控 live 评测。
 - P1B 不自动删除旧 SQLite 中可能已存在的敏感历史行；新写入已阻断，检测到的旧敏感记录不会进入活动上下文，旧库清理应由用户显式执行。
 - P2 本轮的真实长音频是 37.12 秒；60–120 秒真实生成及长时间视觉同步仍未覆盖，且本机生成首帧等待可达 58.4 秒。
+- Demo supervisor 的 PID 指纹与 signal 管理当前以 macOS / Linux 为基线，Windows 尚未实现或验收。
 
 ## 最近验证
 
@@ -133,6 +137,26 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 - `npm run dev` 已能自动加载 Git ignore 的根目录 `.env`；通过安全 provider readiness 只确认 DeepSeek `configured=true`，未发起真实 LLM 请求。
 - 默认 `npm run check` 与 `npm run smoke` 继续使用 fake endpoint / `stub`，不会因本地 `.env` 存在而访问真实 DeepSeek。
 
+2026-07-14 本地全服务启动现场验证：
+
+- Alice Web / Backend 在 `3000` 端口可用；真实 DeepSeek `deepseek-v4-flash` 通过 `/api/dialogue` 返回预期短回复，未进入 stub fallback。
+- CosyVoice2 官方 FastAPI 在 `50000` 端口可用；`GET /api/providers` 显示 `configured=true / available=true / health.live=true`，`check:cosyvoice-live` 返回有效 WAV（`audioBase64Bytes=174764`）。
+- 现场暴露受控环境端口权限、detached 子进程存活、固定 guard 早报成功、空 `COSYVOICE_BASE_URL`、npm/node 残留进程与端口竞态问题；已记录到 `RISKS_AND_TODO.md`，后续建议独立实现 `dev:full + status + stop/restart`。
+- 首次运行 `npm run smoke` 因本地示例 n8n URL 被误判为已配置而失败；仅在本次临时运行覆盖中清空未使用的 n8n 示例项后，`npm run smoke` 通过。该问题已列入 placeholder 配置校验优化项。
+- 本轮为完成测试只使用 `/tmp` 下不含 secret 的运行覆盖文件，没有修改或提交本地 `.env`，没有输出 API Key。
+
+2026-07-14 Demo 一键启停能力已完成真实验收：
+
+- 完全停止旧手工进程后，`demo:status` 显示 `3000/50000` 均为 free；首次 `demo:start` 成功启动 supervisor / Alice / CosyVoice（PID `67086 / 67090 / 67089`）。
+- 网页 `http://localhost:3000` 返回 HTTP 200；DeepSeek 返回 `meta.mode=llm_only`、model `deepseek-v4-flash`，没有进入 mock/fallback。
+- CosyVoice 通过 Alice `/api/tts` 返回有效 RIFF/WAVE；首次冷启动验证 `audioBytes=149804`，后续幂等/status 验证 `audioBytes=144044`。
+- 重复 `demo:start` 输出 `already running`，三个 PID 保持 `67086 / 67090 / 67089`，没有重复进程。
+- `demo:status` 显示 Alice / DeepSeek / CosyVoice 全部 ready，两个端口均 ready。
+- `demo:stop` 后状态文件删除，`3000/50000` 端口释放；再次 `demo:stop` 安全返回 `already stopped`。
+- 再次冷启动成功；最终最新代码实例为 supervisor / Alice / CosyVoice PID `69935 / 69939 / 69938`，DeepSeek `llm_only`，CosyVoice 有效 WAV `149804` bytes。
+- `npm run check`、`npm run smoke`、`check:demo-lifecycle`、`check:security-boundaries`、`git diff --check` 均通过。
+- `.env` 与真实 API Key 未被修改或打印；状态文件不保存 env/Prompt/音频，CosyVoice 子进程不继承 credential-shaped 环境变量。
+
 ## 本次项目记忆更新记录
 
 | 日期 | 更新内容 |
@@ -146,3 +170,5 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 | 2026-07-14 | 完成 P1B Memory 确定性修复：偏好保留正负谓词，短期消息读取/裁剪/清理按 session + avatar 组合隔离，敏感用户与同轮 assistant 原文不持久化；不改 schema 和 `dialogue.v1`。 |
 | 2026-07-14 | 完成 P2 真实 CosyVoice2 浏览器验收：37.12 秒长音频、快速替换、静音取消、上游中断/恢复均通过；现场修复 TTS 独立超时与取消时表现层清理，未调口型参数。 |
 | 2026-07-14 | 本地 `npm run dev` 改用 Node 原生 `--env-file-if-exists=.env`；有本地配置时自动加载，无文件时保持 stub/mock 可启动，不引入 dotenv。 |
+| 2026-07-14 | 记录本地全服务启动现场问题：端口权限、detached CosyVoice 存活、readiness、运行 env、残留父子进程与端口竞态；明确后续 `dev:full + status + stop/restart` 优化方向。 |
+| 2026-07-14 | 完成 `demo:start/status/stop`：detached Node supervisor 统一托管 Alice 与 CosyVoice2，真实验证 DeepSeek/WAV，支持幂等启动、PID 指纹停服、状态/日志和再次冷启动。 |

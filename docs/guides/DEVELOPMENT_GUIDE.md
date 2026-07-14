@@ -47,6 +47,20 @@ npm run dev
 http://localhost:3000
 ```
 
+### 同时启动真实 LLM 与 CosyVoice2
+
+完整本地 Demo 使用统一入口：
+
+```bash
+npm run demo:start
+npm run demo:status
+npm run demo:stop
+```
+
+`demo:start` 会托管 Alice 与 CosyVoice2、等待 endpoint、真实验证 DeepSeek 回复和有效 WAV，并输出地址、PID 与日志位置。它不会修改 `.env`；即使 `.env` 中 `COSYVOICE_BASE_URL` 为空，也会让本次 Alice 子进程使用托管的 `http://127.0.0.1:50000`。
+
+`demo:status` 每次都会发起一条很短的真实 DeepSeek 请求并执行一次本地 TTS 推理，不适合高频轮询。完整生命周期、状态文件、安全边界和失败处理见 [DEMO_RUNTIME.md](./DEMO_RUNTIME.md)。旧的 `npm run dev` 和 `cosyvoice:*` 仍用于单模块开发或底层排障。
+
 ## 检查
 
 ```bash

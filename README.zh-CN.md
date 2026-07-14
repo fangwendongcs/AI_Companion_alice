@@ -82,6 +82,18 @@ flowchart LR
 
 ## 快速启动
 
+已经配置 DeepSeek 和 CosyVoice2 的完整本地 Demo：
+
+```bash
+npm run demo:start
+npm run demo:status
+npm run demo:stop
+```
+
+Demo supervisor 会在启动命令退出后继续托管 Alice 与 CosyVoice2，执行真实 DeepSeek 和 WAV readiness 检查，并且不会写入 API Key。详见 [Alice Demo Runtime](./docs/guides/DEMO_RUNTIME.md)。
+
+不需要 Key、使用默认 stub/mock 的前后端开发：
+
 ```bash
 npm run dev
 ```

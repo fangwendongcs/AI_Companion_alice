@@ -82,6 +82,18 @@ Notes:
 
 ## Quick Start
 
+Full local demo with configured DeepSeek and CosyVoice2:
+
+```bash
+npm run demo:start
+npm run demo:status
+npm run demo:stop
+```
+
+The demo supervisor keeps Alice and CosyVoice2 alive after the start command returns, performs real DeepSeek and WAV readiness checks, and never writes API keys. See [Alice Demo Runtime](./docs/guides/DEMO_RUNTIME.md).
+
+For no-key frontend/backend development with the default stub/mock path:
+
 ```bash
 npm run dev
 ```

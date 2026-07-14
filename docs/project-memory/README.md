@@ -31,7 +31,7 @@ Alice 是一个 AI digital companion / interactive avatar 原型：当前仓库�
 | Avatar / VRM | `docs/architecture/VRM_RENDERER_MVP.md` | `docs/avatar/AVATAR_PRESENTATION_CONTRACT.md` |
 | VRM Motion | `docs/architecture/VRM_MOTION_READINESS.md` | `docs/architecture/VRM_MOTION_QUALITY_V1.md` |
 | Mobile Handoff 历史资料 | `docs/mobile-handoff/IOS_MIGRATION_SCOPE.md` | 当前不是 Web 项目整理重点 |
-| 本地开发 | `docs/guides/DEVELOPMENT_GUIDE.md` | `package.json` |
+| 本地开发 | `docs/guides/DEVELOPMENT_GUIDE.md`、`docs/guides/DEMO_RUNTIME.md` | `package.json`、`scripts/demo/demo-manager.mjs` |
 | 配置与 Secret | `.env.example`、`docs/deployment/ENVIRONMENT_MODES.md` | `backend/config/serverConfig.js` |
 | 安全边界 | `docs/security/PHASE4_DEPLOYMENT_SECURITY_BASELINE.md` | `docs/deployment/DEPLOYMENT_CHECKLIST.md` |
 

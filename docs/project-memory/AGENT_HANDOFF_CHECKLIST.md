@@ -32,6 +32,16 @@ http://localhost:3000
 http://localhost:3000?debug=1
 ```
 
+需要真实 DeepSeek + CosyVoice2 完整 Demo 时优先使用：
+
+```bash
+npm run demo:start
+npm run demo:status
+npm run demo:stop
+```
+
+`demo:status` 会产生一次很小的真实 DeepSeek 请求和一次本地 CosyVoice 推理。完整语义见 `docs/guides/DEMO_RUNTIME.md`。
+
 4. 按任务补专项检查：
 
 ```bash

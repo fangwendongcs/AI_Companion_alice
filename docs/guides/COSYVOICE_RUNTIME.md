@@ -170,6 +170,16 @@ runtime/cosyvoice/logs/fastapi.log
 
 ## 启动服务
 
+完整 Alice + DeepSeek + CosyVoice2 Demo 优先使用：
+
+```bash
+npm run demo:start
+npm run demo:status
+npm run demo:stop
+```
+
+该入口由 Node supervisor 持续托管两个服务、覆盖本次 Alice 子进程的空 `COSYVOICE_BASE_URL`、等待 readiness，并做真实 DeepSeek / WAV 验证。详见 [DEMO_RUNTIME.md](./DEMO_RUNTIME.md)。本节下面的 `cosyvoice:*` 命令继续作为单独运行和排障入口。
+
 启动 runtime 和验证 Alice 接入是两条不同命令。`cosyvoice:start` 只启动 CosyVoice FastAPI 服务；`check:cosyvoice-live` 只探测已经存在的服务。
 
 启动前可以先跑本地前置检查：

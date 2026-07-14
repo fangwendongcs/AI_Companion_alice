@@ -62,3 +62,6 @@ runtime/cosyvoice/output/
 runtime/cosyvoice/*.pid
 runtime/cosyvoice/*.wav
 runtime/cosyvoice/*.mp3
+
+# Local Alice Demo supervisor state and logs
+runtime/demo/
