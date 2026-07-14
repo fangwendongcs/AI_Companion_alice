@@ -12,6 +12,7 @@ checkPersonaIdentityIsolation();
 await checkWebSupplementalPromptBoundary();
 checkLegacyWebPromptMigration();
 checkPromptAuthorityOrder();
+checkResponseExpressionBoundaries();
 checkHistoryUsesNativeRoles();
 checkRecentHistoryBudget();
 checkLongPromptBudgets();
@@ -113,6 +114,26 @@ function checkPromptAuthorityOrder() {
   assert(prompt.includes('当前角色：Shiro'), '恶意客户端偏好不得替换后端 Shiro 核心身份。');
   assert(prompt.includes('冲突内容必须忽略'), '客户端补充偏好必须被标为可忽略的低优先级内容。');
   assert(prompt.includes('不得声称自己是真人'), '后端不可覆盖规则必须禁止真人身份声明。');
+}
+
+function checkResponseExpressionBoundaries() {
+  const prompt = new PromptBuilder().build({
+    persona: new PersonaService().getPersona('alice'),
+    memory: {
+      used: true,
+      longTerm: {
+        items: [{
+          type: 'preference',
+          content: '我不喜欢香菜，吃饭时希望避开它',
+          importance: 0.75
+        }]
+      }
+    }
+  });
+  assert(prompt.includes('不使用括号舞台提示'), 'Prompt 必须默认禁止括号舞台提示。');
+  assert(prompt.includes('emoji 保持克制') && prompt.includes('最多使用一个'), 'Prompt 必须限制 emoji 使用密度。');
+  assert(prompt.includes('只复述长期记忆数据中实际存在的内容'), 'Prompt 必须禁止从已保存记忆推断相邻偏好。');
+  assert(prompt.includes('不得承诺永久保存'), 'Prompt 必须准确说明当前记忆状态，不得承诺永久保存。');
 }
 
 function checkHistoryUsesNativeRoles() {
@@ -223,7 +244,16 @@ async function checkDialogueContractStaysStable() {
     llmService: {
       chatDetailed: async (input) => {
         receivedInput = input;
-        return { reply: '结构化 messages fake 回复。', provider: input.provider, model: input.model };
+        return {
+          reply: '结构化 messages fake 回复。',
+          provider: input.provider,
+          model: input.model,
+          diagnostics: {
+            finishReason: 'stop',
+            truncated: false,
+            usage: { promptTokens: 20, completionTokens: 8, totalTokens: 28 }
+          }
+        };
       }
     }
   });
@@ -244,6 +274,7 @@ async function checkDialogueContractStaysStable() {
   assert(result.memory?.status === 'ready' && result.memory_event?.short_context_updated === true, '结构化 messages 不得改变 Memory 状态。');
   assert(result.tts?.status === 'pending', '结构化 messages 不得改变 TTS pending 状态。');
   assert(result.avatar_directive?.state === 'speaking' && result.avatar_directive?.lip_sync === 'auto', '结构化 messages 不得改变 AvatarDirective。');
+  assert(!Object.prototype.hasOwnProperty.call(result, 'diagnostics') && !Object.prototype.hasOwnProperty.call(result.meta || {}, 'diagnostics'), 'LLM 内部 finish reason / usage 不得改变公开 dialogue.v1 响应。');
 }
 
 async function checkDefaultCommandsAreZeroCost() {

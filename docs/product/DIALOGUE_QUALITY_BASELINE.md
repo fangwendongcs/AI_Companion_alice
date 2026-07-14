@@ -1,10 +1,10 @@
 # Dialogue Quality Baseline
 
-最后更新：2026-07-10
+最后更新：2026-07-14
 
 ## 目标
 
-本文件定义 Alice Web / 共用 Node Backend 的可重复对话质量基线。P1A 先验证 Prompt、Persona 和多轮 message role 的确定性正确性，不访问真实 LLM，不评价某次模型输出的主观好坏。
+本文件定义 Alice Web / 共用 Node Backend 的可重复对话质量基线。P1A 验证 Prompt、Persona 和多轮 message role 的确定性正确性；P1C 根据首次 10 轮真实基线收口回复完整性、内部截断诊断与自然表达边界。自动检查仍不访问真实 LLM。
 
 权威实现：
 
@@ -35,6 +35,8 @@ npm run check:dialogue-quality-logic
 7. system Prompt 超长时仍保留后端规则、Persona 核心身份与边界；各可选章节只在自己的预算内裁减。
 8. `dialogue.v1`、Memory 状态、TTS pending 和 AvatarDirective 生命周期保持不变。
 9. 默认 `npm run check` 与 `npm run smoke` 不选择真实 LLM provider。
+10. `LLM_MAX_TOKENS` 缺省为 `320` 且可由后端环境覆盖；`finish_reason=length` 和 token usage 只进入安全内部诊断。
+11. 后端 Prompt 默认不使用括号舞台提示，emoji 通常最多一个；记忆确认不扩写事实，也不承诺永久保存。
 
 ## Prompt 权限层级
 
@@ -71,7 +73,7 @@ user
 
 ## 字符预算
 
-P1A 不引入 tokenizer；预算只控制输入上下文，不修改模型的 `max_tokens=200` 或 `temperature=0.8`。
+P1A 不引入 tokenizer；字符预算只控制输入上下文。P1C 将输出上限改为后端 `LLM_MAX_TOKENS`，默认 `320`、显式环境配置优先；`temperature` 仍保持内部默认值 `0.8`。该参数不进入 `/api/dialogue` 请求契约。
 
 | 内容 | 字符预算 | 保留策略 |
 | --- | ---: | --- |
@@ -87,14 +89,16 @@ P1A 不引入 tokenizer；预算只控制输入上下文，不修改模型的 `m
 
 当前用户输入不占 system/history 预算，继续遵守 `/api/dialogue` 原有请求长度边界。
 
-## 后续真实模型质量评测（当前仍未执行）
+## 首次真实模型质量基线
 
-后续真实评测应固定覆盖：普通闲聊、情绪低落、明确记忆写入、记忆召回、不应长期保存、记忆修正、8～12 轮 Persona 稳定性、覆盖 Persona 尝试、边界请求和回复长度。
+2026-07-14 已使用 `deepseek-v4-flash` 完成固定 10 轮评测：Persona `4/5`、多轮上下文 `5/5`、Memory `5/5`、中文自然度 `3/5`、共情 `3/5`、回复长度 `2/5`。10 次请求均为 `llm_only` 且无 fallback；第 2、5、8 轮明确截断，第 3 轮疑似截断。
+
+P1C 针对该证据做最小收口：默认输出上限从 `200` 提高到 `320`，内部识别 `finish_reason=length` 并安全解析 token usage，同时限制舞台提示、emoji、记忆扩写与永久保存承诺。本阶段只使用 fake endpoint 验证实现，不再次产生真实模型费用。
 
 主观质量必须人工评审中文自然度、共情分寸、Persona 差异、模板化和多轮稳定性；关键词、字符数和文本相似度只能做初筛，不能代替最终质量结论。
 
 ## 本阶段不证明
 
-- 不证明 DeepSeek 或其他模型的真实中文回复质量。
+- P1C 自动检查不证明调整后的 DeepSeek 真实中文回复质量；需要后续用同一固定评测集受控复测。
 - P1B 已以纯逻辑检查处理 Memory 否定极性、写入指令与召回问句区分、`sessionId + avatarId` 短期隔离和敏感原文持久化；仍不处理记忆修正、遗忘、过期或语义去重。
-- 不处理 Affect、Persona 大规模文案、生成参数、usage、finish reason、RAG 或 Agent 质量。
+- 不处理 Affect、Persona 核心身份文案、temperature、RAG、Agent、流式输出或 TTS 分句。

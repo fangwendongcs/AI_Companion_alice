@@ -174,6 +174,10 @@ validate input -> memory context -> rag context -> optional workflow -> PromptBu
 
 真实调用成功后，`meta.provider` 和 `meta.model` 来自 `LLMService` 的最终 resolved request，必须与本次实际发送到上游的 provider / model 一致。`GET /api/providers` 的 `defaultModel` 使用同一份 `providerDefaultModels` 配置。
 
+回复生成上限由后端环境变量 `LLM_MAX_TOKENS` 控制，默认 `320`；该配置不会增加或改变 `/api/dialogue` 请求字段。`temperature` 当前仍使用后端内部默认值 `0.8`。
+
+`LLMService.chatDetailed()` 会在内部诊断结果中保留规范化的 `finish_reason`、是否因 `length` 截断，以及上游提供的 prompt / completion / total token usage。诊断结果不包含原始 Prompt、Authorization、API Key 或 provider URL，也不透传到 `dialogue.v1` 或公开 `meta`，因此当前成功响应结构保持不变。
+
 当前成功返回：
 
 ```json

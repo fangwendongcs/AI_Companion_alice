@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 const backendDir = fileURLToPath(new URL('..', import.meta.url));
 const megabyte = 1024 * 1024;
+const DEFAULT_LLM_MAX_TOKENS = 320;
 const defaultPublicDir = join(resolve(backendDir, '..'), 'public');
 
 export const rootDir = resolve(backendDir, '..');
@@ -33,6 +34,7 @@ export const rateLimitSensitiveMaxRequests = readNumber('RATE_LIMIT_SENSITIVE_MA
 export const upstreamTimeoutMs = readNumber('UPSTREAM_TIMEOUT_MS', 45000);
 export const ttsUpstreamTimeoutMs = readNumber('TTS_UPSTREAM_TIMEOUT_MS', 90000);
 export const dialogueFallbackToStub = readBoolean('DIALOGUE_FALLBACK_TO_STUB', true);
+export const llmMaxTokens = resolveLLMMaxTokens();
 export const customApiKeyOptional = readBoolean('CUSTOM_API_KEY_OPTIONAL', false);
 export const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL || '';
 export const n8nWebhookSecret = process.env.N8N_WEBHOOK_SECRET || '';
@@ -54,6 +56,12 @@ export const providerDefaultModels = {
   deepseek: String(process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash').trim() || 'deepseek-v4-flash',
   custom: ''
 };
+
+export function resolveLLMMaxTokens(value = process.env.LLM_MAX_TOKENS) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number <= 0) return DEFAULT_LLM_MAX_TOKENS;
+  return Math.floor(number);
+}
 
 export const providerKeyEnv = {
   openai: 'OPENAI_API_KEY',

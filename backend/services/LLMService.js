@@ -3,16 +3,23 @@ import {
   providerBaseUrlEnv,
   providerBaseUrls,
   providerDefaultModels,
-  providerKeyEnv
+  providerKeyEnv,
+  resolveLLMMaxTokens
 } from '../config/serverConfig.js';
 import { createHttpError } from '../utils/httpError.js';
 import { fetchWithTimeout } from '../utils/request.js';
 
 export class LLMService {
-  constructor({ fetchImpl = fetch, timeoutMs, customKeyOptional = customApiKeyOptional } = {}) {
+  constructor({
+    fetchImpl = fetch,
+    timeoutMs,
+    customKeyOptional = customApiKeyOptional,
+    maxTokens = resolveLLMMaxTokens()
+  } = {}) {
     this.fetchImpl = fetchImpl;
     this.timeoutMs = timeoutMs;
     this.customKeyOptional = customKeyOptional;
+    this.maxTokens = resolveLLMMaxTokens(maxTokens);
   }
 
   async chat(input = {}) {
@@ -25,7 +32,7 @@ export class LLMService {
     model = '',
     systemPrompt = '',
     history = [],
-    maxTokens = 200,
+    maxTokens = this.maxTokens,
     temperature = 0.8
   } = {}) {
     const resolvedRequest = resolveLLMRequest({ provider, model });
@@ -62,7 +69,7 @@ export class LLMService {
         body: JSON.stringify({
           model: resolvedModel,
           messages: buildLLMMessages({ systemPrompt, history, message }),
-          max_tokens: maxTokens,
+          max_tokens: resolveLLMMaxTokens(maxTokens),
           temperature
         }),
         fetchImpl: this.fetchImpl,
@@ -84,7 +91,8 @@ export class LLMService {
       return {
         reply: extractReplyText(data),
         provider: normalizedProvider,
-        model: resolvedModel
+        model: resolvedModel,
+        diagnostics: extractResponseDiagnostics(data)
       };
     } catch (error) {
       throw normalizeUpstreamError(error);
@@ -171,6 +179,34 @@ function extractReplyText(data) {
     throw createCodedHttpError('LLM upstream returned an empty response.', 502, 'LLM_EMPTY_RESPONSE');
   }
   return reply;
+}
+
+function extractResponseDiagnostics(data) {
+  const rawFinishReason = data?.choices?.[0]?.finish_reason;
+  const finishReason = typeof rawFinishReason === 'string'
+    ? rawFinishReason.trim().slice(0, 40) || null
+    : null;
+  return {
+    finishReason,
+    truncated: finishReason === 'length',
+    usage: extractTokenUsage(data?.usage)
+  };
+}
+
+function extractTokenUsage(rawUsage) {
+  if (!rawUsage || typeof rawUsage !== 'object') return null;
+  const usage = {};
+  assignTokenCount(usage, 'promptTokens', rawUsage.prompt_tokens);
+  assignTokenCount(usage, 'completionTokens', rawUsage.completion_tokens);
+  assignTokenCount(usage, 'totalTokens', rawUsage.total_tokens);
+  return Object.keys(usage).length ? usage : null;
+}
+
+function assignTokenCount(target, key, value) {
+  const number = Number(value);
+  if (Number.isFinite(number) && number >= 0) {
+    target[key] = Math.floor(number);
+  }
 }
 
 function normalizeUpstreamError(error) {

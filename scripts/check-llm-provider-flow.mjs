@@ -3,7 +3,7 @@ import { LLMService, resolveLLMRequest } from '../backend/services/LLMService.js
 import { DialogueOrchestrationService } from '../backend/services/DialogueOrchestrationService.js';
 import { ProviderStatusService } from '../backend/services/ProviderStatusService.js';
 import { redactForLog } from '../backend/utils/redact.js';
-import { providerDefaultModels } from '../backend/config/serverConfig.js';
+import { providerDefaultModels, resolveLLMMaxTokens } from '../backend/config/serverConfig.js';
 import { LLMSettingsController } from '../js/ui/LLMSettingsController.js';
 import { LLMClient } from '../js/ai/LLMClient.js';
 
@@ -12,6 +12,7 @@ const fakeKey = 'test_llm_provider_key_123456';
 const fakeBaseUrl = 'https://llm-provider-fake.invalid/v1';
 
 await checkRealProviderSuccess();
+await checkGenerationConfigAndDiagnostics();
 await checkProviderSpecificModelResolution();
 await checkDeepSeekModelResolution();
 await checkDeepSeekFrontendSelection();
@@ -55,6 +56,75 @@ async function checkRealProviderSuccess() {
     assert(request?.url === `${fakeBaseUrl}/chat/completions`, 'LLMService 必须调用 OpenAI-compatible /chat/completions。');
     assert(request?.headers?.Authorization === `Bearer ${fakeKey}`, '需要 Key 的 provider 必须由后端添加 Authorization。');
     assert(JSON.parse(request?.body || '{}').model === 'gpt-4o-mini', 'LLM 请求必须保留请求 model。');
+  });
+}
+
+async function checkGenerationConfigAndDiagnostics() {
+  let defaultRequest = null;
+  await withEnv({
+    OPENAI_API_KEY: fakeKey,
+    OPENAI_BASE_URL: fakeBaseUrl,
+    LLM_API_KEY: undefined,
+    LLM_MAX_TOKENS: undefined
+  }, async () => {
+    const llm = new LLMService({
+      fetchImpl: async (_url, options) => {
+        defaultRequest = JSON.parse(options.body);
+        return createJsonResponse({
+          choices: [{
+            message: { content: '达到长度边界的 fake 回复' },
+            finish_reason: 'length'
+          }],
+          usage: {
+            prompt_tokens: 120,
+            completion_tokens: 320,
+            total_tokens: 440
+          }
+        });
+      }
+    });
+    const result = await llm.chatDetailed({
+      message: 'generation diagnostics',
+      provider: 'openai',
+      model: 'gpt-4o-mini'
+    });
+    assert(resolveLLMMaxTokens() === 320, 'LLM_MAX_TOKENS 缺省时必须解析为 320。');
+    assert(defaultRequest?.max_tokens === 320, 'LLMService 默认实际上游请求必须使用 max_tokens=320。');
+    assert(result.diagnostics?.finishReason === 'length' && result.diagnostics?.truncated === true, 'finish_reason=length 必须在内部诊断中识别为 truncated。');
+    assert(
+      result.diagnostics?.usage?.promptTokens === 120
+        && result.diagnostics?.usage?.completionTokens === 320
+        && result.diagnostics?.usage?.totalTokens === 440,
+      'LLMService 必须安全解析 prompt/completion/total token usage。'
+    );
+    assert(
+      Object.keys(result.diagnostics || {}).sort().join(',') === 'finishReason,truncated,usage',
+      '内部诊断只能保留 finishReason、truncated 和安全 token usage。'
+    );
+  });
+
+  let overrideRequest = null;
+  await withEnv({
+    OPENAI_API_KEY: fakeKey,
+    OPENAI_BASE_URL: fakeBaseUrl,
+    LLM_API_KEY: undefined,
+    LLM_MAX_TOKENS: '480'
+  }, async () => {
+    const llm = new LLMService({
+      fetchImpl: async (_url, options) => {
+        overrideRequest = JSON.parse(options.body);
+        return createJsonResponse({
+          choices: [{ message: { content: '环境变量覆盖 fake 回复' }, finish_reason: 'stop' }]
+        });
+      }
+    });
+    await llm.chatDetailed({
+      message: 'generation config override',
+      provider: 'openai',
+      model: 'gpt-4o-mini'
+    });
+    assert(resolveLLMMaxTokens() === 480, 'LLM_MAX_TOKENS 显式配置必须优先于 320 缺省值。');
+    assert(overrideRequest?.max_tokens === 480, 'LLMService 实际上游请求必须使用环境变量覆盖后的 max_tokens。');
   });
 }
 
@@ -351,6 +421,7 @@ async function checkFallbackSafetyAndDocumentation() {
   assert(envExample.includes('DIALOGUE_FALLBACK_TO_STUB=true'), '.env.example 必须说明默认 LLM fallback 开关。');
   assert(envExample.includes('CUSTOM_API_KEY_OPTIONAL=false'), '.env.example 必须默认关闭 custom 无 Key 开关。');
   assert(envExample.includes('DEEPSEEK_MODEL=deepseek-v4-flash'), '.env.example 必须声明 DeepSeek 默认模型。');
+  assert(envExample.includes('LLM_MAX_TOKENS=320'), '.env.example 必须声明 LLM 默认回复 token 上限。');
   assert(envExample.includes('http://localhost:11434/v1'), '.env.example 必须给出通用 OpenAI-compatible /v1 示例。');
   assert(gitignore.split('\n').includes('.env'), '本地 .env 必须保持 Git ignore。');
   const packageJson = JSON.parse(packageSource);

@@ -73,13 +73,19 @@ function buildPersonaIdentitySection(persona = {}) {
 }
 
 function buildPersonaStyleSection(persona = {}) {
-  const lines = [
+  const fixedLines = [
+    '【Persona 表达风格】',
+    '默认直接回应，不使用括号舞台提示来描述语气、表情或动作。',
+    'emoji 保持克制，通常最多使用一个；不需要时不用。',
+    '确认记忆时，只复述长期记忆数据中实际存在的内容，不推断相邻偏好或未提供事实。',
+    '不得承诺永久保存；只准确说明当前会话和当前记忆状态。'
+  ];
+  const optionalLines = [
     persona.prompt ? `表达要求：${normalizeParagraph(persona.prompt)}` : '',
     persona.tone ? `表达风格标签：${normalizeInlineText(persona.tone)}` : '',
     persona.memoryStrategy ? `记忆使用策略：${normalizeInlineText(persona.memoryStrategy)}` : ''
   ].filter(Boolean);
-  if (!lines.length) return '';
-  return fitSectionLines(['【Persona 表达风格】'], lines, PROMPT_BUDGETS.personaStyle);
+  return fitSectionLines(fixedLines, optionalLines, PROMPT_BUDGETS.personaStyle);
 }
 
 function buildClientPreferenceSection(systemPrompt) {

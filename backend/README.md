@@ -80,6 +80,7 @@ http://localhost:3000
 - `HIGGS_MODEL`：Higgs 后端模型名，默认 `higgs-audio-v3`
 - `HIGGS_VOICE_ID`：Higgs 默认 voiceId，默认 `alice`
 - `UPSTREAM_TIMEOUT_MS`：后端访问 LLM 等通用上游的超时时间，默认 `45000`
+- `LLM_MAX_TOKENS`：OpenAI-compatible LLM 单次回复 token 上限，默认 `320`；只在后端环境配置，不增加 `/api/dialogue` 请求字段
 - `TTS_UPSTREAM_TIMEOUT_MS`：后端访问 TTS 上游的独立超时时间，默认 `90000`；用于 CosyVoice2 长语音等生成耗时可能高于 45 秒的本地场景
 - `N8N_WEBHOOK_URL`：可选 n8n webhook 地址，只允许后端读取
 - `N8N_WEBHOOK_SECRET`：可选 n8n webhook secret，只通过后端 header 发送
