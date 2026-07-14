@@ -337,8 +337,10 @@ async function checkFallbackSafetyAndDocumentation() {
   assert(response?.reply_text?.trim(), 'fallback 后 reply_text 永不为空。');
   assert(response?.contract?.version === 'dialogue.v1', 'fallback 后必须保留完整 dialogue.v1 contract。');
 
-  const [envExample, apiContract, developmentGuide, backendReadme, orchestration, html, settings] = await Promise.all([
+  const [envExample, gitignore, packageSource, apiContract, developmentGuide, backendReadme, orchestration, html, settings] = await Promise.all([
     readFile('.env.example', 'utf8'),
+    readFile('.gitignore', 'utf8'),
+    readFile('package.json', 'utf8'),
     readFile('docs/api/API_CONTRACT.md', 'utf8'),
     readFile('docs/guides/DEVELOPMENT_GUIDE.md', 'utf8'),
     readFile('backend/README.md', 'utf8'),
@@ -350,10 +352,14 @@ async function checkFallbackSafetyAndDocumentation() {
   assert(envExample.includes('CUSTOM_API_KEY_OPTIONAL=false'), '.env.example 必须默认关闭 custom 无 Key 开关。');
   assert(envExample.includes('DEEPSEEK_MODEL=deepseek-v4-flash'), '.env.example 必须声明 DeepSeek 默认模型。');
   assert(envExample.includes('http://localhost:11434/v1'), '.env.example 必须给出通用 OpenAI-compatible /v1 示例。');
+  assert(gitignore.split('\n').includes('.env'), '本地 .env 必须保持 Git ignore。');
+  const packageJson = JSON.parse(packageSource);
+  const devCommand = String(packageJson.scripts?.dev || '');
+  assert(devCommand === 'node --env-file-if-exists=.env backend/server.js', 'npm run dev 必须使用 Node 原生可选 .env 加载且不依赖 dotenv。');
   assert(apiContract.includes('llm_fallback_stub') && apiContract.includes('CUSTOM_API_KEY_OPTIONAL'), 'API 契约必须说明 fallback 与 custom 无 Key 决策。');
-  assert(developmentGuide.includes('没有安装或调用 `dotenv`') && developmentGuide.includes('只会读取启动进程已经拥有的 shell / 系统环境变量'), '开发文档必须明确 npm run dev 不会自动加载 .env。');
-  assert(developmentGuide.includes('node --env-file=.env backend/server.js'), '开发文档必须给出显式本地 .env 注入方式。');
-  assert(backendReadme.includes('没有使用 `dotenv`') && backendReadme.includes('单独创建 `.env` 不会自动生效'), 'Backend README 必须提示环境变量注入边界。');
+  assert(developmentGuide.includes('node --env-file-if-exists=.env backend/server.js'), '开发文档必须说明 npm run dev 的原生可选 .env 加载方式。');
+  assert(developmentGuide.includes('`.env` 不存在时') && developmentGuide.includes('默认 `stub` LLM 与 `mock` TTS'), '开发文档必须说明无 .env 时仍可零费用启动。');
+  assert(backendReadme.includes('--env-file-if-exists=.env') && backendReadme.includes('Git ignore'), 'Backend README 必须提示本地 .env 自动加载与禁止提交边界。');
   assert(orchestration.includes("'llm_fallback_stub'"), '编排服务必须实现 llm_fallback_stub mode。');
   assert(html.includes('deepseek-v4-flash') && html.includes('deepseek-v4-pro') && !html.includes('deepseek-chat'), 'Web 模型列表必须只保留当前 DeepSeek v4 模型。');
   assert(settings.includes('applyProviderDefaultModel') && settings.includes('defaultModel') && settings.includes('DEEPSEEK_MODELS'), '切换 DeepSeek provider 时必须使用 /api/providers defaultModel，并保留显式 v4-pro。');

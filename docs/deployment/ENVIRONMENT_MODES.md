@@ -46,7 +46,7 @@ Production mode still does not include a full login system, OAuth, RBAC, WAF, ob
 
 Never commit real secrets.
 
-The repository does not load `dotenv`, and `npm run dev` does not include Node's `--env-file` option. It reads only environment variables already present in the launching shell or deployment process. Creating `.env` by itself has no effect; see [Development Guide](../guides/DEVELOPMENT_GUIDE.md#环境变量注入) for explicit shell, PowerShell, and Node 20+ examples.
+The repository does not install or load `dotenv`. For local development, `npm run dev` uses Node's native `--env-file-if-exists=.env`: a root `.env` is loaded when present, while a missing file keeps the default stub/mock server runnable. Deployment environments should continue to inject secrets through their Environment Variables or Secret Manager. See the [Development Guide](../guides/DEVELOPMENT_GUIDE.md#环境变量注入) for details.
 
 Keep these values only in local ignored files or deployment platform environment variables:
 

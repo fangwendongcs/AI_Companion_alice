@@ -8,7 +8,7 @@
 npm run dev
 ```
 
-仓库没有使用 `dotenv`，`npm run dev` 也没有配置 `--env-file`；它只读取当前 shell / 系统已经注入的环境变量。单独创建 `.env` 不会自动生效。完整的 macOS / Linux、PowerShell 和 Node 20+ 显式 `.env` 启动方式见 [`docs/guides/DEVELOPMENT_GUIDE.md`](../docs/guides/DEVELOPMENT_GUIDE.md#环境变量注入)。
+仓库不使用 `dotenv`；`npm run dev` 通过 Node 原生 `--env-file-if-exists=.env` 加载根目录本地配置。存在 `.env` 时自动加载，不存在时继续以默认 `stub` LLM / `mock` TTS 启动。`.env` 必须保持 Git ignore 且禁止提交，完整说明见 [`docs/guides/DEVELOPMENT_GUIDE.md`](../docs/guides/DEVELOPMENT_GUIDE.md#环境变量注入)。
 
 默认前端 LLM provider 为 `stub`，本地演示不需要 API Key。真实 provider 仍通过后端环境变量配置，例如：
 

@@ -8,41 +8,38 @@ npm run dev
 
 ### 环境变量注入
 
-当前仓库没有安装或调用 `dotenv`，`package.json` 的 `npm run dev` 实际执行 `node backend/server.js`，也没有附加 Node 的 `--env-file` 参数。因此：
-
-- `npm run dev` 只会读取启动进程已经拥有的 shell / 系统环境变量。
-- 仅创建或复制 `.env` / `.env.local` 不会自动生效；这些文件仍应保持未提交。
-- 真实 Key 不要写进命令历史、仓库文件、前端 UI 或 localStorage。长期本地开发可使用操作系统环境配置；部署时使用平台 Environment Variables / Secret Manager。
-
-macOS / Linux 临时注入单次命令：
+当前仓库不安装或调用 `dotenv`。`npm run dev` 使用 Node 原生参数启动：
 
 ```bash
-OPENAI_API_KEY=replace_with_your_key npm run dev
+node --env-file-if-exists=.env backend/server.js
 ```
 
-或者先导出到当前 shell，再启动：
+- 仓库根目录存在 `.env` 时，`npm run dev` 会自动加载它。
+- `.env` 不存在时，Node 会继续启动，Alice 保持默认 `stub` LLM 与 `mock` TTS，本地演示不需要真实 Key。
+- 只自动加载根目录 `.env`，不会自动加载 `.env.local` 或其他文件名。
+- `.env` 与 `.env.*` 已被 Git 忽略，禁止提交；`.env.example` 只能保留 placeholder。
+- 真实 Key 不要写进命令历史、仓库文件、前端 UI 或 localStorage。部署时继续使用平台 Environment Variables / Secret Manager。
+
+请使用支持 `--env-file-if-exists` 的 Node 版本；可通过以下命令确认当前运行时是否支持：
 
 ```bash
-export OPENAI_API_KEY=replace_with_your_key
-export OPENAI_BASE_URL=https://api.openai.com/v1
-npm run dev
+node --help | rg -- '--env-file-if-exists'
+```
+
+Shell / 系统已经注入的环境变量仍可用于单次启动或部署，例如：
+
+```bash
+PORT=3101 npm run dev
 ```
 
 PowerShell：
 
 ```powershell
-$env:OPENAI_API_KEY = "replace_with_your_key"
-$env:OPENAI_BASE_URL = "https://api.openai.com/v1"
+$env:PORT = "3101"
 npm run dev
 ```
 
-如果确实要从本地 `.env` 文件启动，Node 20+ 可以显式运行：
-
-```bash
-node --env-file=.env backend/server.js
-```
-
-这不是 `npm run dev` 的默认行为；`.env` 必须继续被 Git 忽略且只能包含本机 secret。所有可用变量名和 placeholder 以仓库根目录 `.env.example` 为准。
+所有可用变量名和 placeholder 以仓库根目录 `.env.example` 为准。
 
 默认地址：
 

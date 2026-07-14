@@ -12,6 +12,7 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 - 后端是所有 LLM、Memory、RAG、n8n、TTS provider 和 secret 的边界。
 - `/api/dialogue` 是主对话入口，并已提供 `dialogue.v1` 语义字段供 Web 表现层消费。
 - LLM 已支持后端 OpenAI-compatible `openai` / `qwen` / `deepseek` / `custom`；真实 provider 失败时，`/api/dialogue` 默认安全降级到完整 `dialogue.v1` stub 回复。
+- 本地 `npm run dev` 使用 Node 原生 `--env-file-if-exists=.env`：存在本地忽略配置时自动加载，不存在时仍可用 stub/mock 启动。
 - P1A 已收口 Prompt/Persona 基础正确性：后端控制不可覆盖规则和 Persona，Web `systemPrompt` 只作为低优先级回复偏好，短期历史保持原始 `user` / `assistant` role。
 - P1B 已收口 Memory 确定性问题：偏好保留否定极性，写入指令与召回问句分离，短期消息按 `sessionId + avatarId` 隔离，敏感用户轮次及 assistant 同轮回复不进入 SQLite。
 - TTS 当前公开主线是 `mock` 和 `cosyvoice`；其他 provider adapter 可留在后端实验层，但不进入 Web Settings 公开选择。
@@ -126,6 +127,12 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 - CosyVoice2 停机时页面安全转 browser fallback，结束后全部归零；服务重启后下一段 6.4 秒真实音频恢复 `audio-driven`。
 - 口型增益、平滑系数、上限与轮换间隔均未调整；全身视角偏克制，但无明确过小/过大、抖动、锁嘴或延迟证据。
 
+2026-07-14 本地启动配置已收口：
+
+- 本机 Node `v24.15.0` 已确认支持 `--env-file-if-exists`，缺少 env file 时会继续执行。
+- `npm run dev` 已能自动加载 Git ignore 的根目录 `.env`；通过安全 provider readiness 只确认 DeepSeek `configured=true`，未发起真实 LLM 请求。
+- 默认 `npm run check` 与 `npm run smoke` 继续使用 fake endpoint / `stub`，不会因本地 `.env` 存在而访问真实 DeepSeek。
+
 ## 本次项目记忆更新记录
 
 | 日期 | 更新内容 |
@@ -138,3 +145,4 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 | 2026-07-10 | 完成 P1A 零费用评测与 Prompt/Persona 基础正确性：客户端 systemPrompt 降为低优先级回复偏好，历史消息恢复真实 role，并以章节/历史预算替代整体字符串裁剪。 |
 | 2026-07-14 | 完成 P1B Memory 确定性修复：偏好保留正负谓词，短期消息读取/裁剪/清理按 session + avatar 组合隔离，敏感用户与同轮 assistant 原文不持久化；不改 schema 和 `dialogue.v1`。 |
 | 2026-07-14 | 完成 P2 真实 CosyVoice2 浏览器验收：37.12 秒长音频、快速替换、静音取消、上游中断/恢复均通过；现场修复 TTS 独立超时与取消时表现层清理，未调口型参数。 |
+| 2026-07-14 | 本地 `npm run dev` 改用 Node 原生 `--env-file-if-exists=.env`；有本地配置时自动加载，无文件时保持 stub/mock 可启动，不引入 dotenv。 |
