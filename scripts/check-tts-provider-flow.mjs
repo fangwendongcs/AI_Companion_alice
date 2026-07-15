@@ -83,6 +83,12 @@ async function checkCosyVoiceBinaryResult() {
   assert(result.audioBase64.startsWith('UklGR'), 'CosyVoice official FastAPI raw PCM response 应包装为 WAV。');
   assert(result.streaming === false, 'CosyVoice 返回 base64 WAV 时客户端 streaming 必须为 false。');
   assert(result.upstreamStreaming === true, 'CosyVoice official FastAPI raw PCM 流应记录 upstreamStreaming=true。');
+  assert(Number.isFinite(result.metadata?.timings?.upstreamReadMs), 'CosyVoice result 应记录上游音频读取耗时。');
+  assert(Number.isFinite(result.metadata?.timings?.upstreamFirstChunkMs), 'CosyVoice result 应记录上游首个 PCM chunk 耗时。');
+  assert(Number.isInteger(result.metadata?.timings?.upstreamChunkCount), 'CosyVoice result 应记录上游 PCM chunk 数量。');
+  assert(Array.isArray(result.metadata?.timings?.upstreamChunkBytes), 'CosyVoice result 应记录上游 PCM chunk 字节数。');
+  assert(Number.isFinite(result.metadata?.timings?.wavWrapMs), 'CosyVoice result 应记录 WAV 包装耗时。');
+  assert(Number.isFinite(result.metadata?.timings?.base64Ms), 'CosyVoice result 应记录 Base64 编码耗时。');
   assert(request.url === 'http://127.0.0.1:50000/inference_sft', 'CosyVoice official FastAPI 默认应调用 /inference_sft。');
   const body = new URLSearchParams(String(request.body));
   assert(body.get('spk_id') === 'alice_cn', 'CosyVoice official FastAPI 应映射 voiceId -> spk_id。');

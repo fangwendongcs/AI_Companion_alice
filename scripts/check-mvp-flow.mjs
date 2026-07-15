@@ -4,6 +4,7 @@ import { EventBus } from '../js/core/EventBus.js';
 import { EVENT_NAMES } from '../js/core/events/eventNames.js';
 import { LLMClient } from '../js/ai/LLMClient.js';
 import { normalizeApiResponse } from '../js/services/api/ApiClient.js';
+import { getSegmentedPlaybackProfile, segmentTextForTTS } from '../js/voice/TTSTextSegmenter.js';
 import { TTSService } from '../js/voice/TTSService.js';
 
 const failures = [];
@@ -22,6 +23,7 @@ await checkAudioReplacementCleanupFlow();
 await checkAudioFallbackFlow();
 await checkAudioUnexpectedErrorFlow();
 await checkTTSPlaybackLifecycle();
+await checkSegmentedTTSLifecycle();
 
 if (failures.length) {
   console.error('[check-mvp-flow] MVP 主链路验收失败:');
@@ -470,6 +472,198 @@ async function checkTTSPlaybackLifecycle() {
     if (originalAudio === undefined) delete globalThis.Audio;
     else globalThis.Audio = originalAudio;
   }
+}
+
+async function checkSegmentedTTSLifecycle() {
+  const originalWindow = globalThis.window;
+  const originalAudio = globalThis.Audio;
+  const originalAtob = globalThis.atob;
+  const originalCreateObjectURL = globalThis.URL.createObjectURL;
+  const originalRevokeObjectURL = globalThis.URL.revokeObjectURL;
+  globalThis.window = {
+    speechSynthesis: {
+      cancel() {},
+      getVoices() {
+        return [];
+      }
+    }
+  };
+  globalThis.atob = (value) => Buffer.from(String(value), 'base64').toString('binary');
+  globalThis.URL.createObjectURL = () => `blob:test-${Math.random()}`;
+  globalThis.URL.revokeObjectURL = () => {};
+
+  try {
+    const longText = '我会先用一小段声音回应你，让你更快听到我。然后再继续把后面的内容按顺序说完，避免长回复必须等完整音频全部生成。最后整个回答仍然是同一次播放会话。';
+    const segments = segmentTextForTTS(longText);
+    const punctuationlessSegments = segmentTextForTTS('今天我有点累想听你慢慢说几句温柔的话陪我整理一下心情也希望你能继续提醒我慢慢来先处理最重要的一件事');
+    const shortWithoutBreakSegments = segmentTextForTTS('我想听你用温柔声音回应我一下好吗');
+    const systemSegments = segmentTextForTTS('[SYSTEM]模型装载完毕，交互系统已激活。');
+    const shortResponseSegments = segmentTextForTTS('我在这儿，先陪你慢慢呼吸一下。');
+    const shortPlaybackProfile = getSegmentedPlaybackProfile('我在这儿，先陪你慢慢呼吸一下。');
+    assert(segments.length > 1, '长回复应被拆成多个 TTS 分段。');
+    assert(punctuationlessSegments.length > 1, '无标点长回复也应拆出快速首段。');
+    assert(punctuationlessSegments[0].length <= 8, '快速首段必须足够短，避免首音继续等待完整长句生成。');
+    assert(shortResponseSegments.length === 3, '15 字短回复应使用更小 follow-up 段，避免首段后等待 10 字长段。');
+    assert(shortResponseSegments.every((segment) => segment.length <= 5), '短回复分段应保持约 5 字级别，减少段间空洞。');
+    assert(shortWithoutBreakSegments.length === 1, '无自然停顿的 10-20 字短回复不应被机械硬切，避免首音和段间空洞变差。');
+    assert(shortPlaybackProfile.isShortText && shortPlaybackProfile.maxInFlight === 2, '短回复应使用 2 路受控并发，避免本地 CosyVoice 过度争抢。');
+    assert(!systemSegments.join('').includes('[SYSTEM]'), 'TTS 分段前应移除开头 SYSTEM 标签，避免语音读出或切碎标签。');
+    assert(segmentTextForTTS('短句你好').length === 1, '短回复不应被不必要地拆分。');
+
+    const requests = [];
+    const starts = [];
+    let endCount = 0;
+    let pausedCount = 0;
+    const firstResponse = createDeferred();
+    globalThis.Audio = class FakeAudio {
+      constructor(url) {
+        this.url = url;
+        this.paused = false;
+        this.onended = null;
+        this.onerror = null;
+      }
+
+      play() {
+        setTimeout(() => this.onended?.(), 0);
+        return Promise.resolve();
+      }
+
+      pause() {
+        this.paused = true;
+        pausedCount += 1;
+      }
+    };
+
+    const service = new TTSService('/api/tts', {
+      apiClient: {
+        response: async (_endpoint, options = {}) => {
+          requests.push(options.body?.text || '');
+          if (requests.length === 1) return firstResponse.promise;
+          return {
+            headers: {
+              get(name) {
+                return String(name).toLowerCase() === 'content-type' ? 'application/json' : '';
+              }
+            },
+            json: async () => ({
+              ok: true,
+              data: {
+                tts_status: 'ok',
+                provider: 'cosyvoice',
+                format: 'wav',
+                contentType: 'audio/wav',
+                audioBase64: createSilentWavBase64(24000, 120),
+                metadata: {
+                  timings: {
+                    upstreamReadMs: 3,
+                    wavWrapMs: 1,
+                    base64Ms: 1
+                  }
+                }
+              }
+            })
+          };
+        }
+      }
+    });
+
+    const speech = service.speak(longText, {
+      engine: 'cosyvoice',
+      rate: 1,
+      pitch: 1,
+      segmentedTTSOptions: {
+        prefetchDelayMs: 0,
+        maxInFlight: 2
+      }
+    }, {
+      timing: {
+        dialogueCompletedAt: performance.now(),
+        textVisibleAt: performance.now()
+      },
+      onStart: (detail) => starts.push(detail),
+      onEnd: () => {
+        endCount += 1;
+      }
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    assert(requests.length >= 2, '分段 TTS 应在首段返回前受控预取下一段，降低中段等待。');
+    firstResponse.resolve(createFakeTTSAudioResponse());
+    await speech;
+
+    assert(requests.length === segments.length, `分段 TTS 请求数应等于分段数。实际：${requests.length}/${segments.length}`);
+    assert(requests[0].length < longText.length, '首段 TTS 请求必须短于完整回复。');
+    assert(starts.length === segments.length, '每个音频段开始播放时应更新 audioSource，供 lip-sync 接续。');
+    assert(endCount === 1, '分段播放只能在最后统一触发一次 onEnd。');
+    assert(pausedCount === 0, '正常分段播放不应触发取消暂停。');
+    const metrics = service.getLastMetrics();
+    assert(metrics?.mode === 'segmented', 'TTSService metrics 必须标记 segmented。');
+    assert(metrics?.segmentCount === segments.length, 'TTSService metrics 必须记录 segmentCount。');
+    assert(metrics?.segmentMaxInFlight === 2, 'TTSService metrics 必须记录受控预取并发数。');
+    assert(metrics?.segmentPrefetchDelayMs === 0, 'TTSService metrics 必须记录预取延迟。');
+    assert(Number.isFinite(metrics?.ttsRequestToFirstAudioReadyMs), 'TTSService metrics 必须记录首段音频 ready 耗时。');
+    assert(Number.isFinite(metrics?.firstAudioReadyToPlayStartMs), 'TTSService metrics 必须记录首段 ready 到播放开始耗时。');
+    assert(Number.isFinite(metrics?.totalAudioDurationMs), 'TTSService metrics 必须记录分段音频总时长。');
+    assert(Number.isFinite(metrics?.segments?.[0]?.audioDurationMs), 'TTSService segment metrics 必须记录 WAV 时长。');
+    assert(metrics?.segments?.[0]?.providerTimings?.upstreamReadMs === 3, 'TTSService metrics 必须保留 provider timing。');
+    service.destroy();
+  } finally {
+    if (originalWindow === undefined) delete globalThis.window;
+    else globalThis.window = originalWindow;
+    if (originalAudio === undefined) delete globalThis.Audio;
+    else globalThis.Audio = originalAudio;
+    if (originalAtob === undefined) delete globalThis.atob;
+    else globalThis.atob = originalAtob;
+    globalThis.URL.createObjectURL = originalCreateObjectURL;
+    globalThis.URL.revokeObjectURL = originalRevokeObjectURL;
+  }
+}
+
+function createFakeTTSAudioResponse() {
+  return {
+    headers: {
+      get(name) {
+        return String(name).toLowerCase() === 'content-type' ? 'application/json' : '';
+      }
+    },
+    json: async () => ({
+      ok: true,
+      data: {
+        tts_status: 'ok',
+        provider: 'cosyvoice',
+        format: 'wav',
+        contentType: 'audio/wav',
+        audioBase64: createSilentWavBase64(24000, 120),
+        metadata: {
+          timings: {
+            upstreamReadMs: 3,
+            wavWrapMs: 1,
+            base64Ms: 1
+          }
+        }
+      }
+    })
+  };
+}
+
+function createSilentWavBase64(sampleRate = 24000, durationMs = 120) {
+  const samples = Math.max(1, Math.round(sampleRate * durationMs / 1000));
+  const dataSize = samples * 2;
+  const buffer = Buffer.alloc(44 + dataSize);
+  buffer.write('RIFF', 0);
+  buffer.writeUInt32LE(36 + dataSize, 4);
+  buffer.write('WAVE', 8);
+  buffer.write('fmt ', 12);
+  buffer.writeUInt32LE(16, 16);
+  buffer.writeUInt16LE(1, 20);
+  buffer.writeUInt16LE(1, 22);
+  buffer.writeUInt32LE(sampleRate, 24);
+  buffer.writeUInt32LE(sampleRate * 2, 28);
+  buffer.writeUInt16LE(2, 32);
+  buffer.writeUInt16LE(16, 34);
+  buffer.write('data', 36);
+  buffer.writeUInt32LE(dataSize, 40);
+  return buffer.toString('base64');
 }
 
 function createDeferred() {

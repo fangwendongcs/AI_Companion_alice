@@ -517,12 +517,26 @@ Workflow 成功时：
     "sampleRate": 16000,
     "streaming": false,
     "upstreamStreaming": false,
-    "contentType": "audio/wav"
+    "contentType": "audio/wav",
+    "metadata": {
+      "timings": {
+        "upstreamFirstChunkMs": 0,
+        "upstreamReadMs": 0,
+        "upstreamChunkCount": 1,
+        "upstreamChunkBytes": [48000],
+        "upstreamChunkIntervalsMs": [],
+        "upstreamTrueStreamingEvidence": false,
+        "wavWrapMs": 0,
+        "base64Ms": 0
+      }
+    }
   }
 }
 ```
 
 `streaming` 表示客户端是否能按当前响应边收边播。若后端返回 `audioBase64`，即使上游 provider 使用 HTTP streaming，客户端也应看到 `streaming=false`。`upstreamStreaming=true` 仅表示后端 adapter 从上游收到的是流式响应，例如 CosyVoice 官方 FastAPI raw PCM。
+
+`metadata.timings` 是可选诊断字段，只能包含非敏感耗时和字节数。CosyVoice2 当前会记录上游首个 PCM chunk、raw PCM 总读取、chunk 数量/字节、WAV 包装和 Base64 编码耗时；Web 端分段播放会把这些 timing 合并到 `TTSService.getLastMetrics()`，用于定位首音延迟。`upstreamTrueStreamingEvidence=true` 才表示后端在完整音频完成前观测到有效的多 chunk 间隔；不能仅凭 `upstreamStreaming=true` 或 HTTP `StreamingResponse` 判定为真实可消费流式。
 
 不可用 / 失败响应仍保持 HTTP 200 + 可观测状态，便于客户端保留文本回复并降级到本机语音：
 

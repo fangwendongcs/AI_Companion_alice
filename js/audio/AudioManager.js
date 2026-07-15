@@ -7,7 +7,7 @@ export class AudioManager {
     this.getConfig = getConfig;
   }
 
-  async speak(text, { muted = false, affect = null } = {}) {
+  async speak(text, { muted = false, affect = null, timing = null } = {}) {
     const config = applyVoiceAffect(this.getConfig?.() || {}, affect);
     if (muted) {
       this.stop({
@@ -26,24 +26,29 @@ export class AudioManager {
 
     this.eventBus?.emit(EVENT_NAMES.AUDIO_REQUEST, {
       engine: config.engine,
-      affect
+      affect,
+      timing
     });
 
     try {
       await this.ttsService.speak(text, config, {
         muted: false,
-        onStart: ({ audioSource = null } = {}) => {
+        onStart: ({ audioSource = null, metrics = null, segment = null, segmented = false } = {}) => {
           this.eventBus?.emit(EVENT_NAMES.AUDIO_START, {
             engine: config.engine,
             affect,
-            audioSource
+            audioSource,
+            metrics,
+            segment,
+            segmented
           });
         },
-        onEnd: () => {
+        onEnd: ({ metrics = null } = {}) => {
           this.eventBus?.emit(EVENT_NAMES.AUDIO_END, {
             engine: config.engine,
             fallback: usedFallbackVoice,
-            affect
+            affect,
+            metrics
           });
         },
         onFallback: (error) => {
@@ -57,7 +62,8 @@ export class AudioManager {
         },
         onError: (error) => {
           this.emitAudioError(config.engine, error, affect);
-        }
+        },
+        timing
       });
     } catch (error) {
       this.emitAudioError(config.engine, error, affect);

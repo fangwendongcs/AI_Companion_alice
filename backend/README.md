@@ -177,13 +177,15 @@ COSYVOICE_BASE_URL=http://127.0.0.1:50000 npm run check:cosyvoice-live
 npm run cosyvoice:stop
 ```
 
+`npm run cosyvoice:start` 会先检查模型、speaker 和采样率，然后等待 `/inference_sft` endpoint 可用，并用一次短语音合成完成预热。这样命令返回时服务已经 ready，不会把“后台进程仍存活”误判为可用，也不会让首个用户请求承担 endpoint 冷启动成本。
+
 完整回归可使用：
 
 ```bash
 npm run cosyvoice:verify
 ```
 
-CosyVoice 官方 FastAPI 的上游响应是 raw PCM 流，但 Alice 后端会先完整接收并包装为 WAV/Base64，再返回客户端；因此客户端 Audio Result 的 `streaming=false`。如果结果中出现 `upstreamStreaming=true`，只表示上游 HTTP 响应是流式来源，不表示 Web/iOS 可以边收边播。
+CosyVoice 官方 FastAPI 的上游响应是 raw PCM 流，但 Alice 后端会先完整接收并包装为 WAV/Base64，再返回客户端；因此客户端 Audio Result 的 `streaming=false`。如果结果中出现 `upstreamStreaming=true`，只表示上游 HTTP 响应是流式来源，不表示 Web/iOS 可以边收边播。是否真的在完整音频完成前收到有效多 chunk，需要查看 `metadata.timings.upstreamTrueStreamingEvidence`。
 
 `/api/tts` 支持统一 JSON Audio Result：
 

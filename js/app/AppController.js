@@ -937,7 +937,14 @@ export class AppController {
       });
       const response = this.llmClient.getLastResponse?.() || {};
       this.lastAvatarDirective = this.presentation.getLastDirective() || response.avatar_directive || this.lastAvatarDirective || null;
-      this.speakText(reply, { affect: response.affect || this.lastDialogueAffect });
+      const dialogueCompletedAt = nowMs();
+      this.speakText(reply, {
+        affect: response.affect || this.lastDialogueAffect,
+        timing: {
+          dialogueCompletedAt,
+          textVisibleAt: dialogueCompletedAt
+        }
+      });
     } catch (error) {
       this.log.error('LLM 调用失败:', error);
       const fallbackReply = '抱歉，连接出现问题。请确认后端服务已启动，并配置了对应模型的 API Key。';
@@ -1012,14 +1019,15 @@ export class AppController {
     this.speakText(text);
   }
 
-  speakText(text, { affect = null } = {}) {
+  speakText(text, { affect = null, timing = null } = {}) {
     this.clearSpeechTimer();
 
     const estimatedDuration = Math.max(UI_TIMING.speechMinMs, text.length * UI_TIMING.speechMsPerChar);
     this.state.speechTimer = this.registry.addTimeout(() => this.resetSpeakingState('audio:timer'), estimatedDuration);
     void this.audioManager.speak(text, {
       muted: this.state.isMuted,
-      affect
+      affect,
+      timing
     });
   }
 
@@ -1101,4 +1109,8 @@ function normalizeAffectState(affect, previous = {}) {
     motionSlot: affect.motion?.slot || previous?.motionSlot || null,
     reason: affect.reason || previous?.reason || null
   };
+}
+
+function nowMs() {
+  return globalThis.performance?.now?.() ?? Date.now();
 }

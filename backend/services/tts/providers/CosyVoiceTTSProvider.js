@@ -269,6 +269,7 @@ export class CosyVoiceTTSProvider {
   }
 
   async parseOfficialResponse(response) {
+    const parseStartedAt = nowMs();
     if (!response || response.__timeout) {
       return createFailedResult(this.id, 'TTS provider timed out.', 'TTS_PROVIDER_TIMEOUT');
     }
@@ -287,16 +288,23 @@ export class CosyVoiceTTSProvider {
       });
     }
 
-    const audioBuffer = Buffer.from(await response.arrayBuffer());
+    const upstreamReadStartedAt = nowMs();
+    const upstreamRead = await readUpstreamAudioBuffer(response, upstreamReadStartedAt);
+    const audioBuffer = upstreamRead.buffer;
     if (!audioBuffer.length) {
       return createFailedResult(this.id, 'CosyVoice returned empty audio.', 'TTS_INVALID_RESPONSE');
     }
 
+    const wrapStartedAt = nowMs();
     const wavBuffer = isWav(audioBuffer) ? audioBuffer : wrapPcm16leAsWav(audioBuffer, this.sampleRate);
+    const wavWrapMs = roundMs(nowMs() - wrapStartedAt);
+    const base64StartedAt = nowMs();
+    const audioBase64 = wavBuffer.toString('base64');
+    const base64Ms = roundMs(nowMs() - base64StartedAt);
     return createAudioResult({
       provider: this.id,
       format: 'wav',
-      audioBase64: wavBuffer.toString('base64'),
+      audioBase64,
       sampleRate: this.sampleRate,
       streaming: false,
       upstreamStreaming: true,
@@ -304,7 +312,20 @@ export class CosyVoiceTTSProvider {
       metadata: {
         apiStyle: this.apiStyle,
         apiMode: this.apiMode,
-        upstreamStreaming: true
+        upstreamStreaming: true,
+        timings: {
+          parseTotalMs: roundMs(nowMs() - parseStartedAt),
+          upstreamFirstChunkMs: upstreamRead.firstChunkMs,
+          upstreamReadMs: upstreamRead.readMs,
+          upstreamChunkCount: upstreamRead.chunkCount,
+          upstreamChunkBytes: upstreamRead.chunkBytes,
+          upstreamChunkIntervalsMs: upstreamRead.chunkIntervalsMs,
+          upstreamTrueStreamingEvidence: upstreamRead.trueStreamingEvidence,
+          wavWrapMs,
+          base64Ms,
+          rawPcmBytes: audioBuffer.byteLength,
+          wavBytes: wavBuffer.byteLength
+        }
       }
     });
   }
@@ -334,6 +355,54 @@ function isWav(buffer) {
     && buffer.subarray(8, 12).toString('ascii') === 'WAVE';
 }
 
+async function readUpstreamAudioBuffer(response, startedAt) {
+  if (!response.body?.getReader) {
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const readMs = roundMs(nowMs() - startedAt);
+    return {
+      buffer,
+      firstChunkMs: readMs,
+      readMs,
+      chunkCount: buffer.byteLength > 0 ? 1 : 0,
+      chunkBytes: buffer.byteLength > 0 ? [buffer.byteLength] : [],
+      chunkIntervalsMs: [],
+      trueStreamingEvidence: false
+    };
+  }
+
+  const reader = response.body.getReader();
+  const chunks = [];
+  const chunkBytes = [];
+  const chunkIntervalsMs = [];
+  let firstChunkMs = null;
+  let lastChunkAt = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const chunkAt = nowMs();
+    const chunk = Buffer.from(value);
+    if (firstChunkMs === null) firstChunkMs = roundMs(chunkAt - startedAt);
+    if (lastChunkAt !== null) chunkIntervalsMs.push(roundMs(chunkAt - lastChunkAt));
+    lastChunkAt = chunkAt;
+    chunks.push(chunk);
+    chunkBytes.push(chunk.byteLength);
+  }
+
+  const readMs = roundMs(nowMs() - startedAt);
+  return {
+    buffer: Buffer.concat(chunks),
+    firstChunkMs,
+    readMs,
+    chunkCount: chunks.length,
+    chunkBytes,
+    chunkIntervalsMs,
+    trueStreamingEvidence: chunks.length > 1
+      && firstChunkMs !== null
+      && readMs - firstChunkMs > 100
+  };
+}
+
 function wrapPcm16leAsWav(pcmBuffer, sampleRate = 24000) {
   const dataSize = pcmBuffer.byteLength;
   const header = Buffer.alloc(44);
@@ -351,4 +420,14 @@ function wrapPcm16leAsWav(pcmBuffer, sampleRate = 24000) {
   header.write('data', 36);
   header.writeUInt32LE(dataSize, 40);
   return Buffer.concat([header, pcmBuffer]);
+}
+
+function nowMs() {
+  return performance.now();
+}
+
+function roundMs(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return null;
+  return Math.max(0, Math.round(number));
 }

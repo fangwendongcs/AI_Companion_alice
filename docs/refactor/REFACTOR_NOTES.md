@@ -1817,3 +1817,19 @@ npm run check:assets
 - `cosyvoice:start` 在后台启动官方 FastAPI 后会用 `COSYVOICE_STARTUP_GUARD_SECONDS` 短等待确认进程仍存活，默认 8 秒；如果进程很快退出，会清理 pid 文件并输出 `runtime/cosyvoice/logs/fastapi.log` 尾部，避免把失败启动误判为 ready。
 - `npm run cosyvoice:verify` 仍是当前可复现端到端回归入口：preflight -> start runtime -> endpoint check -> Alice live provider check -> WAV evidence -> stop runtime -> degradation check。
 - 本轮只收口 CosyVoice2 runtime 可靠性和验证证据，不扩展 Higgs / Fun-CosyVoice 3.0 / 其他 TTS provider，不改变 Dialogue / Persona / Memory / VRM / iOS 主链路。
+
+## 81. CosyVoice2 First-Audio Latency Segmentation
+
+- 新增 `js/voice/TTSTextSegmenter.js`，对较长中文回复做轻量自然分段；短回复、Mock 和浏览器 fallback 不强制分段。
+- `TTSService` 对 `cosyvoice` 回复启用首段优先播放：首段强制切成很短的快速响应段并先请求；40 字以内且没有早期自然停顿的短/中短回复默认不硬切；24 字以内且有早期自然停顿的短回复使用更小 follow-up 段和最多 2 路窗口；更长回复第二段立即预取，第三段延迟预热，之后保持最多 3 路受控窗口并严格按原始顺序播放。
+- 分段策略补充了后续短段合并，避免首段之后出现过短音频导致下一段尚未 ready 的明显空白；同时避免把不完整的中文结构硬切成首段。
+- 分段播放仍是同一个 utterance session：中间段可以触发新的 `audio:start` 来更新 `audioSource`，但不会触发中间 `audio:end` 或反复恢复 idle；最后一段结束、取消或错误后统一清理 lip-sync 和 motion。
+- `TTSService.getLastMetrics()` 现在可查看 `llmDoneToTTSRequestMs / ttsRequestToFirstAudioReadyMs / firstAudioReadyToPlayStartMs / textVisibleToFirstPlayMs / fullAudioReadyMs` 及每段 provider timing。
+- `CosyVoiceTTSProvider` 在统一 Audio Result `metadata.timings` 中记录上游首个 PCM chunk、raw PCM 读取、chunk 数量/字节、WAV 包装和 Base64 编码耗时，便于区分运行时生成瓶颈、HTTP 流式外壳与 Node 封装开销。
+- 新增 `cosyvoice:probe-fastapi` 与 `cosyvoice:probe-direct`，分别探测官方 FastAPI HTTP chunk 行为和 Python API `stream=false/true` 模型层 chunk 行为；10 轮实测显示当前官方 FastAPI 无 true streaming evidence。
+- 新增 `cosyvoice:probe-web-tts`，复用真实 Web `TTSService` 和本地 `/api/tts`，用 WAV 时长模拟 `HTMLAudioElement` 播放，输出 single / segmented 首音、段间 gap、完整生成和 provider timing。
+- 本机真实 `/api/tts` 实测：16 字无自然停顿短回复 10 次对照中，单段 p50 首音 `2.52s`、p90 `3.22s`，机械分段 p50 `3.20s`、p90 `4.81s` 且产生多次 underrun；15 字带自然停顿短回复可分段到约 `2.0–2.6s`；最新 Node 探针中 74 字样本单段首音约 `22.2s`、分段约 `4.9s`，95 字样本单段约 `28.2s`、分段约 `4.4s`，但仍有多秒级段间 gap 风险。真实浏览器复测：16 字无自然停顿短句首音约 `1.97s`；53 字中回复首音约 `5.28s`、完整音频 ready 约 `12.75s`、播放完约 `17.65s`，`underrunCount=1`、最大估算空洞约 `0.56s`；播放中取消、连续快速替换、静音和 runtime 停止 fallback 均能回 idle。60–120 秒更长浏览器听感 / VRM 视觉仍需单独验收。
+- 本轮短回复专项复测确认：官方 FastAPI 即使额外传 `stream=true`，4 / 8 / 16 / 30 字样本仍没有 true streaming evidence；direct Python `stream=True` 只对 30 字有稳定提前 chunk，4–16 字首块基本仍接近完整完成。因此本轮不引入 WebSocket/PCM streaming，而是强化启动 ready + 短合成预热。
+- `cosyvoice:start` 现在默认等待 `/inference_sft` endpoint 真实可用并完成一次 `你好。` 短合成预热；如果 endpoint 未 ready，会清理 pid 并失败，不再把“后台进程还活着”误判为可用服务。
+- `check:mvp-flow` 覆盖分段生命周期：无标点长句快速首段、多个 TTS segment 请求、多个 segment `audio:start`、单次最终 `onEnd` 和 metrics；`check:tts-provider-flow` 覆盖 CosyVoice timing 字段。
+- 本轮不改 `/api/dialogue` 契约，不做 LLM streaming、WebSocket/PCM streaming、AudioWorklet、phoneme/viseme 或真实 TTS provider 扩展。

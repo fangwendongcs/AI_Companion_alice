@@ -31,6 +31,8 @@ POST /api/tts
 
 Current Web Settings and public TTS readiness expose only `mock` and `cosyvoice`. Clients send `provider`, `text`, `locale`, `emotion`, `tone`, `prosody`, and `stream`; provider-specific prompt, instruction, model name, endpoint, speaker, and secret handling stays inside the backend adapter. CosyVoice2 defaults to the official FastAPI runtime contract (`/inference_sft` by default); `/v1/audio/speech` is only for an explicitly configured OpenAI-compatible proxy.
 
+For long CosyVoice2 replies, Web `TTSService` may split the text into ordered segments and request the first short segment first. This lowers first-audio wait while keeping the same `/api/tts` Audio Result contract. It is not client PCM streaming; `streaming=false` still means the client receives each segment as a complete WAV/Base64 payload.
+
 ## Security Boundary
 
 - Web and iOS do not store provider keys.

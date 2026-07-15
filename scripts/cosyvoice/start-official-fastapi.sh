@@ -19,6 +19,9 @@ MPLCONFIGDIR="${MPLCONFIGDIR:-"$RUNTIME_DIR/matplotlib-cache"}"
 VOICE_ID="${COSYVOICE_VOICE_ID:-中文女}"
 SAMPLE_RATE="${COSYVOICE_SAMPLE_RATE:-24000}"
 STARTUP_GUARD_SECONDS="${COSYVOICE_STARTUP_GUARD_SECONDS:-8}"
+STARTUP_WAIT_ENDPOINT="${COSYVOICE_STARTUP_WAIT_ENDPOINT:-1}"
+STARTUP_READY_ATTEMPTS="${COSYVOICE_STARTUP_READY_ATTEMPTS:-24}"
+STARTUP_READY_INTERVAL_SECONDS="${COSYVOICE_STARTUP_READY_INTERVAL_SECONDS:-5}"
 
 print_fastapi_log_tail() {
   if [ -s "$LOG_DIR/fastapi.log" ]; then
@@ -93,6 +96,31 @@ if ! kill -0 "$PID" 2>/dev/null; then
   echo "[cosyvoice:start] process exited before endpoint readiness pid=$PID guardSeconds=$STARTUP_GUARD_SECONDS" >&2
   print_fastapi_log_tail
   exit 1
+fi
+if [ "$STARTUP_WAIT_ENDPOINT" != "0" ]; then
+  READY="0"
+  for attempt in $(seq 1 "$STARTUP_READY_ATTEMPTS"); do
+    if ! kill -0 "$PID" 2>/dev/null; then
+      rm -f "$PID_FILE"
+      echo "[cosyvoice:start] process exited before endpoint readiness pid=$PID attempt=$attempt" >&2
+      print_fastapi_log_tail
+      exit 1
+    fi
+    if COSYVOICE_BASE_URL="http://127.0.0.1:$PORT" COSYVOICE_API_MODE="${COSYVOICE_API_MODE:-sft}" COSYVOICE_VOICE_ID="$VOICE_ID" node "$ROOT_DIR/scripts/cosyvoice/prewarm-official-endpoint.mjs" >/dev/null 2>&1; then
+      READY="1"
+      echo "[cosyvoice:start] endpoint ready and prewarmed attempt=$attempt"
+      break
+    fi
+    sleep "$STARTUP_READY_INTERVAL_SECONDS"
+  done
+
+  if [ "$READY" != "1" ]; then
+    echo "[cosyvoice:start] endpoint did not become ready after $STARTUP_READY_ATTEMPTS attempts; stopping pid=$PID" >&2
+    print_fastapi_log_tail
+    kill "$PID" 2>/dev/null || true
+    rm -f "$PID_FILE"
+    exit 1
+  fi
 fi
 echo "[cosyvoice:start] started pid=$PID port=$PORT model_dir=$MODEL_DIR"
 echo "[cosyvoice:start] log: $LOG_DIR/fastapi.log"
