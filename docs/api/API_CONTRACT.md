@@ -176,7 +176,9 @@ validate input -> memory context -> rag context -> optional workflow -> PromptBu
 
 回复生成上限由后端环境变量 `LLM_MAX_TOKENS` 控制，默认 `320`；该配置不会增加或改变 `/api/dialogue` 请求字段。`temperature` 当前仍使用后端内部默认值 `0.8`。
 
-`LLMService.chatDetailed()` 会在内部诊断结果中保留规范化的 `finish_reason`、是否因 `length` 截断，以及上游提供的 prompt / completion / total token usage。诊断结果不包含原始 Prompt、Authorization、API Key 或 provider URL，也不透传到 `dialogue.v1` 或公开 `meta`，因此当前成功响应结构保持不变。
+`LLMService.chatDetailed()` 会在内部诊断结果中保留规范化的 `finish_reason`、是否因 `length` 截断，以及上游提供的 prompt / completion / total token usage。诊断结果不包含原始 Prompt、用户正文、Authorization、API Key、provider URL 或原始上游响应。
+
+普通公开响应默认不暴露这些诊断。仅在非 production 环境显式设置后端 `DIALOGUE_DEBUG_LLM_DIAGNOSTICS=true` 时，兼容层 `meta.llmDiagnostics` 才会出现，并且只包含 `finishReason`、`truncated`、`promptTokens`、`completionTokens`、`totalTokens` 五个规范化字段；未知的原始 finish reason 收敛为 `unknown`。production 会强制关闭该能力。它没有对应的客户端请求字段，不改变 `dialogue.v1`，也不能作为日志或第二套可观测系统使用。
 
 当前成功返回：
 
@@ -536,7 +538,7 @@ Workflow 成功时：
 
 `streaming` 表示客户端是否能按当前响应边收边播。若后端返回 `audioBase64`，即使上游 provider 使用 HTTP streaming，客户端也应看到 `streaming=false`。`upstreamStreaming=true` 仅表示后端 adapter 从上游收到的是流式响应，例如 CosyVoice 官方 FastAPI raw PCM。
 
-`metadata.timings` 是可选诊断字段，只能包含非敏感耗时和字节数。CosyVoice2 当前会记录上游首个 PCM chunk、raw PCM 总读取、chunk 数量/字节、WAV 包装和 Base64 编码耗时；Web 端分段播放会把这些 timing 合并到 `TTSService.getLastMetrics()`，用于定位首音延迟。`upstreamTrueStreamingEvidence=true` 才表示后端在完整音频完成前观测到有效的多 chunk 间隔；不能仅凭 `upstreamStreaming=true` 或 HTTP `StreamingResponse` 判定为真实可消费流式。
+`metadata.timings` 是可选诊断字段，只能包含非敏感耗时和字节数。CosyVoice2 当前会记录上游首个 PCM chunk、raw PCM 总读取、chunk 数量/字节、WAV 包装和 Base64 编码耗时；Web 端分段播放会把这些 timing 合并到 `TTSService.getLastMetrics()`，用于定位首音延迟、`segmentConfiguredInitialPrefetchMode`、`segmentInitialPrefetchMode`、`segmentGapMs`、`playbackAwarePrefetchDelayMs`、`shortInitialBufferWaitMs` 和每段 provider timing。`upstreamTrueStreamingEvidence=true` 才表示后端在完整音频完成前观测到有效的多 chunk 间隔；不能仅凭 `upstreamStreaming=true` 或 HTTP `StreamingResponse` 判定为真实可消费流式。
 
 不可用 / 失败响应仍保持 HTTP 200 + 可观测状态，便于客户端保留文本回复并降级到本机语音：
 

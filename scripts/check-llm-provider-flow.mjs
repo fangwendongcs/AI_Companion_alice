@@ -79,7 +79,12 @@ async function checkGenerationConfigAndDiagnostics() {
             prompt_tokens: 120,
             completion_tokens: 320,
             total_tokens: 440
-          }
+          },
+          prompt: 'RAW_PROMPT_SENTINEL',
+          authorization: 'Bearer RAW_AUTH_SENTINEL',
+          api_key: 'RAW_KEY_SENTINEL',
+          base_url: 'RAW_BASE_URL_SENTINEL',
+          raw_response: { content: 'RAW_UPSTREAM_SENTINEL' }
         });
       }
     });
@@ -101,6 +106,33 @@ async function checkGenerationConfigAndDiagnostics() {
       Object.keys(result.diagnostics || {}).sort().join(',') === 'finishReason,truncated,usage',
       '内部诊断只能保留 finishReason、truncated 和安全 token usage。'
     );
+    const serializedDiagnostics = JSON.stringify(result.diagnostics);
+    ['RAW_PROMPT_SENTINEL', 'RAW_AUTH_SENTINEL', 'RAW_KEY_SENTINEL', 'RAW_BASE_URL_SENTINEL', 'RAW_UPSTREAM_SENTINEL']
+      .forEach((sentinel) => {
+        assert(!serializedDiagnostics.includes(sentinel), `内部诊断不得保留 ${sentinel}。`);
+      });
+  });
+
+  await withEnv({
+    OPENAI_API_KEY: fakeKey,
+    OPENAI_BASE_URL: fakeBaseUrl,
+    LLM_API_KEY: undefined
+  }, async () => {
+    const llm = new LLMService({
+      fetchImpl: async () => createJsonResponse({
+        choices: [{
+          message: { content: '未知 finish reason fake 回复' },
+          finish_reason: 'RAW_FINISH_REASON_SENTINEL'
+        }]
+      })
+    });
+    const result = await llm.chatDetailed({
+      message: 'unknown finish reason',
+      provider: 'openai',
+      model: 'gpt-4o-mini'
+    });
+    assert(result.diagnostics?.finishReason === 'unknown', '未知 finish_reason 必须收敛为安全 unknown。');
+    assert(!JSON.stringify(result.diagnostics).includes('RAW_FINISH_REASON_SENTINEL'), '诊断不得透传未知原始 finish_reason。');
   });
 
   let overrideRequest = null;
@@ -422,12 +454,14 @@ async function checkFallbackSafetyAndDocumentation() {
   assert(envExample.includes('CUSTOM_API_KEY_OPTIONAL=false'), '.env.example 必须默认关闭 custom 无 Key 开关。');
   assert(envExample.includes('DEEPSEEK_MODEL=deepseek-v4-flash'), '.env.example 必须声明 DeepSeek 默认模型。');
   assert(envExample.includes('LLM_MAX_TOKENS=320'), '.env.example 必须声明 LLM 默认回复 token 上限。');
+  assert(envExample.includes('DIALOGUE_DEBUG_LLM_DIAGNOSTICS=false'), '.env.example 必须默认关闭受控 LLM 诊断响应。');
   assert(envExample.includes('http://localhost:11434/v1'), '.env.example 必须给出通用 OpenAI-compatible /v1 示例。');
   assert(gitignore.split('\n').includes('.env'), '本地 .env 必须保持 Git ignore。');
   const packageJson = JSON.parse(packageSource);
   const devCommand = String(packageJson.scripts?.dev || '');
   assert(devCommand === 'node --env-file-if-exists=.env backend/server.js', 'npm run dev 必须使用 Node 原生可选 .env 加载且不依赖 dotenv。');
   assert(apiContract.includes('llm_fallback_stub') && apiContract.includes('CUSTOM_API_KEY_OPTIONAL'), 'API 契约必须说明 fallback 与 custom 无 Key 决策。');
+  assert(apiContract.includes('DIALOGUE_DEBUG_LLM_DIAGNOSTICS') && apiContract.includes('llmDiagnostics'), 'API 契约必须说明受控 LLM 诊断边界。');
   assert(developmentGuide.includes('node --env-file-if-exists=.env backend/server.js'), '开发文档必须说明 npm run dev 的原生可选 .env 加载方式。');
   assert(developmentGuide.includes('`.env` 不存在时') && developmentGuide.includes('默认 `stub` LLM 与 `mock` TTS'), '开发文档必须说明无 .env 时仍可零费用启动。');
   assert(backendReadme.includes('--env-file-if-exists=.env') && backendReadme.includes('Git ignore'), 'Backend README 必须提示本地 .env 自动加载与禁止提交边界。');

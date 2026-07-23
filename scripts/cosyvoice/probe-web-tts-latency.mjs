@@ -6,18 +6,37 @@ const playbackScale = Number(process.env.TTS_LATENCY_PROBE_PLAYBACK_SCALE || '1'
 const segmentPrefetchDelayMs = process.env.TTS_LATENCY_SEGMENT_PREFETCH_DELAY_MS === undefined
   ? undefined
   : Number(process.env.TTS_LATENCY_SEGMENT_PREFETCH_DELAY_MS);
+const segmentInitialPrefetchMode = process.env.TTS_LATENCY_SEGMENT_INITIAL_PREFETCH_MODE || '';
+const segmentSecondDelayMs = process.env.TTS_LATENCY_SEGMENT_SECOND_DELAY_MS === undefined
+  ? undefined
+  : Number(process.env.TTS_LATENCY_SEGMENT_SECOND_DELAY_MS);
 const segmentMaxInFlight = process.env.TTS_LATENCY_SEGMENT_MAX_IN_FLIGHT === undefined
   ? undefined
   : Number(process.env.TTS_LATENCY_SEGMENT_MAX_IN_FLIGHT);
 const segmentExtraInitialPrefetchDelayMs = process.env.TTS_LATENCY_SEGMENT_EXTRA_INITIAL_PREFETCH_DELAY_MS === undefined
   ? undefined
   : Number(process.env.TTS_LATENCY_SEGMENT_EXTRA_INITIAL_PREFETCH_DELAY_MS);
+const segmentPlaybackAwareLeadMs = process.env.TTS_LATENCY_SEGMENT_PLAYBACK_AWARE_LEAD_MS === undefined
+  ? undefined
+  : Number(process.env.TTS_LATENCY_SEGMENT_PLAYBACK_AWARE_LEAD_MS);
+const segmentShortInitialAudioThresholdMs = process.env.TTS_LATENCY_SEGMENT_SHORT_INITIAL_AUDIO_THRESHOLD_MS === undefined
+  ? undefined
+  : Number(process.env.TTS_LATENCY_SEGMENT_SHORT_INITIAL_AUDIO_THRESHOLD_MS);
+const segmentShortInitialPlaybackBufferMs = process.env.TTS_LATENCY_SEGMENT_SHORT_INITIAL_PLAYBACK_BUFFER_MS === undefined
+  ? undefined
+  : Number(process.env.TTS_LATENCY_SEGMENT_SHORT_INITIAL_PLAYBACK_BUFFER_MS);
 const segmentInitialPlaybackBufferMs = process.env.TTS_LATENCY_SEGMENT_INITIAL_PLAYBACK_BUFFER_MS === undefined
   ? undefined
   : Number(process.env.TTS_LATENCY_SEGMENT_INITIAL_PLAYBACK_BUFFER_MS);
 const segmentFirstMaxChars = process.env.TTS_LATENCY_SEGMENT_FIRST_MAX_CHARS === undefined
   ? undefined
   : Number(process.env.TTS_LATENCY_SEGMENT_FIRST_MAX_CHARS);
+const segmentFirstPreferredMinChars = process.env.TTS_LATENCY_SEGMENT_FIRST_PREFERRED_MIN_CHARS === undefined
+  ? undefined
+  : Number(process.env.TTS_LATENCY_SEGMENT_FIRST_PREFERRED_MIN_CHARS);
+const segmentFirstNaturalMaxChars = process.env.TTS_LATENCY_SEGMENT_FIRST_NATURAL_MAX_CHARS === undefined
+  ? undefined
+  : Number(process.env.TTS_LATENCY_SEGMENT_FIRST_NATURAL_MAX_CHARS);
 const segmentMaxChars = process.env.TTS_LATENCY_SEGMENT_MAX_CHARS === undefined
   ? undefined
   : Number(process.env.TTS_LATENCY_SEGMENT_MAX_CHARS);
@@ -147,10 +166,17 @@ try {
     playbackScale,
     segmentedOptions: {
       prefetchDelayMs: segmentPrefetchDelayMs,
+      initialPrefetchMode: segmentInitialPrefetchMode || undefined,
+      secondSegmentDelayMs: segmentSecondDelayMs,
       extraInitialPrefetchDelayMs: segmentExtraInitialPrefetchDelayMs,
+      playbackAwareLeadMs: segmentPlaybackAwareLeadMs,
+      shortInitialAudioThresholdMs: segmentShortInitialAudioThresholdMs,
+      shortInitialPlaybackBufferMs: segmentShortInitialPlaybackBufferMs,
       initialPlaybackBufferMs: segmentInitialPlaybackBufferMs,
       maxInFlight: segmentMaxInFlight,
+      firstPreferredMinChars: segmentFirstPreferredMinChars,
       firstMaxChars: segmentFirstMaxChars,
+      firstNaturalMaxChars: segmentFirstNaturalMaxChars,
       maxChars: segmentMaxChars,
       hardMaxChars: segmentHardMaxChars,
       minFollowupChars: segmentMinFollowupChars,
@@ -235,10 +261,17 @@ async function measureMode(mode, { label, text: textValue, repeat, config }) {
 function createSegmentedProbeOptions() {
   return {
     ...(Number.isFinite(segmentPrefetchDelayMs) ? { prefetchDelayMs: segmentPrefetchDelayMs } : {}),
+    ...(segmentInitialPrefetchMode ? { initialPrefetchMode: segmentInitialPrefetchMode } : {}),
+    ...(Number.isFinite(segmentSecondDelayMs) ? { secondSegmentDelayMs: segmentSecondDelayMs } : {}),
     ...(Number.isFinite(segmentExtraInitialPrefetchDelayMs) ? { extraInitialPrefetchDelayMs: segmentExtraInitialPrefetchDelayMs } : {}),
+    ...(Number.isFinite(segmentPlaybackAwareLeadMs) ? { playbackAwareLeadMs: segmentPlaybackAwareLeadMs } : {}),
+    ...(Number.isFinite(segmentShortInitialAudioThresholdMs) ? { shortInitialAudioThresholdMs: segmentShortInitialAudioThresholdMs } : {}),
+    ...(Number.isFinite(segmentShortInitialPlaybackBufferMs) ? { shortInitialPlaybackBufferMs: segmentShortInitialPlaybackBufferMs } : {}),
     ...(Number.isFinite(segmentInitialPlaybackBufferMs) ? { initialPlaybackBufferMs: segmentInitialPlaybackBufferMs } : {}),
     ...(Number.isFinite(segmentMaxInFlight) ? { maxInFlight: segmentMaxInFlight } : {}),
+    ...(Number.isFinite(segmentFirstPreferredMinChars) ? { firstPreferredMinChars: segmentFirstPreferredMinChars } : {}),
     ...(Number.isFinite(segmentFirstMaxChars) ? { firstMaxChars: segmentFirstMaxChars } : {}),
+    ...(Number.isFinite(segmentFirstNaturalMaxChars) ? { firstNaturalMaxChars: segmentFirstNaturalMaxChars } : {}),
     ...(Number.isFinite(segmentMaxChars) ? { maxChars: segmentMaxChars } : {}),
     ...(Number.isFinite(segmentHardMaxChars) ? { hardMaxChars: segmentHardMaxChars } : {}),
     ...(Number.isFinite(segmentMinFollowupChars) ? { minFollowupChars: segmentMinFollowupChars } : {}),

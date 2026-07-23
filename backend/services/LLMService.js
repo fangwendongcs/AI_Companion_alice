@@ -9,6 +9,14 @@ import {
 import { createHttpError } from '../utils/httpError.js';
 import { fetchWithTimeout } from '../utils/request.js';
 
+const SAFE_FINISH_REASONS = new Set([
+  'stop',
+  'length',
+  'content_filter',
+  'tool_calls',
+  'function_call'
+]);
+
 export class LLMService {
   constructor({
     fetchImpl = fetch,
@@ -182,15 +190,19 @@ function extractReplyText(data) {
 }
 
 function extractResponseDiagnostics(data) {
-  const rawFinishReason = data?.choices?.[0]?.finish_reason;
-  const finishReason = typeof rawFinishReason === 'string'
-    ? rawFinishReason.trim().slice(0, 40) || null
-    : null;
+  const finishReason = normalizeFinishReason(data?.choices?.[0]?.finish_reason);
   return {
     finishReason,
     truncated: finishReason === 'length',
     usage: extractTokenUsage(data?.usage)
   };
+}
+
+function normalizeFinishReason(value) {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return null;
+  return SAFE_FINISH_REASONS.has(normalized) ? normalized : 'unknown';
 }
 
 function extractTokenUsage(rawUsage) {

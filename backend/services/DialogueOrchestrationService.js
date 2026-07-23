@@ -7,13 +7,24 @@ import { PromptBuilder } from './PromptBuilder.js';
 import { PersonaService } from './PersonaService.js';
 import { CompanionAffectService } from './CompanionAffectService.js';
 import { buildDialogueContract } from '../contracts/dialogueContract.js';
-import { dialogueFallbackToStub } from '../config/serverConfig.js';
+import {
+  dialogueDebugLLMDiagnostics,
+  dialogueFallbackToStub
+} from '../config/serverConfig.js';
 import { redactText } from '../utils/redact.js';
 
 const MAX_MESSAGE_CHARS = 4000;
 const MAX_SYSTEM_PROMPT_CHARS = 4000;
 const MAX_SESSION_ID_CHARS = 80;
 const DEFAULT_AVATAR_ID = 'alice';
+const SAFE_LLM_FINISH_REASONS = new Set([
+  'stop',
+  'length',
+  'content_filter',
+  'tool_calls',
+  'function_call',
+  'unknown'
+]);
 
 export class DialogueOrchestrationService {
   constructor({
@@ -24,7 +35,8 @@ export class DialogueOrchestrationService {
     promptBuilder = new PromptBuilder(),
     personaService = new PersonaService(),
     affectService = new CompanionAffectService(),
-    fallbackToStub = dialogueFallbackToStub
+    fallbackToStub = dialogueFallbackToStub,
+    debugLLMDiagnostics = dialogueDebugLLMDiagnostics
   } = {}) {
     this.memoryService = memoryService;
     this.ragService = ragService;
@@ -34,6 +46,7 @@ export class DialogueOrchestrationService {
     this.personaService = personaService;
     this.affectService = affectService;
     this.fallbackToStub = fallbackToStub;
+    this.debugLLMDiagnostics = Boolean(debugLLMDiagnostics);
   }
 
   async run(payload = {}) {
@@ -87,6 +100,7 @@ export class DialogueOrchestrationService {
       provider,
       model
     };
+    let llmDiagnostics = null;
     try {
       resolvedRequest = resolveLLMRequest({ provider, model });
       const dialogueContext = this.promptBuilder.buildDialogueContext({
@@ -110,6 +124,7 @@ export class DialogueOrchestrationService {
           provider: result.provider,
           model: result.model
         };
+        llmDiagnostics = normalizeLLMDiagnostics(result.diagnostics);
       } else {
         reply = await this.llmService.chat(llmInput);
       }
@@ -158,7 +173,10 @@ export class DialogueOrchestrationService {
       persona: toPersonaMeta(persona),
       provider: resolvedRequest.provider,
       model: resolvedRequest.model,
-      systemPromptReceived: Boolean(systemPrompt)
+      systemPromptReceived: Boolean(systemPrompt),
+      ...(this.debugLLMDiagnostics && llmDiagnostics
+        ? { llmDiagnostics }
+        : {})
     };
     return buildDialogueResponse({
       reply,
@@ -466,6 +484,28 @@ function buildStepMeta({ memory, rag, workflow }) {
     rag: rag?.status || 'unknown',
     workflow: workflow?.status || 'unknown'
   };
+}
+
+function normalizeLLMDiagnostics(diagnostics) {
+  if (!diagnostics || typeof diagnostics !== 'object') return null;
+  const rawFinishReason = typeof diagnostics.finishReason === 'string'
+    ? diagnostics.finishReason.trim().toLowerCase()
+    : '';
+  const finishReason = !rawFinishReason
+    ? null
+    : SAFE_LLM_FINISH_REASONS.has(rawFinishReason) ? rawFinishReason : 'unknown';
+  return {
+    finishReason,
+    truncated: diagnostics.truncated === true || finishReason === 'length',
+    promptTokens: normalizeDiagnosticTokenCount(diagnostics.usage?.promptTokens),
+    completionTokens: normalizeDiagnosticTokenCount(diagnostics.usage?.completionTokens),
+    totalTokens: normalizeDiagnosticTokenCount(diagnostics.usage?.totalTokens)
+  };
+}
+
+function normalizeDiagnosticTokenCount(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? Math.floor(number) : null;
 }
 
 function safeErrorMessage(error) {

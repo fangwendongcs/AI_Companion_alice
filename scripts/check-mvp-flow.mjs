@@ -499,13 +499,26 @@ async function checkSegmentedTTSLifecycle() {
     const shortWithoutBreakSegments = segmentTextForTTS('我想听你用温柔声音回应我一下好吗');
     const systemSegments = segmentTextForTTS('[SYSTEM]模型装载完毕，交互系统已激活。');
     const shortResponseSegments = segmentTextForTTS('我在这儿，先陪你慢慢呼吸一下。');
+    const shortPunctuationSegments = segmentTextForTTS('别着急，我们先把注意力放回呼吸上。');
+    const mediumWithoutBreakSegments = segmentTextForTTS('我会陪你把这件事慢慢拆开不需要一下子解决全部问题先处理最重要的部分');
+    const naturalFirstSegments = segmentTextForTTS('好的，我在这里陪你。我们先慢慢呼吸一下，然后把今天最烦的一件事放到一边。你不用马上解决所有问题。');
+    const veryShortSegments = segmentTextForTTS('我在这里陪你');
     const shortPlaybackProfile = getSegmentedPlaybackProfile('我在这儿，先陪你慢慢呼吸一下。');
     assert(segments.length > 1, '长回复应被拆成多个 TTS 分段。');
     assert(punctuationlessSegments.length > 1, '无标点长回复也应拆出快速首段。');
     assert(punctuationlessSegments[0].length <= 8, '快速首段必须足够短，避免首音继续等待完整长句生成。');
-    assert(shortResponseSegments.length === 3, '15 字短回复应使用更小 follow-up 段，避免首段后等待 10 字长段。');
-    assert(shortResponseSegments.every((segment) => segment.length <= 5), '短回复分段应保持约 5 字级别，减少段间空洞。');
-    assert(shortWithoutBreakSegments.length === 1, '无自然停顿的 10-20 字短回复不应被机械硬切，避免首音和段间空洞变差。');
+    assert(naturalFirstSegments[0] === '好的，我在这里陪你。', '中长回复首段应优先选择 8-14 字自然停顿，避免 5 字硬切造成段间空洞。');
+    assert(veryShortSegments.length === 1, '12 字以内很短回复应保持单段。');
+    assert(shortResponseSegments.length > 1, '13-24 字短回复应允许首段优先发声。');
+    assert(shortPunctuationSegments.length > 1, '带自然停顿的 13-24 字短回复应允许自然首段优先发声。');
+    assert(shortPunctuationSegments[0].endsWith('，'), '短回复首段应优先选择自然中文停顿。');
+    assert(mediumWithoutBreakSegments.length > 1, '25 字以上无标点回复应拆出快速首段，避免首音等待完整中句生成。');
+    assert(mediumWithoutBreakSegments[0].length <= 8, '25 字以上无标点回复首段应保持短小。');
+    assert(!segmentTextForTTS('我会陪你。别着急，我们慢慢来。').some((segment) => segment === '。'), 'TTS 分段不应产生孤立标点段。');
+    assert(shortWithoutBreakSegments.length > 1, '13-24 字无自然停顿短回复应拆出快速首段，避免首音等待整句生成。');
+    assert(shortWithoutBreakSegments[0] === '我想听你用温柔声音', '无自然停顿短回复首段应保持短小，同时避免把“声音”等常见中文词切断。');
+    assert(segmentTextForTTS('今天我有点累想听你慢慢说几句温柔的话陪我整理一下心情').join('|') === '今天我有点累|想听你慢慢说几句|温柔的话陪我整理一下心情', '中等回复应优先按中文语义 cue 切分，并继续压短早期后续段，避免第二段过长导致播放空洞。');
+    assert(segmentTextForTTS('今天我有点累。想听你慢慢说几句温柔的话。陪我整理一下心情。你可以先简单回应我。然后继续说一些让我安心的话。').join('|').startsWith('今天我有点累。|想听你慢慢说几句温柔的话。'), '长回复应保留自然句段，避免过碎分段造成后段排队。');
     assert(shortPlaybackProfile.isShortText && shortPlaybackProfile.maxInFlight === 2, '短回复应使用 2 路受控并发，避免本地 CosyVoice 过度争抢。');
     assert(!systemSegments.join('').includes('[SYSTEM]'), 'TTS 分段前应移除开头 SYSTEM 标签，避免语音读出或切碎标签。');
     assert(segmentTextForTTS('短句你好').length === 1, '短回复不应被不必要地拆分。');
@@ -573,6 +586,8 @@ async function checkSegmentedTTSLifecycle() {
       pitch: 1,
       segmentedTTSOptions: {
         prefetchDelayMs: 0,
+        initialPrefetchMode: 'delay',
+        secondSegmentDelayMs: 0,
         maxInFlight: 2
       }
     }, {
@@ -601,12 +616,79 @@ async function checkSegmentedTTSLifecycle() {
     assert(metrics?.segmentCount === segments.length, 'TTSService metrics 必须记录 segmentCount。');
     assert(metrics?.segmentMaxInFlight === 2, 'TTSService metrics 必须记录受控预取并发数。');
     assert(metrics?.segmentPrefetchDelayMs === 0, 'TTSService metrics 必须记录预取延迟。');
+    assert(metrics?.segmentConfiguredInitialPrefetchMode === 'delay', 'TTSService metrics 必须记录配置的初始预取模式。');
+    assert(metrics?.segmentInitialPrefetchMode === 'delay', 'TTSService metrics 必须记录初始预取模式。');
+    assert(metrics?.segmentSecondPrefetchDelayMs === 0, 'TTSService metrics 必须记录第二段预取延迟。');
+    assert(Number.isFinite(metrics?.segmentPlaybackAwareLeadMs), 'TTSService metrics 必须记录基于播放时长的预取 lead。');
+    assert(Number.isFinite(metrics?.segmentShortInitialAudioThresholdMs), 'TTSService metrics 必须记录短首段缓冲阈值。');
+    assert(Number.isFinite(metrics?.segmentShortInitialPlaybackBufferMs), 'TTSService metrics 必须记录短首段最大等待时间。');
     assert(Number.isFinite(metrics?.ttsRequestToFirstAudioReadyMs), 'TTSService metrics 必须记录首段音频 ready 耗时。');
     assert(Number.isFinite(metrics?.firstAudioReadyToPlayStartMs), 'TTSService metrics 必须记录首段 ready 到播放开始耗时。');
     assert(Number.isFinite(metrics?.totalAudioDurationMs), 'TTSService metrics 必须记录分段音频总时长。');
     assert(Number.isFinite(metrics?.segments?.[0]?.audioDurationMs), 'TTSService segment metrics 必须记录 WAV 时长。');
+    assert(metrics?.segmentShortInitialPlaybackBufferMs === 0, '默认不应额外等待短首段播放，以减少首音人为延迟。');
+    assert(Number.isFinite(metrics?.segments?.[1]?.segmentGapMs), 'TTSService segment metrics 必须记录显式 segmentGapMs。');
     assert(metrics?.segments?.[0]?.providerTimings?.upstreamReadMs === 3, 'TTSService metrics 必须保留 provider timing。');
     service.destroy();
+
+    const firstReadyRequests = [];
+    const firstReadyResponse = createDeferred();
+    const firstReadyService = new TTSService('/api/tts', {
+      apiClient: {
+        response: async (_endpoint, options = {}) => {
+          firstReadyRequests.push(options.body?.text || '');
+          if (firstReadyRequests.length === 1) return firstReadyResponse.promise;
+          return createFakeTTSAudioResponse();
+        }
+      }
+    });
+    const firstReadyText = '我想听你用温柔声音回应我一下好吗';
+    const firstReadySpeech = firstReadyService.speak(firstReadyText, {
+      engine: 'cosyvoice',
+      rate: 1,
+      pitch: 1,
+      segmentedTTSOptions: {
+        maxInFlight: 2
+      }
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    assert(firstReadyRequests.length === 1, '默认 first-ready 模式下，首段 ready 前不应预取第二段抢占本地 CosyVoice 推理。');
+    firstReadyResponse.resolve(createFakeTTSAudioResponse());
+    await firstReadySpeech;
+    const firstReadyMetrics = firstReadyService.getLastMetrics();
+    assert(firstReadyRequests.length === shortWithoutBreakSegments.length, 'first-ready 模式下首段返回后仍应按顺序生成所有后续分段。');
+    assert(firstReadyMetrics?.segmentConfiguredInitialPrefetchMode === 'adaptive', '默认分段 TTS 应记录 adaptive 配置模式。');
+    assert(firstReadyMetrics?.segmentInitialPrefetchMode === 'first-ready', '默认两段分段 TTS 应解析为 first-ready 初始预取模式。');
+    firstReadyService.destroy();
+
+    const mediumDelayRequests = [];
+    const mediumDelayFirstResponse = createDeferred();
+    const mediumDelayService = new TTSService('/api/tts', {
+      apiClient: {
+        response: async (_endpoint, options = {}) => {
+          mediumDelayRequests.push(options.body?.text || '');
+          if (mediumDelayRequests.length === 1) return mediumDelayFirstResponse.promise;
+          return createFakeTTSAudioResponse();
+        }
+      }
+    });
+    const mediumDelaySpeech = mediumDelayService.speak('今天我有点累想听你慢慢说几句温柔的话陪我整理一下心情', {
+      engine: 'cosyvoice',
+      rate: 1,
+      pitch: 1,
+      segmentedTTSOptions: {
+        maxInFlight: 2
+      }
+    });
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    assert(mediumDelayRequests.length >= 2, '25 字以上回复应延迟预取第二段，避免首段播放后长时间空洞。');
+    mediumDelayFirstResponse.resolve(createFakeTTSAudioResponse());
+    await mediumDelaySpeech;
+    const mediumDelayMetrics = mediumDelayService.getLastMetrics();
+    assert(mediumDelayMetrics?.segmentInitialPrefetchMode === 'delay', '25 字以上回复默认应使用 delay 初始预取模式。');
+    assert(mediumDelayMetrics?.segmentSecondPrefetchDelayMs === 0, '中长回复第二段默认应立即受控预取，降低首段后播放空洞。');
+    mediumDelayService.destroy();
   } finally {
     if (originalWindow === undefined) delete globalThis.window;
     else globalThis.window = originalWindow;

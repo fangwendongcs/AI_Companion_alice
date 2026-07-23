@@ -143,10 +143,22 @@ export class TTSService {
     metrics.segmentCount = segments.length;
     metrics.segmentTextLengths = segments.map((segment) => segment.length);
     const segmentedOptions = normalizeSegmentedPlaybackOptions(config.segmentedTTSOptions, text);
-    const initialPrefetchDelayMs = segments.length <= 2 ? 0 : segmentedOptions.prefetchDelayMs;
+    const initialPrefetchMode = resolveInitialPrefetchMode(
+      segmentedOptions.initialPrefetchMode,
+      segments.length,
+      segmentedOptions.isShortText
+    );
+    const secondPrefetchDelayMs = initialPrefetchMode === 'first-ready'
+      ? 0
+      : segmentedOptions.secondSegmentDelayMs;
     metrics.segmentPrefetchDelayMs = segmentedOptions.prefetchDelayMs;
-    metrics.segmentInitialPrefetchDelayMs = initialPrefetchDelayMs;
+    metrics.segmentConfiguredInitialPrefetchMode = segmentedOptions.initialPrefetchMode;
+    metrics.segmentInitialPrefetchMode = initialPrefetchMode;
+    metrics.segmentSecondPrefetchDelayMs = secondPrefetchDelayMs;
     metrics.segmentExtraInitialPrefetchDelayMs = segmentedOptions.extraInitialPrefetchDelayMs;
+    metrics.segmentPlaybackAwareLeadMs = segmentedOptions.playbackAwareLeadMs;
+    metrics.segmentShortInitialAudioThresholdMs = segmentedOptions.shortInitialAudioThresholdMs;
+    metrics.segmentShortInitialPlaybackBufferMs = segmentedOptions.shortInitialPlaybackBufferMs;
     metrics.segmentInitialPlaybackBufferMs = segmentedOptions.initialPlaybackBufferMs;
     metrics.segmentMaxInFlight = segmentedOptions.maxInFlight;
     metrics.segmentShortTextProfile = segmentedOptions.isShortText;
@@ -154,6 +166,7 @@ export class TTSService {
     const session = createSegmentedPlaybackSession();
     this.currentPlayback = session;
     const payloadPromises = new Map();
+    let scheduleAhead = () => {};
 
     const fetchSegment = (index, segmentMetrics) => {
       if (session.cancelled) return Promise.resolve(null);
@@ -182,6 +195,16 @@ export class TTSService {
         .then(() => {
           if (!canContinue(shouldContinue) || session.cancelled) return null;
           return fetchSegment(index, segmentMetrics);
+        })
+        .then((payload) => {
+          if (!payload || !canContinue(shouldContinue) || session.cancelled) return payload;
+          const audioReadyAwareDelayMs = computePlaybackAwarePrefetchDelay(
+            payload.segment?.audioDurationMs,
+            segmentedOptions.playbackAwareLeadMs
+          );
+          if (payload.segment) payload.segment.audioReadyAwarePrefetchDelayMs = audioReadyAwareDelayMs;
+          scheduleAhead(index + 1 + segmentedOptions.maxInFlight, audioReadyAwareDelayMs);
+          return payload;
         });
       payloadPromises.set(index, promise);
       promise.catch(() => {});
@@ -190,16 +213,21 @@ export class TTSService {
 
     queueSegmentFetch(0, 0);
     let nextIndexToSchedule = 1;
-    const scheduleAhead = (exclusiveIndex, delayMs = 0) => {
+    scheduleAhead = (exclusiveIndex, delayMs = 0) => {
       const limit = Math.min(segments.length, exclusiveIndex);
       while (nextIndexToSchedule < limit) {
         queueSegmentFetch(nextIndexToSchedule, delayMs);
         nextIndexToSchedule += 1;
       }
     };
-    scheduleAhead(Math.min(segments.length, 2), initialPrefetchDelayMs);
-    if (segmentedOptions.maxInFlight >= 3) {
-      scheduleAhead(Math.min(segments.length, 3), segmentedOptions.extraInitialPrefetchDelayMs);
+    const scheduleInitialFollowups = () => {
+      scheduleAhead(Math.min(segments.length, 2), secondPrefetchDelayMs);
+      if (segmentedOptions.maxInFlight >= 3) {
+        scheduleAhead(Math.min(segments.length, 3), segmentedOptions.extraInitialPrefetchDelayMs);
+      }
+    };
+    if (initialPrefetchMode === 'delay') {
+      scheduleInitialFollowups();
     }
 
     let playedAnySegment = false;
@@ -207,7 +235,9 @@ export class TTSService {
       for (let index = 0; index < segments.length; index += 1) {
         const payload = await payloadPromises.get(index);
         if (!canContinue(shouldContinue) || session.cancelled || !payload) return;
-        scheduleAhead(index + 1 + segmentedOptions.maxInFlight, 0);
+        if (index === 0 && initialPrefetchMode === 'first-ready') {
+          scheduleInitialFollowups();
+        }
         await waitForPlaybackBuffer({
           index,
           total: segments.length,
@@ -226,13 +256,34 @@ export class TTSService {
             textLength: segments[index].length
           }
         });
+        const onPlaybackWindowKnown = (segmentMetrics = payload.segment) => {
+          const prefetchDelayMs = computePlaybackAwarePrefetchDelay(
+            segmentMetrics?.audioDurationMs,
+            segmentedOptions.playbackAwareLeadMs
+          );
+          if (segmentMetrics) segmentMetrics.playbackAwarePrefetchDelayMs = prefetchDelayMs;
+          scheduleAhead(index + 1 + segmentedOptions.maxInFlight, prefetchDelayMs);
+        };
+        const beforePlayback = async (segmentMetrics = payload.segment) => {
+          if (index !== 0 || segments.length <= 1) return;
+          await waitForShortInitialSegmentBuffer({
+            segment: segmentMetrics,
+            nextPayload: payloadPromises.get(index + 1),
+            session,
+            shouldContinue,
+            thresholdMs: segmentedOptions.shortInitialAudioThresholdMs,
+            waitMs: segmentedOptions.shortInitialPlaybackBufferMs
+          });
+        };
         if (payload.type === 'json') {
           await this.playAudioResult(payload.result, {
             onStart: startDetail,
             shouldContinue,
             session,
             metrics,
-            segment: payload.segment
+            segment: payload.segment,
+            onPlaybackWindowKnown,
+            beforePlayback
           });
         } else {
           await this.playBlob(payload.blob, {
@@ -240,7 +291,9 @@ export class TTSService {
             shouldContinue,
             session,
             metrics,
-            segment: payload.segment
+            segment: payload.segment,
+            onPlaybackWindowKnown,
+            beforePlayback
           });
         }
         playedAnySegment = true;
@@ -301,7 +354,15 @@ export class TTSService {
     };
   }
 
-  async playAudioResult(result, { onStart, shouldContinue, session = null, metrics = null, segment = null } = {}) {
+  async playAudioResult(result, {
+    onStart,
+    shouldContinue,
+    session = null,
+    metrics = null,
+    segment = null,
+    onPlaybackWindowKnown = null,
+    beforePlayback = null
+  } = {}) {
     if (!canContinue(shouldContinue)) return;
     if (!result || result.tts_status !== 'ok') {
       const message = result?.error?.message || 'TTS provider unavailable.';
@@ -315,11 +376,13 @@ export class TTSService {
       const decodeStartedAt = nowMs();
       const blob = base64ToBlob(result.audioBase64, result.contentType || contentTypeForFormat(result.format));
       markDecodeComplete(metrics, segment, decodeStartedAt, blob);
-      await this.playBlob(blob, { onStart, shouldContinue, session, metrics, segment });
+      await this.playBlob(blob, { onStart, shouldContinue, session, metrics, segment, onPlaybackWindowKnown, beforePlayback });
       return;
     }
 
     if (result.audioUrl) {
+      onPlaybackWindowKnown?.(segment);
+      await beforePlayback?.(segment);
       await this.playAudioUrl(result.audioUrl, { onStart, shouldContinue, session, metrics, segment });
       return;
     }
@@ -330,9 +393,19 @@ export class TTSService {
     throw error;
   }
 
-  async playBlob(blob, { onStart, shouldContinue, session = null, metrics = null, segment = null } = {}) {
+  async playBlob(blob, {
+    onStart,
+    shouldContinue,
+    session = null,
+    metrics = null,
+    segment = null,
+    onPlaybackWindowKnown = null,
+    beforePlayback = null
+  } = {}) {
     if (!canContinue(shouldContinue)) return;
     await annotateAudioDuration(metrics, segment, blob);
+    onPlaybackWindowKnown?.(segment);
+    await beforePlayback?.(segment);
     const url = URL.createObjectURL(blob);
 
     try {
@@ -536,16 +609,51 @@ function normalizeSegmentedPlaybackOptions(options = {}, text = '') {
   const extraInitialPrefetchDelayMs = Number.isFinite(Number(options?.extraInitialPrefetchDelayMs))
     ? Math.max(0, Number(options.extraInitialPrefetchDelayMs))
     : DEFAULT_TTS_SEGMENT_OPTIONS.extraInitialPrefetchDelayMs;
+  const secondSegmentDelayMs = Number.isFinite(Number(options?.secondSegmentDelayMs))
+    ? Math.max(0, Number(options.secondSegmentDelayMs))
+    : DEFAULT_TTS_SEGMENT_OPTIONS.secondSegmentDelayMs;
+  const initialPrefetchMode = normalizeInitialPrefetchMode(options?.initialPrefetchMode);
+  const playbackAwareLeadMs = Number.isFinite(Number(options?.playbackAwareLeadMs))
+    ? Math.max(0, Number(options.playbackAwareLeadMs))
+    : DEFAULT_TTS_SEGMENT_OPTIONS.playbackAwareLeadMs;
+  const shortInitialAudioThresholdMs = Number.isFinite(Number(options?.shortInitialAudioThresholdMs))
+    ? Math.max(0, Number(options.shortInitialAudioThresholdMs))
+    : DEFAULT_TTS_SEGMENT_OPTIONS.shortInitialAudioThresholdMs;
+  const shortInitialPlaybackBufferMs = Number.isFinite(Number(options?.shortInitialPlaybackBufferMs))
+    ? Math.max(0, Number(options.shortInitialPlaybackBufferMs))
+    : DEFAULT_TTS_SEGMENT_OPTIONS.shortInitialPlaybackBufferMs;
   const initialPlaybackBufferMs = Number.isFinite(Number(options?.initialPlaybackBufferMs))
     ? Math.max(0, Number(options.initialPlaybackBufferMs))
     : DEFAULT_TTS_SEGMENT_OPTIONS.initialPlaybackBufferMs;
   return {
     prefetchDelayMs,
+    initialPrefetchMode,
+    secondSegmentDelayMs,
     extraInitialPrefetchDelayMs,
+    playbackAwareLeadMs,
+    shortInitialAudioThresholdMs,
+    shortInitialPlaybackBufferMs,
     initialPlaybackBufferMs,
     maxInFlight,
     isShortText: playbackProfile.isShortText
   };
+}
+
+function normalizeInitialPrefetchMode(value) {
+  if (value === 'adaptive') return 'adaptive';
+  if (value === 'delay') return 'delay';
+  if (value === 'first-ready') return 'first-ready';
+  return DEFAULT_TTS_SEGMENT_OPTIONS.initialPrefetchMode;
+}
+
+function resolveInitialPrefetchMode(mode, segmentCount, isShortText = false) {
+  if (mode === 'delay' || mode === 'first-ready') return mode;
+  return segmentCount <= 2 && isShortText ? 'first-ready' : 'delay';
+}
+
+function computePlaybackAwarePrefetchDelay(audioDurationMs, leadMs) {
+  if (!Number.isFinite(audioDurationMs) || !Number.isFinite(leadMs) || leadMs <= 0) return 0;
+  return Math.max(0, roundMs(audioDurationMs - leadMs));
 }
 
 async function waitForPlaybackBuffer({
@@ -567,6 +675,25 @@ async function waitForPlaybackBuffer({
   ]);
   const waitedMs = roundMs(nowMs() - waitStartedAt);
   if (segment) segment.playbackBufferWaitMs = waitedMs;
+  if (!canContinue(shouldContinue) || session?.cancelled) return;
+}
+
+async function waitForShortInitialSegmentBuffer({
+  segment,
+  nextPayload,
+  session,
+  shouldContinue,
+  thresholdMs,
+  waitMs
+} = {}) {
+  if (!segment || !nextPayload || !waitMs || waitMs <= 0) return;
+  if (!Number.isFinite(segment.audioDurationMs) || segment.audioDurationMs > thresholdMs) return;
+  const waitStartedAt = nowMs();
+  await Promise.race([
+    nextPayload.catch(() => null),
+    delayWithSession(waitMs, session)
+  ]);
+  segment.shortInitialBufferWaitMs = roundMs(nowMs() - waitStartedAt);
   if (!canContinue(shouldContinue) || session?.cancelled) return;
 }
 
@@ -634,7 +761,11 @@ function createSegmentMetrics(metrics, { index = 0, total = 1, text = '' } = {})
     audioDurationMs: null,
     playStartedAt: null,
     estimatedGapMs: null,
+    segmentGapMs: null,
     bufferedAudioMsAtStart: null,
+    playbackAwarePrefetchDelayMs: null,
+    audioReadyAwarePrefetchDelayMs: null,
+    shortInitialBufferWaitMs: null,
     providerTimings: null
   };
   if (metrics && !metrics.segments[index]) metrics.segments[index] = segment;
@@ -710,12 +841,14 @@ function annotateSegmentGap(metrics, segment) {
   const previousEndAt = previous.playStartedAt + previous.audioDurationMs;
   const gapMs = segment.playStartedAt - previousEndAt;
   segment.estimatedGapMs = roundMs(Math.max(0, gapMs));
+  segment.segmentGapMs = segment.estimatedGapMs;
   if (Number.isFinite(segment.audioReadyAt)) {
     segment.bufferedAudioMsAtStart = roundMs(Math.max(0, previousEndAt - segment.audioReadyAt));
   }
   if (segment.estimatedGapMs > 100) {
     metrics.underrunCount = (metrics.underrunCount || 0) + 1;
     metrics.maxEstimatedGapMs = Math.max(metrics.maxEstimatedGapMs || 0, segment.estimatedGapMs);
+    metrics.maxSegmentGapMs = Math.max(metrics.maxSegmentGapMs || 0, segment.segmentGapMs);
   }
 }
 

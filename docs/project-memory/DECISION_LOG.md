@@ -1,6 +1,6 @@
 # Decision Log
 
-最后更新：2026-07-14
+最后更新：2026-07-22
 
 本文件只记录会影响后续开发方向的关键决策。小修复、局部命名、纯样式调整不需要写入。
 
@@ -22,6 +22,8 @@
 | 2026-07-10 | `/api/dialogue` 的 Prompt 权限由后端规则与 Persona 主导；兼容字段 `systemPrompt` 只作为低优先级回复偏好，短期上下文保持原始 role，并采用章节/历史字符预算。 | 防止 Web 固定 Alice 身份污染其他 Persona、历史用户指令被提升为 system，以及整体裁剪优先丢失最新上下文。 | `PromptBuilder`、`DialogueOrchestrationService`、`LLMService`、Web LLM Settings、零费用质量检查 | `docs/product/DIALOGUE_QUALITY_BASELINE.md`、`backend/services/PromptBuilder.js`、`scripts/check-dialogue-quality-logic.mjs` |
 | 2026-07-14 | P1B Memory 确定性策略使用现有 `messages.avatar_id` 形成 `(session_id, avatar_id)` 短期范围；偏好保存完整极性；敏感用户轮次整轮不持久化，并由 Repository 做二次防线。 | 避免跨角色历史污染、否定偏好翻转，以及用户或 assistant 复述的 secret 落入 SQLite；保持现有 schema、`dialogue.v1` 和结构化 LLM messages 不变。 | `MemoryService`、`MemoryRepository`、Memory routes、日志脱敏、零费用检查 | `docs/architecture/PHASE5_MEMORY_ARCHITECTURE.md`、`scripts/check-memory-flow.mjs` |
 | 2026-07-14 | P1C 将 LLM 回复上限改为后端 `LLM_MAX_TOKENS` 配置，默认 `320`；`finish_reason` 与 token usage 仅保留为安全内部诊断，Prompt 增加克制表达和准确记忆确认规则。 | 首次 10 轮 DeepSeek 基线出现多次可见截断、舞台提示与记忆确认扩写，需要先收口回复完整性和可诊断性，同时保持公开契约稳定。 | `serverConfig`、`LLMService`、`PromptBuilder`、零费用质量检查 | `docs/product/DIALOGUE_QUALITY_BASELINE.md`、`backend/services/LLMService.js`、`backend/services/PromptBuilder.js` |
+| 2026-07-22 | P1D 保持 `LLM_MAX_TOKENS=320` 与 Persona/Memory 逻辑不变，在 Prompt 中克制波浪号并限定记忆确认措辞；非 production 可用默认关闭的 `DIALOGUE_DEBUG_LLM_DIAGNOSTICS` 读取五个白名单诊断字段。 | P1C 对照复测已消除截断，但仍需收口个性标点和过度记忆承诺，并让隔离评测在不扩大公开契约及敏感暴露面的前提下确认截断和 token usage。 | `PromptBuilder`、Dialogue 兼容 `meta`、后端环境配置、零费用质量检查 | `docs/product/DIALOGUE_QUALITY_BASELINE.md`、`backend/services/DialogueOrchestrationService.js`、`docs/api/API_CONTRACT.md` |
+| 2026-07-22 | CosyVoice2 首音优化先采用中文语义分段、同一 utterance session 和受控预取，不引入 WebSocket / AudioWorklet / PCM streaming。 | 官方 FastAPI 当前返回完整 raw PCM，Node 包装和浏览器解码只占毫秒级；主要瓶颈是本机 CosyVoice2 生成。分段能让长回复不再等待完整音频，同时保留现有取消、静音、fallback 和 lip-sync 生命周期。 | `TTSService`、`TTSTextSegmenter`、`AudioManager`、Presentation lifecycle、TTS 文档 | `docs/guides/LOCAL_TTS.md`、`js/voice/TTSService.js`、`js/voice/TTSTextSegmenter.js` |
 | 2026-07-14 | 完整本地 Demo 使用 detached Node supervisor 统一托管 Alice 与 CosyVoice2，状态以进程所有权、endpoint、真实 DeepSeek 回复和有效 WAV 四层证据为准。 | 单独 `npm run dev` 与 `cosyvoice:start` 无法解决受控环境子进程存活、空 CosyVoice URL、幂等启停和真实 readiness；停服又必须避免按端口误杀未知进程。 | 本地 Demo 启停、PID/state/log、安全边界、真实 provider 验收 | `scripts/demo/demo-manager.mjs`、`docs/guides/DEMO_RUNTIME.md` |
 
 ## 新增决策模板

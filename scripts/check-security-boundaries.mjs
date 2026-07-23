@@ -72,6 +72,7 @@ async function checkEnvExample() {
     'RATE_LIMIT_SENSITIVE_MAX_REQUESTS',
     'REQUIRE_API_AUTH',
     'API_AUTH_TOKEN',
+    'DIALOGUE_DEBUG_LLM_DIAGNOSTICS',
     'OPENAI_API_KEY',
     'COSYVOICE_API_KEY',
     'HIGGS_API_KEY',
@@ -82,6 +83,14 @@ async function checkEnvExample() {
   });
   assert(!/sk-[A-Za-z0-9_-]{20,}/.test(env), '.env.example 不得包含真实 OpenAI-shaped key。');
   assert(!/Bearer\s+[A-Za-z0-9._-]+/i.test(env), '.env.example 不得包含真实 Bearer token。');
+
+  const config = await readFile('backend/config/serverConfig.js', 'utf8');
+  assert(
+    config.includes('dialogueDebugLLMDiagnostics')
+      && config.includes("deploymentMode !== 'production'")
+      && config.includes("readBoolean('DIALOGUE_DEBUG_LLM_DIAGNOSTICS', false)"),
+    '受控 LLM 诊断必须默认关闭，并在 production 强制关闭。'
+  );
 }
 
 async function checkCorsBoundary() {

@@ -17,6 +17,7 @@ checkHistoryUsesNativeRoles();
 checkRecentHistoryBudget();
 checkLongPromptBudgets();
 await checkDialogueContractStaysStable();
+await checkControlledLLMDiagnostics();
 await checkDefaultCommandsAreZeroCost();
 
 if (failures.length) {
@@ -132,8 +133,21 @@ function checkResponseExpressionBoundaries() {
   });
   assert(prompt.includes('不使用括号舞台提示'), 'Prompt 必须默认禁止括号舞台提示。');
   assert(prompt.includes('emoji 保持克制') && prompt.includes('最多使用一个'), 'Prompt 必须限制 emoji 使用密度。');
+  assert(
+    prompt.includes('优先使用正常中文标点')
+      && prompt.includes('同一回复通常不超过一个')
+      && prompt.includes('不必完全禁用'),
+    'Prompt 必须要求波浪号克制使用，而不是完全禁止个性表达。'
+  );
+  assert(prompt.includes('当前记忆中保存了'), '记忆确认必须准确说明当前记忆状态。');
   assert(prompt.includes('只复述长期记忆数据中实际存在的内容'), 'Prompt 必须禁止从已保存记忆推断相邻偏好。');
-  assert(prompt.includes('不得承诺永久保存'), 'Prompt 必须准确说明当前记忆状态，不得承诺永久保存。');
+  assert(
+    prompt.includes('不要使用“小本本”')
+      && prompt.includes('“以后都会记得”')
+      && prompt.includes('永久保存承诺'),
+    '记忆确认不得使用拟物化话术或永久保存承诺。'
+  );
+  assert(prompt.includes('不要用括号补充记忆状态'), '记忆确认不得使用括号补充。');
 }
 
 function checkHistoryUsesNativeRoles() {
@@ -274,7 +288,74 @@ async function checkDialogueContractStaysStable() {
   assert(result.memory?.status === 'ready' && result.memory_event?.short_context_updated === true, '结构化 messages 不得改变 Memory 状态。');
   assert(result.tts?.status === 'pending', '结构化 messages 不得改变 TTS pending 状态。');
   assert(result.avatar_directive?.state === 'speaking' && result.avatar_directive?.lip_sync === 'auto', '结构化 messages 不得改变 AvatarDirective。');
-  assert(!Object.prototype.hasOwnProperty.call(result, 'diagnostics') && !Object.prototype.hasOwnProperty.call(result.meta || {}, 'diagnostics'), 'LLM 内部 finish reason / usage 不得改变公开 dialogue.v1 响应。');
+  assert(
+    !Object.prototype.hasOwnProperty.call(result, 'diagnostics')
+      && !Object.prototype.hasOwnProperty.call(result.meta || {}, 'diagnostics')
+      && !Object.prototype.hasOwnProperty.call(result.meta || {}, 'llmDiagnostics'),
+    '默认响应不得暴露 LLM 内部 finish reason / usage。'
+  );
+}
+
+async function checkControlledLLMDiagnostics() {
+  const sensitiveSentinels = [
+    'RAW_PROMPT_SENTINEL',
+    'RAW_USER_SENTINEL',
+    'RAW_KEY_SENTINEL',
+    'RAW_AUTH_SENTINEL',
+    'RAW_BASE_URL_SENTINEL',
+    'RAW_UPSTREAM_SENTINEL'
+  ];
+  const service = new DialogueOrchestrationService({
+    debugLLMDiagnostics: true,
+    llmService: {
+      chatDetailed: async (input) => ({
+        reply: '安全诊断 fake 回复。',
+        provider: input.provider,
+        model: input.model,
+        diagnostics: {
+          finishReason: 'length',
+          truncated: true,
+          usage: { promptTokens: 123, completionTokens: 320, totalTokens: 443 },
+          prompt: sensitiveSentinels[0],
+          userText: sensitiveSentinels[1],
+          apiKey: sensitiveSentinels[2],
+          authorization: `Bearer ${sensitiveSentinels[3]}`,
+          baseUrl: sensitiveSentinels[4],
+          rawResponse: { content: sensitiveSentinels[5] }
+        }
+      })
+    }
+  });
+  const result = await service.run({
+    message: '受控诊断检查。',
+    provider: 'openai',
+    model: 'gpt-4o-mini',
+    sessionId: 'quality-diagnostics-session',
+    avatarId: 'alice',
+    options: { useMemory: false, useRag: false, useWorkflow: false }
+  });
+  const diagnostics = result.meta?.llmDiagnostics;
+  assert(
+    Object.keys(diagnostics || {}).sort().join(',')
+      === 'completionTokens,finishReason,promptTokens,totalTokens,truncated',
+    '受控诊断只能暴露 finishReason、truncated 和三项 token usage。'
+  );
+  assert(
+    diagnostics?.finishReason === 'length'
+      && diagnostics?.truncated === true
+      && diagnostics?.promptTokens === 123
+      && diagnostics?.completionTokens === 320
+      && diagnostics?.totalTokens === 443,
+    '受控诊断必须安全读取 finishReason、truncated 和 token usage。'
+  );
+  const serialized = JSON.stringify(result);
+  sensitiveSentinels.forEach((sentinel) => {
+    assert(!serialized.includes(sentinel), `受控诊断响应不得泄露 ${sentinel}。`);
+  });
+  assert(result.contract?.version === 'dialogue.v1', '受控诊断不得改变 dialogue.v1。');
+  assert(result.memory?.status === 'disabled', '受控诊断不得改变 Memory 生命周期。');
+  assert(result.tts?.status === 'pending', '受控诊断不得改变 TTS 生命周期。');
+  assert(result.avatar_directive?.state === 'speaking', '受控诊断不得改变 AvatarDirective。');
 }
 
 async function checkDefaultCommandsAreZeroCost() {
