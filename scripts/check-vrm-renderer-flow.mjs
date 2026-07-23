@@ -332,9 +332,12 @@ async function checkPresentationControllers() {
       Fcl_ALL_Sorrow: 1,
       Fcl_MTH_A: 2,
       Fcl_MTH_I: 3,
-      Fcl_EYE_Close: 4
+      Fcl_EYE_Close: 4,
+      Fcl_MTH_U: 5,
+      Fcl_MTH_O: 6,
+      Fcl_ALL_Neutral: 7
     },
-    morphTargetInfluences: new Array(5).fill(0)
+    morphTargetInfluences: new Array(8).fill(0)
   };
   const executor = {
     resetExpressionGroups(groups) {
@@ -346,7 +349,10 @@ async function checkPresentationControllers() {
         sad: 1,
         mouthA: 2,
         mouthI: 3,
-        blink: 4
+        blink: 4,
+        mouthU: 5,
+        mouthO: 6,
+        neutral: 7
       };
       const index = indexByGroup[group];
       if (Number.isInteger(index)) fakeMesh.morphTargetInfluences[index] = value;
@@ -359,20 +365,24 @@ async function checkPresentationControllers() {
   const expression = new ExpressionController({ executor });
   expression.applyDirective({ emotion: 'happy', intensity: 0.8, tone: 'playful' });
   assert(fakeMesh.morphTargetInfluences[0] > 0, 'ExpressionController 应能把 happy emotion 映射为表情 influence。');
+  expression.applyDirective({ emotion: 'warm', intensity: 0.8, tone: 'gentle' });
+  assert(fakeMesh.morphTargetInfluences[0] === 0, 'warm emotion 不应叠加容易露齿的 happy expression。');
+  assert(fakeMesh.morphTargetInfluences[7] > 0, 'warm emotion 应保留轻微的 neutral expression。');
   expression.blink.nextIn = 0;
   expression.update(0.08);
   assert(fakeMesh.morphTargetInfluences[4] > 0, 'ExpressionController 应能驱动 blink。');
 
   const lipSync = new LipSyncController({ executor });
-  lipSync.setMouthGroups(['mouthA', 'mouthI']);
+  lipSync.setMouthGroups(['mouthA', 'mouthI', 'mouthU', 'mouthE', 'mouthO']);
   lipSync.applyDirective({ state: 'speaking', lip_sync: 'auto', intensity: 0.8, tone: 'playful' });
-  assert(fakeMesh.morphTargetInfluences[2] > 0, 'LipSyncController 应能启动 mouthA。');
+  assert(fakeMesh.morphTargetInfluences[5] > 0, '保守口型应优先从不易露齿的 mouthU 启动。');
   lipSync.update(0.12);
-  assert(fakeMesh.morphTargetInfluences[3] > 0, 'LipSyncController 应能推进到 mouthI。');
-  const fixedLoopAmount = fakeMesh.morphTargetInfluences[3];
+  assert(fakeMesh.morphTargetInfluences[6] > 0, '保守口型应只在 mouthU / mouthO 之间推进。');
+  assert(fakeMesh.morphTargetInfluences[2] === 0 && fakeMesh.morphTargetInfluences[3] === 0, '保守口型不应使用容易大幅张嘴或露齿的 mouthA / mouthI。');
+  const fixedLoopAmount = fakeMesh.morphTargetInfluences[6];
   const loopDebug = lipSync.getDebugState();
   assert(loopDebug.mode === 'loop', 'LipSyncController 应暴露 fallback speaking loop debug mode。');
-  assert(loopDebug.mouthGroup === 'mouthI', 'LipSyncController debug 应记录当前 mouth group。');
+  assert(loopDebug.mouthGroup === 'mouthO', 'LipSyncController debug 应记录当前保守 mouth group。');
   const amplitudes = [0.05, 0.95];
   lipSync.onAudioStart({
     directive: { state: 'speaking', lip_sync: 'auto', intensity: 0.8, tone: 'playful' },
@@ -380,15 +390,16 @@ async function checkPresentationControllers() {
   });
   assert(lipSync.getDebugState().audioDriven === true, 'LipSyncController debug 应标记 audio-driven 模式。');
   lipSync.update(0.04);
-  const lowAudioAmount = Math.max(fakeMesh.morphTargetInfluences[2], fakeMesh.morphTargetInfluences[3]);
+  const lowAudioAmount = Math.max(fakeMesh.morphTargetInfluences[5], fakeMesh.morphTargetInfluences[6]);
   lipSync.update(0.04);
-  const highAudioAmount = Math.max(fakeMesh.morphTargetInfluences[2], fakeMesh.morphTargetInfluences[3]);
+  const highAudioAmount = Math.max(fakeMesh.morphTargetInfluences[5], fakeMesh.morphTargetInfluences[6]);
   assert(lowAudioAmount !== fixedLoopAmount, 'LipSyncController audio-driven 模式应不再只使用固定 speaking loop 强度。');
   assert(highAudioAmount > lowAudioAmount, 'LipSyncController 应能用 audio amplitude 提升 mouth intensity。');
+  assert(highAudioAmount <= 0.22, 'LipSyncController 应限制张嘴幅度，避免露齿和恐怖谷效果。');
   assert(lipSync.getDebugState().smoothedAmplitude > 0, 'LipSyncController debug 应暴露平滑音量。');
   lipSync.onAudioEnd();
   assert(lipSync.getDebugState().mode === 'idle', 'LipSyncController audio:end 后 debug mode 应回到 idle。');
-  assert(fakeMesh.morphTargetInfluences[2] === 0 && fakeMesh.morphTargetInfluences[3] === 0, 'LipSyncController audio:end 应清理 mouth influence。');
+  assert(fakeMesh.morphTargetInfluences[5] === 0 && fakeMesh.morphTargetInfluences[6] === 0, 'LipSyncController audio:end 应清理 mouth influence。');
   const fallback = lipSync.onAudioStart({
     directive: { state: 'speaking', lip_sync: 'auto', intensity: 0.8 },
     audioSource: null
@@ -396,7 +407,7 @@ async function checkPresentationControllers() {
   assert(fallback.fallback === true, '缺少 audioSource 时 LipSyncController 应安全 fallback 到 speaking loop。');
   assert(lipSync.getDebugState().fallback === true, 'LipSyncController debug 应标记缺少 audioSource 时的 fallback。');
   lipSync.applyDirective({ state: 'idle', lip_sync: 'none', intensity: 0 });
-  assert(fakeMesh.morphTargetInfluences[2] === 0 && fakeMesh.morphTargetInfluences[3] === 0, 'LipSyncController 应在 idle 时清理 mouth。');
+  assert(fakeMesh.morphTargetInfluences[5] === 0 && fakeMesh.morphTargetInfluences[6] === 0, 'LipSyncController 应在 idle 时清理 mouth。');
 
   let sampleIndex = 0;
   lipSync.applyDirective({ state: 'speaking', lip_sync: 'auto', intensity: 0.72, tone: 'gentle' });
@@ -413,9 +424,10 @@ async function checkPresentationControllers() {
   const longAudioDebug = lipSync.getDebugState();
   assert(longAudioDebug.active === true && longAudioDebug.mode === 'audio-driven', '模拟 120 秒音频期间 lip-sync 应持续 active/audio-driven。');
   assert(Number.isFinite(longAudioDebug.mouthAmount) && longAudioDebug.mouthAmount > 0, '长音频口型强度应保持有限且大于 0。');
+  assert(longAudioDebug.mouthAmount <= 0.22, '长音频口型强度不得超过保守张嘴上限。');
   lipSync.onAudioEnd();
   assert(lipSync.getDebugState().mode === 'idle', '长音频结束后 lip-sync 应稳定回到 idle。');
-  assert(fakeMesh.morphTargetInfluences[2] === 0 && fakeMesh.morphTargetInfluences[3] === 0, '长音频结束后所有口型 influence 应归零。');
+  assert(fakeMesh.morphTargetInfluences[5] === 0 && fakeMesh.morphTargetInfluences[6] === 0, '长音频结束后所有口型 influence 应归零。');
 }
 
 async function checkVrmManifestCapabilities() {
@@ -650,11 +662,12 @@ async function checkDirectiveApplication() {
   assert(result.ok === true && result.applied === true, 'VRMRenderer 应能应用 AvatarDirective。');
   assert(fakeExpressionValues.happy > 0, 'VRMRenderer 应优先通过 expressionManager 写入 VRM preset 表情。');
   assert(fakeMesh.morphTargetInfluences[0] > 0, 'happy 表情应通过 expressionMap 产生 morph influence。');
-  assert(fakeMesh.morphTargetInfluences[4] > 0, 'speaking + lip_sync=auto 应先驱动 mouthA。');
+  assert(fakeMesh.morphTargetInfluences[6] > 0, 'speaking + lip_sync=auto 应先驱动保守 mouthU。');
+  assert(fakeMesh.morphTargetInfluences[4] === 0 && fakeMesh.morphTargetInfluences[5] === 0, 'speaking 不应驱动容易大幅张嘴或露齿的 mouthA / mouthI。');
   renderer.update(0.1);
   assert(fakeVrm.lastDelta > 0, 'VRMRenderer.update 应调用 vrm.update(delta)。');
   renderer.update(0.03);
-  assert(fakeMesh.morphTargetInfluences[5] > 0, 'speaking update 应能推进到 mouthI，形成轻量节奏口型。');
+  assert(fakeMesh.morphTargetInfluences[8] > 0, 'speaking update 应推进到保守 mouthO，形成轻量节奏口型。');
 
   renderer.applyDirective({
     state: 'idle',

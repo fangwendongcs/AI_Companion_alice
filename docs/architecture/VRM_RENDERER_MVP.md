@@ -62,7 +62,7 @@ The existing `MotionManager` and animation slot queue remain responsible for bod
 `ExpressionController` and `LipSyncController` keep `VRMRenderer` close to the execution layer:
 
 - `ExpressionController`: emotion / tone / blink policy and expression pattern helpers.
-- `LipSyncController`: basic speaking mouth loop, optional audio-amplitude mouth intensity, A/I/U/E/O cycling, generic mouth fallback, mouth reset, and a small renderer-agnostic debug snapshot.
+- `LipSyncController`: conservative U/O speaking loop when available, optional audio-amplitude mouth intensity capped at `0.22`, one-group fallback, mouth reset, and a small renderer-agnostic debug snapshot. The renderer still discovers all A/I/U/E/O capabilities, but product policy intentionally prefers subtle movement over phoneme realism or exposed teeth.
 - `AudioAmplitudeSampler`: optional Web Audio sampler for playable backend audio sources. If analysis is unavailable, lip-sync falls back to the basic speaking loop.
 - `MotionController`: maps semantic `AvatarDirective`, `affect.motion`, and audio lifecycle into existing `MotionManager` slots.
 - `TTSController`: tracks presentation-level TTS / audio lifecycle state without owning playback or provider secrets.
@@ -80,6 +80,7 @@ Long playback lifecycle rules:
 - A newer TTS request invalidates older playback callbacks; stale `audio:start` / `audio:end` events cannot reset the new renderer state.
 - Cancelling an `HTMLAudioElement` settles its playback Promise and clears playback references, avoiding unresolved long-audio tasks and delayed cleanup.
 - `audio:end` / `audio:error` clear amplitude sampling, zero mouth influences, and request idle recovery through the same presentation boundary.
+- Common `warm` / `curious` affect uses a light neutral face instead of stacking a happy smile over lip-sync; explicit `happy` remains available at a reduced cap.
 
 `AppController` syncs the lip-sync debug snapshot into `state.presentation.lipSync` only while lip-sync is active or when audio lifecycle changes. The Debug Panel reads that state to show mode, amplitude, fallback status, and current mouth group without storing audio objects, morph target names, provider keys, or renderer-specific paths.
 
@@ -164,8 +165,9 @@ Missing local test files do not fail the check because these assets are intentio
 `local_girl_vrm_test` is the source MVP sample for Web VRM expression and state linkage. The normal `alice` manifest now reuses the same model-specific expression map and five-vowel mouth groups so DeepSeek affect, CosyVoice playback and lip-sync drive the exact same Girl VRM:
 
 - `idle / listening`: neutral expression with automatic blink.
-- `speaking`: lightweight rhythmic mouth movement across `Fcl_MTH_A / I / U / E / O`.
-- `happy / warm / curious`: mapped to joy / fun expressions.
+- `speaking`: lightweight rhythmic mouth movement across `Fcl_MTH_U / O` when available; other mouth groups remain capability metadata.
+- `happy`: mapped to a reduced joy expression.
+- `warm / curious`: mapped to a light neutral expression so normal companion speech does not stack a toothy smile over lip-sync.
 - `sad`: mapped to sorrow expressions.
 - `angry`: mapped to angry expressions.
 - `surprised`: mapped to surprised expressions.
@@ -198,7 +200,7 @@ This verifies:
 - `CharacterManager` owns the active renderer adapter.
 - `AppController` forwards `AvatarDirective`.
 - `VRMRenderer` can apply expression and basic mouth movement on a fake morph-target avatar.
-- `VRMRenderer` can drive girl-style happy / sad / angry / surprised expression groups, five-vowel speaking mouth movement, and automatic blink.
+- `VRMRenderer` can drive girl-style happy / sad / angry / surprised expression groups, conservative U/O speaking mouth movement, and automatic blink while retaining five-vowel capability discovery.
 - `ExpressionController` and `LipSyncController` are covered directly so expression / blink / lip-sync policy does not drift back into `VRMRenderer`.
 - `LipSyncController` is covered for optional audio-amplitude mouth intensity and for fallback when no audio source is available.
 - `PresentationOrchestrator` is covered for object-identity delivery of `audioSource` to the active renderer-owned `LipSyncController`, rather than a static source-code string check.
@@ -212,7 +214,7 @@ This verifies:
 
 ## Current Visual Validation Status
 
-Shiro and Wambo are existing small CC0 VRM assets, but this phase does not claim a full visual QA pass unless the browser checklist is run manually. The P2 wiring fix is automated; real CosyVoice2 amplitude quality and long-audio visual timing still require a browser run. Use `http://localhost:3000?debug=1`, switch to Shiro / Wambo, send a stub dialogue, and confirm:
+The default Alice model passed a real 99.48-second CosyVoice2 browser run with the conservative U/O profile and natural end cleanup. Shiro and Wambo are existing small CC0 VRM assets, but this phase does not claim the same visual QA pass for them. Use `http://localhost:3000?debug=1`, switch to Shiro / Wambo, send a stub dialogue, and confirm:
 
 - model remains visible;
 - dialogue state reaches speaking then idle;
@@ -223,3 +225,5 @@ Shiro and Wambo are existing small CC0 VRM assets, but this phase does not claim
 2026-07-14 real-browser status: `local_girl_vrm_test` passed short CosyVoice2 playback (`6.64s`), long playback (`37.12s`), rapid replacement, mute/cancel, and upstream interruption/recovery. The long run captured 359 audio-driven samples, amplitude `0–0.308`, mouth amount `0.03–0.11`, all five vowel groups, neutral/blink expressions, and speaking body motion; natural end returned lip-sync, all mouth expressions, Avatar state, and motion to idle. Browser QA exposed and closed two lifecycle defects: TTS now has a 90-second backend upstream timeout with a 100-second Web request window, and cancelling an active playback emits `audio:end(cancelled=true)` before a replacement or mute path proceeds. Lip-sync gain, smoothing, clamp, and mouth interval remain unchanged because no clear visual defect was observed. See `docs/process/BROWSER_ACCEPTANCE_CHECKLIST.md` for the scenario matrix and evidence limits.
 
 2026-07-14 default-model correction: normal `/` and `/?debug=1` both performed an actual HTTP 200 `GET /assets/avatars/test-vrm/girl.vrm` and initialized `VRMRenderer` with VRM runtime, humanoid, expression manager, lookAt, spring bone and A/I/U/E/O mouth groups. Refresh retained the model with `localStorage.avatar_id=alice`. Two Web dialogue rounds returned real DeepSeek `llm_only` replies and CosyVoice playback with `fallback=false`; an active playback capture on the same `alice` renderer observed `audio-driven` mouth changes across E/A/U/O/I before returning to idle. No VRM load error appeared in Console.
+
+2026-07-23 conservative-mouth status: user-facing visual feedback identified exposed teeth / uncanny-valley risk in the five-vowel profile. The active speaking policy now uses only U/O when available, caps mouth influence at `0.22`, closes around silence, and avoids adding happy/relaxed for common warm/curious affect. A real 455-character CosyVoice2 run produced 36 segments and 99.48 seconds of audio; sampled mouth values stayed on U/O with a maximum observed amount of `0.10`, then returned to zero/idle. Two following short turns also ended cleanly. The same run recorded 17 underruns and a maximum `6.088s` segment gap; that latency issue belongs to P5 and does not reopen P2 wiring.

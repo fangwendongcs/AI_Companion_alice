@@ -2,6 +2,13 @@ import { getToneAdjustedIntensity } from './ExpressionController.js';
 import { createAudioAmplitudeSampler } from './AudioAmplitudeSampler.js';
 
 export const MOUTH_GROUPS = ['mouthA', 'mouthI', 'mouthU', 'mouthE', 'mouthO'];
+export const CONSERVATIVE_MOUTH_GROUPS = ['mouthU', 'mouthO'];
+
+const FALLBACK_MOUTH_MIN = 0.05;
+const FALLBACK_MOUTH_MAX = 0.16;
+const AUDIO_MOUTH_MAX = 0.22;
+const AUDIO_SILENCE_FLOOR = 0.015;
+const AUDIO_MOUTH_GAIN = 0.38;
 
 function createInitialDebugState() {
   return {
@@ -38,7 +45,7 @@ export class LipSyncController {
   }
 
   setMouthGroups(groups = []) {
-    this.mouthGroups = groups;
+    this.mouthGroups = selectConservativeMouthGroups(groups);
     this.mouthIndex = 0;
     this.mouthElapsed = 0;
   }
@@ -162,7 +169,7 @@ export class LipSyncController {
   getMouthAmount(directive = {}) {
     const toneIntensity = getToneAdjustedIntensity(directive);
     if (!this.audioSampler) {
-      const amount = Math.max(0.12, Math.min(0.42, toneIntensity * 0.42));
+      const amount = Math.max(FALLBACK_MOUTH_MIN, Math.min(FALLBACK_MOUTH_MAX, toneIntensity * 0.18));
       this.lastAmplitude = 0;
       this.lastMouthAmount = amount;
       return amount;
@@ -171,8 +178,10 @@ export class LipSyncController {
     const amplitude = this.audioSampler.getAmplitude();
     this.lastAmplitude = amplitude;
     this.smoothedAmplitude += (amplitude - this.smoothedAmplitude) * 0.38;
-    const amount = 0.03 + this.smoothedAmplitude * toneIntensity * 0.72;
-    this.lastMouthAmount = Math.max(0.02, Math.min(0.62, amount));
+    const activeAmplitude = Math.max(0, this.smoothedAmplitude - AUDIO_SILENCE_FLOOR);
+    const intensityScale = 0.7 + toneIntensity * 0.3;
+    const amount = activeAmplitude * AUDIO_MOUTH_GAIN * intensityScale;
+    this.lastMouthAmount = Math.max(0, Math.min(AUDIO_MOUTH_MAX, amount));
     return this.lastMouthAmount;
   }
 
@@ -203,4 +212,12 @@ export function resolveMouthGroups(hasGroup) {
   const groups = MOUTH_GROUPS.filter((group) => hasGroup(group));
   if (!groups.length && hasGroup('mouth')) return ['mouth'];
   return groups;
+}
+
+export function selectConservativeMouthGroups(groups = []) {
+  const available = Array.from(new Set(groups.filter(Boolean)));
+  const conservative = CONSERVATIVE_MOUTH_GROUPS.filter((group) => available.includes(group));
+  if (conservative.length) return conservative;
+  if (available.includes('mouth')) return ['mouth'];
+  return available.slice(0, 1);
 }

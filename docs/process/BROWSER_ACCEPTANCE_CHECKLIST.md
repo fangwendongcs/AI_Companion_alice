@@ -249,6 +249,25 @@ http://localhost:3000?debug=1
 
 口型参数保持不变。全身视角下嘴型较克制，但数值变化连续（长音频 mouth 步进均值约 `0.00037`、最大 `0.017`），没有明确过小/过大、高频抖动、锁嘴或可见延迟证据。`short-active.png` 是有效全身播放中证据；`short-peak-closeup.png` 因头部被裁切仍不作为调参依据。
 
+### 2026-07-23 P2 扩展验收与保守口型收口
+
+当前结论：**默认 Alice 的 60–120 秒真实音频、连续两轮和自然结束已通过；根据近景视觉反馈，将口型收敛为“不露齿、只需看出嘴在动”的产品策略。**
+
+| 场景 | 结果 | 证据 / 说明 |
+| --- | --- | --- |
+| Demo readiness | 通过 | `demo:start` 真实验证 DeepSeek `llm_only` 与 CosyVoice WAV；CosyVoice runtime 为 `24000 Hz`、speaker `中文女`。 |
+| 60–120 秒真实 CosyVoice2 | 通过 | 455 字受控对话响应进入真实 `/api/tts`；36 段音频合计 `99.48s`，总链路 `134.75s`，全程口型 audio-driven，最终 `isSpeaking=false / lipSync=idle / mouth=0`。 |
+| 保守口型近景 | 通过 | 只出现 `mouthU / mouthO`；真实振幅窗口最大 mouth amount `0.10`，代码硬上限 `0.22`；warm 期间 `happy=0 / relaxed=0`，近景未见露齿张嘴。 |
+| 连续两轮 | 通过 | 第一轮 24 字、2 段、音频 `5.56s`；第二轮 26 字、2 段、音频 `6.84s`，实时捕获 66 个 audio-driven 样本，最终均自然回 idle。 |
+| Debug / Console | 通过 | 受控对话 requestId 连续覆盖；播放完成无 lastError。Console 无新 error，仅保留 three-vrm-animation 自动创建 LookAt proxy 的既有 warning。 |
+| P5 延迟证据 | 待后续决策 | 99.48 秒音频出现 17 次 underrun，最大段间 gap `6.088s`；这是本机 CosyVoice 推理/分段预取瓶颈，不是口型接线失败。 |
+
+补充说明：
+
+- 首次尝试真实 DeepSeek 长回复时，provider 在 `5.685s` 后产生 `empty_response`，P3 Debug 正确显示 `deepseek → stub`；该 42 字 fallback 仅生成 `8.68s` 音频，不计入长音频验收。
+- 为隔离 LLM 不稳定性，99.48 秒场景只在浏览器内受控替换 `/api/dialogue` 响应；`/api/tts`、CosyVoice2 runtime、分段播放、AudioManager、事件总线、VRMRenderer 与 amplitude sampler 均为真实链路。
+- 本轮视觉证据位于 `output/playwright/p2-conservative-mouth-closeup.png`、`p2-long-natural-end.png` 和 `p2-consecutive-final-idle.png`。
+
 ## 6. 短期 Memory 开关
 
 操作步骤：

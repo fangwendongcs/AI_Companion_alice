@@ -158,7 +158,8 @@ Responsibilities:
 - Start and stop mouth movement from audio lifecycle.
 - Support browser TTS fallback without requiring phoneme analysis.
 - Consume optional audio amplitude from playable audio sources and fall back to the basic speaking loop when analysis is unavailable.
-- Resolve A / I / U / E / O mouth groups with a generic `mouth` fallback.
+- Discover A / I / U / E / O mouth capabilities, but use a conservative U / O speaking profile when available; fall back to one generic mouth group instead of pursuing phoneme-realistic movement.
+- Keep audio-driven mouth influence at or below `0.22`, close the mouth around silence, and avoid large A / I shapes that can expose teeth.
 - Expose a small debug snapshot for `mode`, `audioDriven`, `fallback`, amplitude, mouth group, and mouth amount so the Debug Panel can show whether lip-sync is running.
 
 Safe no-op:

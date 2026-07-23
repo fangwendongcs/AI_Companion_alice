@@ -12,7 +12,9 @@
 | Alice 模型、测试模型、motion 素材授权需要正式分发前复核。 | 中 | 已有 motion license 目录；正式产品化前不能跳过授权检查。 | `docs/assets/licenses/MOTION_ASSET_LICENSES.md`、`docs/architecture/VRM_MOTION_READINESS.md` |
 | 当前默认 Alice 依赖 Git-ignored 的本机 `assets/avatars/test-vrm/girl.vrm`。 | 高 | 普通页与 debug 页已固定加载该模型，缺失/损坏时明确报错并仅启用既有 fallback；不静默切回旧 GLB。 | 正式分发前确认模型授权，将二进制迁移到可发布资产路径并更新 manifest。 |
 | `runtime/cosyvoice/` 是本地未提交 runtime，其他机器默认不存在。 | 低 | 文档和脚本说明准备流程。 | `.gitignore`、`docs/guides/COSYVOICE_RUNTIME.md` |
-| 真实 CosyVoice2 长音频的振幅分布、口型观感和动作/表情并行质量仍依赖浏览器视觉 QA。 | 中 | 已修复 renderer 接线、旧播放竞争和 timer 提前结束；自动模拟 120 秒生命周期。 | `docs/architecture/VRM_RENDERER_MVP.md`、浏览器 Debug Panel |
+| 真实 CosyVoice2 口型观感具有模型差异。 | 中 | 默认 Alice 已通过 99.48 秒真实浏览器 QA，并改为 U/O 保守口型、最大 influence `0.22`；其他模型仍需近景验证。 | `docs/architecture/VRM_RENDERER_MVP.md`、浏览器 Debug Panel |
+| 长回复分段 TTS 仍可能出现明显段间空档。 | 中 | 99.48 秒真实音频记录 17 次 underrun、最大 gap `6.088s`；保持现有同步协议，作为 P5 流式/吞吐决策输入。 | `js/voice/TTSService.js`、`scripts/cosyvoice/probe-web-tts-latency.mjs` |
+| 真实 LLM 偶发空响应会触发安全降级。 | 低 | 本轮 DeepSeek 长回复出现一次 `empty_response`，P3 requestId/耗时/fallback 均正确；不把单次 provider 抖动误判为 TTS/VRM 问题。 | `docs/api/API_CONTRACT.md`、Dialogue Debug/结构化日志 |
 | P1A/P1B 自动化只能证明 Prompt 与 Memory 的确定性逻辑，不会证明真实中文陪伴质量。 | 中 | 已建立零费用质量逻辑基线；真实模型评测必须另行授权，并使用固定用例/人工量表。 | `docs/product/DIALOGUE_QUALITY_BASELINE.md` |
 | P1B 不做破坏性历史数据清洗；旧库中若曾写入敏感原文，记录不会被本轮自动删除。 | 中 | 新写入有 Service + Repository 双层拦截，检测到的旧敏感记录不会进入活动上下文；彻底擦除旧原文需要后续单独授权安全清理或重建本地库。 | `docs/architecture/PHASE5_MEMORY_ARCHITECTURE.md` |
 | 完整 Demo 的 supervisor 进程管理目前以 macOS / Linux POSIX signal 与 `ps` 为基线。 | 低 | `demo:start/status/stop` 已统一托管、校验进程指纹和真实 readiness；未知端口占用时拒绝自动处理。 | `docs/guides/DEMO_RUNTIME.md`、`scripts/demo/demo-manager.mjs` |
@@ -81,14 +83,14 @@
 | CosyVoice2 本地 runtime 是否可用。 | `npm run check:cosyvoice-runtime`、`npm run check:cosyvoice-live` |
 | VRMRenderer 和 local test manifest 是否仍受 debug gate 保护。 | `npm run check:vrm-renderer-flow` |
 | VRM 外部动作 QA 是否存在形变、位移、springBone 残留。 | 浏览器 debug 手动 QA，参考 `docs/architecture/VRM_MOTION_READINESS.md` |
-| 真实 CosyVoice2 长音频是否全程保持 `lipSync.mode=audio-driven`，结束后口型/表情/动作是否回到 idle。 | 启动 CosyVoice2 后使用 `?debug=1` 播放 30–120 秒中文文本，观察 Debug Panel 与模型口型。 |
+| Shiro / Wambo 或未来替换 Avatar 的保守口型是否仍不露齿、结束后归零。 | 为每个目标模型播放 5–10 秒真实 CosyVoice2，并做面部近景与 Debug Panel 验收。 |
 | Memory 修正、真正遗忘、过期和语义去重策略是否正确。 | 保持后续独立阶段；不要基于少量例子堆正则或在 P1B 扩张系统。 |
 | Demo supervisor 是否能在 Windows 工作。 | 当前只在 macOS / POSIX 环境设计与验收；Windows 的 detached process、`ps` 和 signal 行为需单独实现与验证。 |
 
 ## 下一步建议
 
-1. 使用 P3 requestId 与耗时字段补测 60–120 秒 CosyVoice2 长音频和连续两轮对话，不在缺少视觉证据时调整口型参数。
-2. 选择私有演示部署平台与预览域名后，再补平台变量、HTTPS、Secret Manager、持久化目录和健康检查方案。
-3. 采集真实 Dialogue/TTS 延迟后再决定是否引入 LLM 或 PCM streaming，不直接破坏 `dialogue.v1`。
+1. 选择私有演示部署平台与预览域名后，再补平台变量、HTTPS、Secret Manager、持久化目录和健康检查方案。
+2. 基于本轮首音、17 次 underrun 和最大 `6.088s` gap 决定 P5 是否需要 PCM streaming 或更保守的分段/并发策略，不直接破坏 `dialogue.v1`。
+3. 仅在新增正式 Avatar 时补模型专用近景口型 QA，不重新打开已收口的 Alice P2 主阶段。
 4. 公网演示前，设计正式访问控制，不要把单 token 当完整登录系统。
 5. 后续如需跨平台 Demo，单独实现 Windows 进程所有权与停服策略，不要弱化当前“只停止本脚本进程”的安全边界。

@@ -64,8 +64,12 @@ export class ExpressionController {
       this.setGroupInfluence('neutral', Math.min(0.25, intensity * 0.25));
       return;
     }
-    if (emotion === 'happy' || emotion === 'warm' || emotion === 'curious') {
-      this.setGroupInfluence('happy', Math.min(0.75, intensity * 0.7));
+    if (emotion === 'warm' || emotion === 'curious') {
+      this.setGroupInfluence('neutral', Math.min(0.18, intensity * 0.18));
+      return;
+    }
+    if (emotion === 'happy') {
+      this.setGroupInfluence('happy', Math.min(0.45, intensity * 0.5));
       return;
     }
     if (emotion === 'angry') {
