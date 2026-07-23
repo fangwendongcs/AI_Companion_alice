@@ -1,4 +1,5 @@
 import { APP_MODE, EVENT_NAMES, shouldShowDebugPanel } from '../config/appConfig.js';
+import { formatDialogueProvider } from '../dialogue/dialogueObservability.js';
 
 const TRACKED_EVENTS = [
   EVENT_NAMES.APP_INIT,
@@ -43,6 +44,14 @@ const DISPLAY_ROWS = [
   ['currentAnimation', 'currentAnimation'],
   ['isThinking', 'isThinking'],
   ['isSpeaking', 'isSpeaking'],
+  ['dialogue.provider', 'dialogueProvider'],
+  ['dialogue.model', 'dialogueModel'],
+  ['dialogue.mode', 'dialogueMode'],
+  ['dialogue.requestId', 'dialogueRequestId'],
+  ['dialogue.llmMs', 'dialogueLLMMs'],
+  ['dialogue.orchestrationMs', 'dialogueOrchestrationMs'],
+  ['dialogue.fallback', 'dialogueFallbackReason'],
+  ['dialogue.errorCode', 'dialogueErrorCode'],
   ['memory.enabled', 'memoryEnabled'],
   ['memory.used', 'memoryUsed'],
   ['memory.turnCount', 'memoryTurnCount'],
@@ -216,6 +225,7 @@ export class DebugPanelController {
     const ttsConfig = this.getTTSConfig();
     const avatarCapabilities = state.avatar?.capabilities || state.avatarCapabilities || state.characterMeta?.capabilities || {};
     const vrmRuntime = avatarCapabilities.vrmRuntime || {};
+    const dialogueObservability = state.dialogue?.observability || {};
     const values = {
       appReady: state.app?.isReady ?? false,
       appMode: state.app?.mode || APP_MODE,
@@ -237,6 +247,14 @@ export class DebugPanelController {
       currentAnimation: state.animation?.currentAnimation || state.currentAnimation || '-',
       isThinking: state.dialogue?.thinking ?? state.isThinking ?? false,
       isSpeaking: state.audio?.speaking ?? state.isSpeaking ?? false,
+      dialogueProvider: formatDialogueProvider(dialogueObservability),
+      dialogueModel: dialogueObservability.model || '-',
+      dialogueMode: dialogueObservability.mode || '-',
+      dialogueRequestId: this.truncate(dialogueObservability.requestId || '', 36),
+      dialogueLLMMs: this.formatDuration(dialogueObservability.llmMs),
+      dialogueOrchestrationMs: this.formatDuration(dialogueObservability.orchestrationMs),
+      dialogueFallbackReason: dialogueObservability.fallbackReason || '-',
+      dialogueErrorCode: dialogueObservability.errorCode || '-',
       memoryEnabled: state.memory?.enabled ?? false,
       memoryUsed: state.memory?.used ?? false,
       memoryTurnCount: state.memory?.turnCount ?? 0,
@@ -347,6 +365,12 @@ export class DebugPanelController {
     const number = Number(value);
     if (!Number.isFinite(number)) return '0.00';
     return number.toFixed(2);
+  }
+
+  formatDuration(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number) || value === null || value === '') return '-';
+    return `${Math.max(0, Math.round(number))} ms`;
   }
 
   formatLipSyncMouth(lipSync = {}) {

@@ -273,7 +273,12 @@ validate input -> memory context -> rag context -> optional workflow -> PromptBu
         "tone": "warm_playful"
       },
       "provider": "openai",
-      "model": "gpt-4o-mini"
+      "model": "gpt-4o-mini",
+      "trace": {
+        "requestId": "93be8640-163f-425d-896d-70c4bbb5c27a",
+        "orchestrationMs": 1180,
+        "llmMs": 1025
+      }
     }
   }
 }
@@ -290,6 +295,15 @@ API Key、密码、token、secret、银行卡、身份证等敏感原文可以�
 如果 `options.useWorkflow=true`，当前会通过后端 `N8nWorkflowService` 检查 `N8N_WEBHOOK_URL`。未配置时返回 `workflow.status=not_configured`，不会让 `/api/dialogue` 失败；配置后由后端调用 n8n webhook，并将安全包装后的结果放入 `workflow.result`。
 
 `meta.persona` 只返回角色 ID、persona ID、tone、voice style、motion style 和 memory strategy 等非敏感摘要。`affect` 只代表当前轮情绪 / 语气 / 语音 / 动作提示，不默认写入长期记忆。
+
+`meta.trace` 是 Web 兼容层的安全可观测字段，不改变 `dialogue.v1`：
+
+- `requestId` 与 HTTP 响应头 `X-Request-ID` 一致。
+- `orchestrationMs` 是本次后端 Dialogue 编排耗时。
+- `llmMs` 是真实 LLM 调用耗时；真实调用失败后降级时仍保留失败调用耗时，显式 `stub` 请求为 `null`。
+- 后端专项日志使用同一 requestId，并只记录 provider、model、mode、fallbackReason、errorCode 和耗时；不会记录 Prompt、用户正文、Key、provider URL 或原始上游响应。
+- Web Debug 面板将 `llm_fallback_stub` 显示为“请求 provider/model → stub”，避免把 `meta.provider` 误解为最终回复来源。
+- HTTP 错误时，Web 从响应头读取 requestId；超时或网络断开没有响应头时 requestId 为空。
 
 `reply_text / companion_state / emotion / tone / avatar_directive / memory_event / tts / contract` 是跨端消费字段，不允许包含 `animationFile`、`fbxPath`、`riveInput`、`vrmExpressionPreset`、`boneName` 或硬编码动画路径。Renderer 只能把 `avatar_directive` 映射到本地表现层。
 

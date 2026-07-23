@@ -111,6 +111,7 @@ export class ApiClient {
 
   async createHttpError(response, source) {
     const raw = await response.text();
+    const requestId = response.headers?.get?.('x-request-id') || null;
     let parsed = null;
     try {
       parsed = JSON.parse(raw);
@@ -125,6 +126,7 @@ export class ApiClient {
       source,
       detail: {
         status: response.status,
+        requestId,
         body: parsed || raw.slice(0, 1000)
       },
       recoverable: response.status >= 500 || response.status === 408 || response.status === 429

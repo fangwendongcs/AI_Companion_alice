@@ -12,6 +12,12 @@ import {
   dialogueFallbackToStub
 } from '../config/serverConfig.js';
 import { redactText } from '../utils/redact.js';
+import {
+  attachDialogueErrorTrace,
+  attachDialogueTrace,
+  elapsedMs,
+  nowMs
+} from '../utils/dialogueObservability.js';
 
 const MAX_MESSAGE_CHARS = 4000;
 const MAX_SYSTEM_PROMPT_CHARS = 4000;
@@ -49,7 +55,9 @@ export class DialogueOrchestrationService {
     this.debugLLMDiagnostics = Boolean(debugLLMDiagnostics);
   }
 
-  async run(payload = {}) {
+  async run(payload = {}, { requestId = '' } = {}) {
+    const orchestrationStartedAt = nowMs();
+    let llmMs = null;
     const message = normalizeMessage(payload.message);
     if (!message) {
       throw createCodedHttpError('Missing dialogue message.', 400, 'DIALOGUE_MESSAGE_REQUIRED');
@@ -80,7 +88,7 @@ export class DialogueOrchestrationService {
     });
 
     if (isLocalStubProvider(provider)) {
-      return this.buildStubResponse({
+      const response = await this.buildStubResponse({
         message,
         memory,
         rag,
@@ -92,6 +100,11 @@ export class DialogueOrchestrationService {
         provider,
         model,
         systemPrompt
+      });
+      return attachDialogueTrace(response, {
+        requestId,
+        orchestrationStartedAt,
+        llmMs
       });
     }
 
@@ -117,23 +130,34 @@ export class DialogueOrchestrationService {
         systemPrompt: dialogueContext.systemPrompt,
         history: dialogueContext.history
       };
-      if (typeof this.llmService.chatDetailed === 'function') {
-        const result = await this.llmService.chatDetailed(llmInput);
-        reply = result.reply;
-        resolvedRequest = {
-          provider: result.provider,
-          model: result.model
-        };
-        llmDiagnostics = normalizeLLMDiagnostics(result.diagnostics);
-      } else {
-        reply = await this.llmService.chat(llmInput);
+      const llmStartedAt = nowMs();
+      try {
+        if (typeof this.llmService.chatDetailed === 'function') {
+          const result = await this.llmService.chatDetailed(llmInput);
+          reply = result.reply;
+          resolvedRequest = {
+            provider: result.provider,
+            model: result.model
+          };
+          llmDiagnostics = normalizeLLMDiagnostics(result.diagnostics);
+        } else {
+          reply = await this.llmService.chat(llmInput);
+        }
+      } finally {
+        llmMs = elapsedMs(llmStartedAt);
       }
       if (!String(reply || '').trim()) {
         throw createCodedHttpError('LLM upstream returned an empty response.', 502, 'LLM_EMPTY_RESPONSE');
       }
     } catch (error) {
-      if (!this.fallbackToStub || !shouldFallbackToStub(error)) throw error;
-      return this.buildStubResponse({
+      if (!this.fallbackToStub || !shouldFallbackToStub(error)) {
+        throw attachDialogueErrorTrace(error, {
+          requestId,
+          orchestrationStartedAt,
+          llmMs
+        });
+      }
+      const response = await this.buildStubResponse({
         message,
         memory,
         rag,
@@ -146,6 +170,11 @@ export class DialogueOrchestrationService {
         model: resolvedRequest.model,
         systemPrompt,
         fallback: buildFallbackMeta(error)
+      });
+      return attachDialogueTrace(response, {
+        requestId,
+        orchestrationStartedAt,
+        llmMs
       });
     }
 
@@ -178,7 +207,7 @@ export class DialogueOrchestrationService {
         ? { llmDiagnostics }
         : {})
     };
-    return buildDialogueResponse({
+    const response = buildDialogueResponse({
       reply,
       sources: rag.sources || [],
       memory: responseMemory,
@@ -186,6 +215,11 @@ export class DialogueOrchestrationService {
       workflow,
       affect,
       meta
+    });
+    return attachDialogueTrace(response, {
+      requestId,
+      orchestrationStartedAt,
+      llmMs
     });
   }
 

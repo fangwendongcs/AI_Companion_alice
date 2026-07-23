@@ -12,6 +12,10 @@ import { handleAppError } from '../core/errors/errorHandler.js';
 import { DisposableRegistry } from '../core/lifecycle/DisposableRegistry.js';
 import { createLogger } from '../core/logger.js';
 import { DialogueManager } from '../dialogue/DialogueManager.js';
+import {
+  createDialogueErrorObservability,
+  createDialogueObservability
+} from '../dialogue/dialogueObservability.js';
 import { InteractionManager } from '../interaction/InteractionManager.js';
 import { SceneRuntime } from '../scene/SceneRuntime.js';
 import { ApiClient } from '../services/api/ApiClient.js';
@@ -109,7 +113,9 @@ export class AppController {
         input: '',
         thinking: false,
         lastResponse: '',
-        error: null
+        error: null,
+        meta: null,
+        observability: createDialogueObservability()
       },
       audio: {
         speaking: false,
@@ -295,14 +301,25 @@ export class AppController {
         affect,
         avatarDirective,
         persona: meta?.persona || null,
+        ...((meta?.mode || meta?.trace)
+          ? {
+              dialogueMeta: meta,
+              dialogueObservability: createDialogueObservability(meta)
+            }
+          : {}),
         dialogueError: null
       }, EVENT_NAMES.DIALOGUE_ASSISTANT);
     }));
-    this.registry.add(this.eventBus.on(EVENT_NAMES.DIALOGUE_ERROR, ({ error, message }) => {
+    this.registry.add(this.eventBus.on(EVENT_NAMES.DIALOGUE_ERROR, ({ error, message, provider, model }) => {
       const affect = createFallbackAffect();
       this.lastDialogueAffect = this.presentation.setFallbackAffect(affect);
       this.patchState({
         dialogueError: message,
+        dialogueMeta: null,
+        dialogueObservability: createDialogueErrorObservability(error, {
+          provider,
+          model
+        }),
         affect
       }, EVENT_NAMES.DIALOGUE_ERROR);
       handleAppError(error || new Error(message), {
@@ -590,13 +607,26 @@ export class AppController {
         currentVoice: this.ttsConfig?.engine || null
       };
     }
-    if ('isThinking' in patch || 'lastAssistantMessage' in patch || 'lastUserMessage' in patch || 'dialogueError' in patch) {
+    if (
+      'isThinking' in patch
+      || 'lastAssistantMessage' in patch
+      || 'lastUserMessage' in patch
+      || 'dialogueError' in patch
+      || 'dialogueMeta' in patch
+      || 'dialogueObservability' in patch
+    ) {
       layered.dialogue = {
         ...this.state.dialogue,
         input: patch.lastUserMessage ?? this.state.dialogue?.input ?? '',
         thinking: patch.isThinking ?? this.state.isThinking,
         lastResponse: patch.lastAssistantMessage ?? this.state.dialogue?.lastResponse ?? '',
-        error: patch.dialogueError ?? null
+        error: patch.dialogueError ?? null,
+        meta: 'dialogueMeta' in patch
+          ? patch.dialogueMeta
+          : this.state.dialogue?.meta ?? null,
+        observability: 'dialogueObservability' in patch
+          ? patch.dialogueObservability
+          : this.state.dialogue?.observability ?? createDialogueObservability()
       };
     }
     if ('memory' in patch || 'memoryEnabled' in patch) {

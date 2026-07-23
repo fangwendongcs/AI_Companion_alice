@@ -34,7 +34,9 @@ export class DialogueManager {
     } catch (error) {
       this.eventBus?.emit(EVENT_NAMES.DIALOGUE_ERROR, {
         message: error?.message || 'Dialogue request failed',
-        error
+        error,
+        provider: resolvedConfig.provider || '',
+        model: resolvedConfig.model || ''
       });
       throw error;
     } finally {

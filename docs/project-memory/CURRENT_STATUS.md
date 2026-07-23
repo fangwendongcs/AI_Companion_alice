@@ -1,6 +1,6 @@
 # Current Status
 
-最后更新：2026-07-22
+最后更新：2026-07-23
 
 ## 当前阶段
 
@@ -19,6 +19,7 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 - P1B 已收口 Memory 确定性问题：偏好保留否定极性，写入指令与召回问句分离，短期消息按 `sessionId + avatarId` 隔离，敏感用户轮次及 assistant 同轮回复不进入 SQLite。
 - P1C 已将 LLM 回复上限配置化为 `LLM_MAX_TOKENS`（默认 `320`），内部保留安全 finish reason / token usage 诊断，并收口舞台提示、emoji 和记忆确认表达边界。
 - P1D 已收口波浪号与记忆确认措辞，并提供默认关闭、production 强制关闭的五字段安全评测诊断；4 轮 DeepSeek 抽样全部 `llm_only`、无截断、无 fallback，P1 对话质量阶段可以正式结束。
+- P3 已收口 Dialogue 可观测链路：`meta.trace` 贯通 `X-Request-ID`、编排耗时和 LLM 耗时；成功、fallback、未降级失败都有固定字段脱敏日志，Web Debug 面板显示 provider/model/mode/requestId/耗时/fallback/errorCode。
 - TTS 当前公开主线是 `mock` 和 `cosyvoice`；其他 provider adapter 可留在后端实验层，但不进入 Web Settings 公开选择。
 - CosyVoice2 已在 Web `TTSService` 内启用首段优先分段调度：仍复用 `/api/tts` 完整 WAV/Base64 Audio Result，不是 PCM streaming；中间段不会触发 idle 收敛。2026-07-22 当前策略为：12 字以内单段；13–24 字短回复允许自然首段或约 `8–10` 字语义首段；25 字以上优先 8–14 字自然首段或 `想听` / `陪我` / `然后` 等中文 cue，避免切断“声音”“心情”等常见词；初始预取采用 adaptive，短两段 `first-ready`，三段以上第二段立即进入 2 路受控预取，后续按播放时长窗口补齐。真实 Alice `/api/tts` objective 探针显示：16 字无自然停顿短句为 `9+7`，首音约 `1.68s`、最大 gap 约 `1.76s`；26 字中句为 `6+8+12`，首音约 `3.27s`、最大 gap 约 `1.13s`；74 / 95 字长句首音约 `4.31s / 4.02s`，最大 gap 约 `1.49s / 2.08s`。额外验证显示：短两段强制并发可把 gap 压到 `2ms`，但首音会退到 `3.15–3.76s`；全局 12 字细分可压低 26 字 gap，但 74 / 95 字会因段数过多和本机推理抖动出现更大空洞。结论：分段调度已能避免“长回复等完整音频”，但当前 macOS 本地 CosyVoice2 FastAPI/WAV/Base64 链路仍不能稳定保证全部段间空洞低于 `300–500ms`。`cosyvoice:start` 会等待 endpoint ready 并完成一次短合成预热，避免首个用户请求承担 runtime 冷启动。
 - VRMRenderer 已进入 Web MVP：业务层输出 `AvatarDirective`，Renderer 负责表达、眨眼、基础 lip-sync；P2 已完成真实 CosyVoice2 浏览器验收，含 37.12 秒长音频、快速替换、静音取消与上游中断恢复。
@@ -38,6 +39,7 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 | SQLite-backed Memory | 可用；P1B 极性、召回问句拦截、短期 avatar 隔离与敏感写入防线已收口 | `docs/architecture/PHASE5_MEMORY_ARCHITECTURE.md` |
 | Persona / Affect | 可用 | `backend/config/avatarPersonas.js`、`backend/services/CompanionAffectService.js` |
 | P1A–P1D 对话质量基线 | 可用；自动检查零真实费用，P1D 真实抽样已通过 | `docs/product/DIALOGUE_QUALITY_BASELINE.md`、`scripts/check-dialogue-quality-logic.mjs` |
+| P3 Dialogue 可观测性 | 可用；requestId、LLM/编排耗时、fallback/error 日志与 Web Debug 已贯通 | `scripts/check-dialogue-observability.mjs`、`docs/api/API_CONTRACT.md` |
 | Local RAG | 可用 | `docs/guides/KNOWLEDGE_GUIDE.md` |
 | n8n Workflow 边界 | 可选 | `docs/architecture/DIALOGUE_BACKEND_BOUNDARY.md` |
 | TTS Audio Result | 可用 | `docs/guides/LOCAL_TTS.md` |
@@ -56,6 +58,7 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 | TTS | 保持 Mock 稳定；CosyVoice2 已通过 6.64 秒与 37.12 秒真实浏览器播放，长回复启用首段优先分段调度，TTS 独立上游超时默认 90 秒。 |
 | VRM | `local_girl_vrm_test` 已完成真实长/短音频、快速替换、静音取消和中断恢复 QA；Shiro / Wambo 及 60–120 秒更长音频仍是后续扩展验收。 |
 | Memory / Persona | P1A–P1D 已完成：Prompt/Persona、Memory 确定性、回复完整性和最终表达边界均已自动回归并通过真实抽样。 |
+| Observability | P3 已完成当前单实例闭环；后续真实部署时再评估集中式日志、指标存储与跨服务 tracing。 |
 | Security | 公网前仍需正式鉴权、域名、HTTPS、secret manager 和部署平台策略。 |
 | LLM Provider | 后续用真实 Key 验证 OpenAI / Qwen；DeepSeek 默认 `deepseek-v4-flash` 已完成项目内 `/api/dialogue` live 验证。 |
 
@@ -73,6 +76,7 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 - P2 本轮的真实长音频是 37.12 秒；60–120 秒真实生成及长时间视觉同步仍未覆盖，且本机生成首帧等待可达 58.4 秒。
 - 新的 adaptive 分段调度已用自动化、真实 Alice `/api/tts` 探针和浏览器补充验证；当前 Node probe 使用 WAV 时长模拟 `HTMLAudioElement`，可稳定复查首音、`segmentGapMs`、`shortInitialBufferWaitMs` 和播放时长感知预取。取消、连续替换、静音和 runtime fallback 由 `check:mvp-flow` 覆盖；本轮浏览器只补了 12 字真实对话、26 字分段和 74 字生成中取消，尚未重新完整覆盖 60–120 秒长音频听感、口型视觉和用户连续对话，不能把 Node probe 当作完整视觉验收。
 - Demo supervisor 的 PID 指纹与 signal 管理当前以 macOS / Linux 为基线，Windows 尚未实现或验收。
+- P3 当前是单实例 requestId + 结构化日志 + Web Debug 基线，不包含集中式日志平台、持久化指标、Sentry/OpenTelemetry 或跨服务 trace。
 
 ## 最近验证
 
@@ -196,6 +200,16 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 - 连续两轮网页消息均返回真实 DeepSeek `provider=deepseek/model=deepseek-v4-flash/mode=llm_only`；CosyVoice 生命周期完成且 `fallback=false`。播放采样确认同一 `alice/girl.vrm` 上 `lipSync.mode=audio-driven`，E/A/U/O/I 五组口型随振幅变化并在结束后归零。
 - `girl.vrm` 当前仍是 `.gitignore` 排除的 local-only 大文件；本机 Demo 可用，但正式分发前需确认授权并迁移到可发布资产路径。
 
+2026-07-23 P3 Dialogue 可观测性已执行：
+
+- `npm run check`、`npm run smoke`、`npm run check:deployment-readiness`、`git diff --check`：通过；新增 `check:dialogue-observability` 已进入全量检查。
+- 自动检查覆盖 fake LLM 成功、显式 stub、timeout fallback、关闭 fallback 的失败、HTTP 错误 requestId、连续状态替换和日志敏感内容边界。
+- 浏览器 `?debug=1` 验证显式 stub：Debug 显示 `provider/model=stub`、`mode=llm_stub`、独立 requestId、`llmMs=-` 和编排耗时。
+- 浏览器受控 OpenAI 上游失败验证：Debug 显示 `openai/gpt-4o-mini → stub`、`mode=llm_fallback_stub`、`fallback=upstream_error`、`llmMs=4ms`、`orchestrationMs=5ms`；后端专项日志使用同一 requestId。
+- 现场发现 UUID 偶尔被通用敏感数字规则误脱敏；已让脱敏器只保留安全 UUID/规范化 requestId，同时继续拦截 secret-shaped requestId。
+- 使用固定 `X-Request-ID=p3-live-deepseek-20260723` 完成一次真实 `deepseek-v4-flash` 短请求：HTTP 200、`mode=llm_only`、无 fallback，回复“链路正常。”，`orchestrationMs=2500`、`llmMs=2500`；没有触发 TTS。
+- 浏览器 Console 没有 P3 新错误；只观察到既存 favicon 404。
+
 ## 本次项目记忆更新记录
 
 | 日期 | 更新内容 |
@@ -217,3 +231,4 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 | 2026-07-15 | 新增 CosyVoice2 首音延迟优化：Web TTSService 对 CosyVoice 回复做首段优先分段调度，24 字以内短回复保持单段，25 字以上优先 8–14 字自然首段、无自然停顿时回退 8 字级快速首段；后续段按序预取并保留同一 utterance session；新增 `segmentGapMs`、播放时长感知预取和短首段播放前等待指标；provider 返回 WAV/Base64 timing 和上游首 chunk timing；`cosyvoice:start` 默认等待 endpoint ready 并短合成预热；真实浏览器 16 字短句首音约 `1.97s`，53 字中回复首音约 `5.28s`、完整音频 ready 约 `12.75s`，最终回 idle；Node 探针显示 74 / 95 字分段首音约 `4.9s / 4.4s`；取消、连续替换、静音和 runtime 停止 fallback 已复测；尚未引入 PCM streaming。 |
 | 2026-07-22 | 修正 CosyVoice2 分段策略：12 字以内保持单段，13–24 字短回复允许自然首段 / `8–10` 字语义首段，25 字以上支持 `想听` / `陪我` / `然后` 等中文 cue，避免把“声音”“心情”等常见词切断；初始预取为 adaptive，短两段 `first-ready`，三段以上第二段立即 2 路受控预取。真实 Alice `/api/tts` 探针显示 16 字无停顿短句 `9+7` 首音约 `1.68s`、最大 gap 约 `1.76s`，26 字中句 `6+8+12` 首音约 `3.27s`、最大 gap约 `1.13s`，74 / 95 字长句首音约 `4.31s / 4.02s`、最大 gap 约 `1.49s / 2.08s`；短两段并发会牺牲首音，全局 12 字细分会让长回复过碎，因此均未作为默认。剩余瓶颈是本机 CosyVoice2 推理速度与 FastAPI 非真实可消费 streaming，非浏览器解码或 WAV/Base64 包装。 |
 | 2026-07-22 | 完成 P1D 最终表达收口：克制波浪号，记忆确认只说明实际当前记忆；新增默认关闭、production 禁用的五字段安全评测诊断。4 轮 DeepSeek 抽样全部 `llm_only`、`finishReason=stop`、无截断/fallback，P1 可以结束。 |
+| 2026-07-23 | 完成 P3 Dialogue 可观测性收口：兼容 `meta.trace` 增加 requestId、编排耗时与 LLM 耗时；专项脱敏日志覆盖成功/fallback/失败，HTTP 错误 requestId 进入 `AppError`，Web Debug 明确展示真实 provider 或“provider/model → stub”；不改变 `dialogue.v1`。 |

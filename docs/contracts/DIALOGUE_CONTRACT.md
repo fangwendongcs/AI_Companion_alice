@@ -164,6 +164,7 @@ Current Web keeps using:
 - `affect.voice` for browser TTS rate / pitch hints.
 - `avatar_directive` first, then legacy `affect.motion.slot` as fallback for existing MotionManager mapping.
 - `memory` and `memory_event` for Debug / Memory UI.
+- compatibility `meta.provider / model / mode / fallback / trace` for provider result and request diagnostics.
 
 The FBX renderer remains a presentation layer. It maps semantic directive values to local motion slots. It does not decide persona, memory, emotion, tone, or dialogue policy.
 
@@ -192,6 +193,23 @@ iOS should not depend on Web renderer code, Three.js, FBX, skeleton names, or We
 
 `reply`, `affect`, and `meta` are retained for the current Web client. They are legacy-compatible fields, not a second business contract.
 
+`meta.trace` provides safe request-level observability without changing `dialogue.v1`:
+
+```json
+{
+  "requestId": "same-as-X-Request-ID",
+  "orchestrationMs": 1234,
+  "llmMs": 980
+}
+```
+
+- `requestId` matches the response `X-Request-ID` for real HTTP requests.
+- `orchestrationMs` covers backend dialogue orchestration.
+- `llmMs` covers the real provider call, including failed calls that later fall back to stub.
+- Explicit `stub` requests return `llmMs: null`.
+- `meta.provider / model` identify the requested/resolved real provider. When `meta.mode="llm_fallback_stub"`, the reply source is stub and clients must display that transition explicitly.
+- Trace and dialogue logs never include prompts, user text, credentials, provider URLs, or raw upstream responses.
+
 New cross-client code should prefer:
 
 - `reply_text`
@@ -212,3 +230,4 @@ New cross-client code should prefer:
 - renderer-specific fields do not appear in the response.
 - Web client code can preserve `avatar_directive`.
 - API docs mention `dialogue.v1`.
+- `npm run check:dialogue-observability` verifies request ID, timing, fallback/error logging, error propagation, and Debug state replacement.
