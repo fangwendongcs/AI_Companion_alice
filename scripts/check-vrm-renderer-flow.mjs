@@ -364,10 +364,13 @@ async function checkPresentationControllers() {
 
   const expression = new ExpressionController({ executor });
   expression.applyDirective({ emotion: 'happy', intensity: 0.8, tone: 'playful' });
-  assert(fakeMesh.morphTargetInfluences[0] > 0, 'ExpressionController 应能把 happy emotion 映射为表情 influence。');
+  assert(fakeMesh.morphTargetInfluences[0] === 0, '保守 happy 表现不应驱动可能露齿的 happy expression。');
+  assert(fakeMesh.morphTargetInfluences[7] > 0, 'happy 语义应保留轻微 neutral expression。');
   expression.applyDirective({ emotion: 'warm', intensity: 0.8, tone: 'gentle' });
   assert(fakeMesh.morphTargetInfluences[0] === 0, 'warm emotion 不应叠加容易露齿的 happy expression。');
   assert(fakeMesh.morphTargetInfluences[7] > 0, 'warm emotion 应保留轻微的 neutral expression。');
+  expression.applyDirective({ emotion: 'neutral', intensity: 0 });
+  assert(fakeMesh.morphTargetInfluences[7] === 0, 'idle intensity=0 必须清除结束态表情，不得回退到默认强度。');
   expression.blink.nextIn = 0;
   expression.update(0.08);
   assert(fakeMesh.morphTargetInfluences[4] > 0, 'ExpressionController 应能驱动 blink。');
@@ -660,8 +663,8 @@ async function checkDirectiveApplication() {
   });
 
   assert(result.ok === true && result.applied === true, 'VRMRenderer 应能应用 AvatarDirective。');
-  assert(fakeExpressionValues.happy > 0, 'VRMRenderer 应优先通过 expressionManager 写入 VRM preset 表情。');
-  assert(fakeMesh.morphTargetInfluences[0] > 0, 'happy 表情应通过 expressionMap 产生 morph influence。');
+  assert(!fakeExpressionValues.happy, 'VRMRenderer 的保守 happy 表现不应写入可能露齿的 preset。');
+  assert(fakeMesh.morphTargetInfluences[0] === 0, '保守 happy 表现不应产生可能露齿的 morph influence。');
   assert(fakeMesh.morphTargetInfluences[6] > 0, 'speaking + lip_sync=auto 应先驱动保守 mouthU。');
   assert(fakeMesh.morphTargetInfluences[4] === 0 && fakeMesh.morphTargetInfluences[5] === 0, 'speaking 不应驱动容易大幅张嘴或露齿的 mouthA / mouthI。');
   renderer.update(0.1);

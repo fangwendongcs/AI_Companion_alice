@@ -11,9 +11,13 @@ export const EMOTIONS = {
 export class EmotionPolicy {
   decide({ message = '', reply = '', memory = {}, rag = {}, workflow = {}, error = null } = {}) {
     const text = `${message}\n${reply}`.toLowerCase();
+    const userText = String(message || '').toLowerCase();
 
     if (error || /抱歉|失败|错误|不可用|超时|没有配置|not_configured/i.test(text)) {
       return { emotion: EMOTIONS.APOLOGETIC, intensity: 0.62, reason: 'error_or_fallback' };
+    }
+    if (/很累|累了|疲惫|难受|担心|焦虑|害怕|有点空|失落|低落|压力|不安|沮丧|难过/.test(userText)) {
+      return { emotion: EMOTIONS.CONCERNED, intensity: 0.58, reason: 'user_distress' };
     }
     if (memory?.longTerm?.count > 0 || memory?.longTermWrite?.stored) {
       return { emotion: EMOTIONS.WARM, intensity: 0.72, reason: 'memory_context' };

@@ -4,6 +4,7 @@ import { AudioManager } from '../audio/AudioManager.js';
 import { CharacterManager } from '../avatar/CharacterManager.js';
 import { PresentationOrchestrator, createFallbackAffect } from '../avatar/presentation/PresentationOrchestrator.js';
 import { APP_MODE, EVENT_NAMES, REQUEST_TIMEOUTS, UI_TIMING } from '../config/appConfig.js';
+import { resolveDemoAvatarId, resolveReadyDemoDefaults } from '../config/demoExperience.js';
 import { DEFAULT_DIALOGUES, MOOD_DIALOGUES } from '../config/dialogues.js';
 import { validateRuntimeConfig } from '../config/validateConfig.js';
 import { EventBus } from '../core/EventBus.js';
@@ -384,17 +385,16 @@ export class AppController {
         this.log.warn('运行配置校验警告:', configValidation.errors.join('；'));
       }
       localStorage.removeItem('llm_api_key');
+      await this.applyReadyDemoDefaults();
 
       const avatarRegistry = await this.characterManager.loadRegistry();
       this.patchState({ avatarRegistry }, 'app:init');
       const requestedAvatarId = this.getRequestedAvatarId();
-      const savedAvatarId = this.store.loadAvatarId(this.characterManager.getDefaultAvatarId());
-      const hasRequestedAvatar = requestedAvatarId
-        && this.characterManager.listAvatars().some((avatar) => avatar.id === requestedAvatarId);
-      const hasSavedAvatar = this.characterManager.listAvatars().some((avatar) => avatar.id === savedAvatarId);
-      const currentAvatarId = hasRequestedAvatar
-        ? requestedAvatarId
-        : hasSavedAvatar ? savedAvatarId : this.characterManager.getDefaultAvatarId();
+      const currentAvatarId = resolveDemoAvatarId({
+        requestedAvatarId,
+        defaultAvatarId: this.characterManager.getDefaultAvatarId(),
+        avatars: this.characterManager.listAvatars()
+      });
       const characterMeta = await this.characterManager.loadManifest(currentAvatarId);
       this.patchState({ currentAvatarId, characterMeta }, 'app:init');
 
@@ -421,6 +421,26 @@ export class AppController {
         userMessage: error.message
       });
       this.ui.errorView.showLoadingError(appError.message);
+    }
+  }
+
+  async applyReadyDemoDefaults() {
+    try {
+      const providerStatus = await this.apiClient.json('/api/providers', {
+        source: 'providers',
+        timeoutMs: 6000
+      });
+      const resolved = resolveReadyDemoDefaults({
+        llmConfig: this.llmConfig,
+        ttsConfig: this.ttsConfig,
+        providerStatus
+      });
+      this.llmConfig = resolved.llmConfig;
+      this.ttsConfig = resolved.ttsConfig;
+      if (resolved.changed.llm) this.store.saveLLMConfig(this.llmConfig);
+      if (resolved.changed.tts) this.store.saveTTSConfig(this.ttsConfig);
+    } catch (error) {
+      this.log.warn('真实 Demo 默认配置读取失败，保留本地安全默认:', error?.message || error);
     }
   }
 

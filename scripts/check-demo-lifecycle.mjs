@@ -6,7 +6,8 @@ import {
   hasUsableDeepSeekConfig,
   isValidWavBuffer,
   matchesOwnedCommand,
-  resolveDemoConfig
+  resolveDemoConfig,
+  validateDemoAvatarData
 } from './demo/demo-manager.mjs';
 
 const failures = [];
@@ -23,6 +24,7 @@ checkRuntimeOverrides();
 checkSecretBoundaries();
 checkOwnershipFingerprints();
 checkWavValidation();
+checkDemoAvatarValidation();
 await checkPackageCommands();
 await checkGeneratedRuntimeIgnored();
 
@@ -94,6 +96,33 @@ function checkWavValidation() {
   wav.write('WAVE', 8);
   assert(isValidWavBuffer(wav), 'RIFF/WAVE header must pass validation.');
   assert(!isValidWavBuffer(Buffer.from('not audio')), 'Invalid audio must fail WAV validation.');
+}
+
+function checkDemoAvatarValidation() {
+  const valid = validateDemoAvatarData({
+    registry: {
+      defaultAvatarId: 'alice',
+      avatars: [{ id: 'alice', manifest: 'public/avatars/alice/manifest.json' }]
+    },
+    manifest: {
+      id: 'alice',
+      model: { url: 'assets/avatars/test-vrm/girl.vrm', format: 'vrm' }
+    },
+    assetExists: true
+  });
+  const missingAsset = validateDemoAvatarData({
+    registry: {
+      defaultAvatarId: 'alice',
+      avatars: [{ id: 'alice', manifest: 'public/avatars/alice/manifest.json' }]
+    },
+    manifest: {
+      id: 'alice',
+      model: { url: 'assets/avatars/test-vrm/girl.vrm', format: 'vrm' }
+    },
+    assetExists: false
+  });
+  assert(valid.ok, 'Default alice/girl.vrm fixture must pass Demo avatar validation.');
+  assert(!missingAsset.ok && missingAsset.errors.some((error) => error.includes('missing')), 'Missing local girl.vrm must fail Demo preflight clearly.');
 }
 
 async function checkPackageCommands() {

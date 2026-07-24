@@ -7,6 +7,7 @@ import {
   readFile,
   rename,
   rm,
+  stat,
   writeFile
 } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -23,6 +24,8 @@ const DEFAULT_LLM_TIMEOUT_MS = 60_000;
 const DEFAULT_TTS_TIMEOUT_MS = 120_000;
 const POLL_INTERVAL_MS = 500;
 const PLACEHOLDER_PATTERN = /(replace[_-]?with|your[_-]|example|placeholder|changeme|dummy|test[_-]?key)/i;
+const DEMO_AVATAR_ID = 'alice';
+const DEMO_AVATAR_MODEL_URL = 'assets/avatars/test-vrm/girl.vrm';
 
 const command = process.argv[2] || '';
 
@@ -69,6 +72,9 @@ export function resolveDemoConfig(env = process.env, rootDir = ROOT_DIR) {
     aliceLog: path.join(logDir, 'alice.log'),
     cosyvoiceLog: path.join(logDir, 'cosyvoice.log'),
     aliceScript: path.join(rootDir, 'backend/server.js'),
+    avatarRegistryFile: path.join(rootDir, 'public/avatars/registry.json'),
+    demoAvatarModelFile: path.join(rootDir, DEMO_AVATAR_MODEL_URL),
+    demoAvatarModelUrl: `http://localhost:${alicePort}/${DEMO_AVATAR_MODEL_URL}`,
     alicePort,
     aliceBaseUrl: `http://127.0.0.1:${alicePort}`,
     demoUrl: `http://localhost:${alicePort}`,
@@ -170,6 +176,7 @@ async function startDemo() {
   const config = resolveDemoConfig();
   await ensureRuntimeDirs(config);
   assertStartConfiguration(config);
+  await assertDemoAvatarConfiguration(config);
 
   const existing = await readState(config);
   if (existing && await isOwnedProcessAlive('supervisor', existing.supervisorPid, existing, config)) {
@@ -510,8 +517,17 @@ async function checkWeb(config) {
   try {
     const health = await fetchJson(`${config.aliceBaseUrl}/api/health`, {}, 5_000);
     const page = await fetchWithTimeout(config.demoUrl, {}, 5_000);
-    if (!page.ok || health?.ok !== true) throw new Error('health or page response is not HTTP 200');
-    return { ready: true, latencyMs: Date.now() - startedAt };
+    const avatar = await fetchWithTimeout(config.demoAvatarModelUrl, { method: 'HEAD' }, 5_000);
+    if (!page.ok || !avatar.ok || health?.ok !== true) {
+      throw new Error('health, page, or default girl.vrm response is not HTTP 200');
+    }
+    return {
+      ready: true,
+      avatarReady: true,
+      avatarId: DEMO_AVATAR_ID,
+      avatarModel: DEMO_AVATAR_MODEL_URL,
+      latencyMs: Date.now() - startedAt
+    };
   } catch (error) {
     return { ready: false, error: `Alice web check failed (${safeErrorMessage(error)})` };
   }
@@ -630,6 +646,7 @@ function printDemoStatus(result, { heading, command: outputCommand }) {
   console.log(`Processes: supervisor=${processes.supervisor.pid || '-'} alice=${processes.alice.pid || '-'} cosyvoice=${processes.cosyvoice.pid || '-'}`);
   console.log(`Ports: alice=${ports.alice.listening ? 'ready' : 'down'}:${ports.alice.port} cosyvoice=${ports.cosyvoice.listening ? 'ready' : 'down'}:${ports.cosyvoice.port}`);
   console.log(`Alice: ${web.ready ? 'ready' : 'not_ready'}${web.latencyMs !== undefined ? ` latencyMs=${web.latencyMs}` : ''}`);
+  console.log(`Avatar: ${web.avatarReady ? 'ready' : 'not_ready'} id=${web.avatarId || '-'} model=${web.avatarModel || '-'}`);
   console.log(`LLM: ${llm.ready ? 'ready' : 'not_ready'} provider=deepseek model=${llm.model || '-'} mode=${llm.mode || '-'}${llm.latencyMs !== undefined ? ` latencyMs=${llm.latencyMs}` : ''}`);
   console.log(`TTS: ${tts.ready ? 'ready' : 'not_ready'} provider=cosyvoice format=${tts.format || '-'} audioBytes=${tts.audioBytes || 0}${tts.latencyMs !== undefined ? ` latencyMs=${tts.latencyMs}` : ''}`);
   console.log(`Logs: supervisor=${config.supervisorLog}`);
@@ -713,6 +730,58 @@ function assertStartConfiguration(config) {
   }
   if (config.cosyvoicePython !== 'python3' && !existsSync(config.cosyvoicePython)) {
     throw new Error(`CosyVoice Python runtime is missing: ${config.cosyvoicePython}`);
+  }
+}
+
+export function validateDemoAvatarData({ registry = {}, manifest = {}, assetExists = false } = {}) {
+  const errors = [];
+  const defaultEntry = (Array.isArray(registry.avatars) ? registry.avatars : [])
+    .find((avatar) => avatar?.id === registry.defaultAvatarId);
+  if (registry.defaultAvatarId !== DEMO_AVATAR_ID) {
+    errors.push(`defaultAvatarId must be ${DEMO_AVATAR_ID}`);
+  }
+  if (!defaultEntry?.manifest) {
+    errors.push(`registry entry ${DEMO_AVATAR_ID} must declare a manifest`);
+  }
+  if (manifest.id !== DEMO_AVATAR_ID) {
+    errors.push(`default avatar manifest id must be ${DEMO_AVATAR_ID}`);
+  }
+  if (manifest.model?.url !== DEMO_AVATAR_MODEL_URL || manifest.model?.format !== 'vrm') {
+    errors.push(`default avatar must load ${DEMO_AVATAR_MODEL_URL} as vrm`);
+  }
+  if (!assetExists) {
+    errors.push(`default avatar asset is missing: ${DEMO_AVATAR_MODEL_URL}`);
+  }
+  return { ok: errors.length === 0, errors };
+}
+
+async function assertDemoAvatarConfiguration(config) {
+  let registry;
+  let manifest;
+  try {
+    registry = JSON.parse(await readFile(config.avatarRegistryFile, 'utf8'));
+    const defaultEntry = (Array.isArray(registry.avatars) ? registry.avatars : [])
+      .find((avatar) => avatar?.id === registry.defaultAvatarId);
+    const manifestFile = path.resolve(config.rootDir, String(defaultEntry?.manifest || ''));
+    manifest = JSON.parse(await readFile(manifestFile, 'utf8'));
+  } catch (error) {
+    throw new Error(`default Alice avatar configuration cannot be read (${safeErrorMessage(error)})`);
+  }
+
+  let avatarAssetReady = false;
+  try {
+    const avatarStat = await stat(config.demoAvatarModelFile);
+    avatarAssetReady = avatarStat.isFile() && avatarStat.size > 0;
+  } catch {
+    avatarAssetReady = false;
+  }
+  const validation = validateDemoAvatarData({
+    registry,
+    manifest,
+    assetExists: avatarAssetReady
+  });
+  if (!validation.ok) {
+    throw new Error(`default Alice avatar is not Demo-ready: ${validation.errors.join('; ')}`);
   }
 }
 

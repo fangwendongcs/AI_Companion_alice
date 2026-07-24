@@ -69,7 +69,9 @@ export class ExpressionController {
       return;
     }
     if (emotion === 'happy') {
-      this.setGroupInfluence('happy', Math.min(0.45, intensity * 0.5));
+      // Alice 的正式 Demo 保持保守嘴型：开心语义由语气、眨眼和动作表达，
+      // 不叠加可能带出口腔/牙齿的 happy morph。
+      this.setGroupInfluence('neutral', Math.min(0.16, intensity * 0.16));
       return;
     }
     if (emotion === 'angry') {
@@ -145,7 +147,7 @@ export function normalizeExpressionMap(expressionMap = {}) {
 }
 
 export function getToneAdjustedIntensity(directive = {}) {
-  const base = clamp01(directive.intensity || 0.45);
+  const base = clamp01(directive.intensity ?? 0.45);
   const multiplier = {
     gentle: 0.9,
     calm: 0.85,

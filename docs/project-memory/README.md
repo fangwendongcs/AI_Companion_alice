@@ -1,6 +1,6 @@
 # Project Memory
 
-最后更新：2026-07-03
+最后更新：2026-07-24
 
 这是 Alice 项目的长期记忆导航页。它不是又一份长 README，而是“单一事实来源”的入口：新 Agent 先从这里找到当前状态、权威文档、历史决策和下一步，不再依赖聊天记录。
 
@@ -110,6 +110,7 @@ Alice 是一个 AI digital companion / interactive avatar 原型：当前仓库�
 | --- | --- | --- | --- | --- |
 | `docs/product/MVP_ACCEPTANCE.md` | Phase 2 MVP 用户链路验收标准 | 历史参考 | 回查最早 MVP 验收口径 | 后续 Phase 3/5/TTS/VRM 已演进；当前看 `CURRENT_STATUS.md` |
 | `docs/product/MVP_BASELINE.md` | Phase 2.9 本地 MVP 封版结论 | 历史参考 | 理解 3D 数字人基本回归链路 | 不含后续 SQLite Memory、dialogue.v1、CosyVoice2、VRMRenderer |
+| `docs/reports/DEMO_EXPERIENCE_ACCEPTANCE_20260724.md` | 当前正式 Demo 的 10 轮真实 DeepSeek × CosyVoice2 × girl.vrm 验收 | 当前权威 | 判断入口、角色感、记忆、表达联动、fallback 和延迟实况 | 当前机器实测；不代表公开用户留存或其他 Avatar |
 | `docs/product/PHASE3_ACCEPTANCE.md` | Phase 3 智能能力验收标准 | 历史参考 | 回查 Provider/Memory/RAG/n8n/Agent 验收 | 后续接口和 TTS 已变化；当前看 `API_CONTRACT.md` |
 | `docs/product/PHASE3_BASELINE.md` | Phase 3.9 智能能力基线封版 | 历史参考 | 理解智能编排为何集中到后端 | 不含后续长期 Memory、dialogue.v1、TTS provider 重构 |
 | `docs/process/PHASE3_IMPLEMENTATION_PLAN.md` | Phase 3 分阶段实施计划 | 历史参考 | 查当时实现顺序和取舍 | 计划不是当前事实；当前看对应 baseline / API /源码 |
@@ -184,3 +185,4 @@ Alice 是一个 AI digital companion / interactive avatar 原型：当前仓库�
 | 日期 | 变更 |
 | --- | --- |
 | 2026-07-03 | 建立根目录 `AGENTS.md` 与 `docs/project-memory/` 项目记忆体系；修正文档索引入口；把当前 Web / Backend / `dialogue.v1`、Mock/CosyVoice2、VRMRenderer 边界纳入权威导航。 |
+| 2026-07-24 | 记录正式 Demo 入口收口、10 轮真实 DeepSeek × CosyVoice2 × girl.vrm 验收、保守不露齿表现、受控 fallback 和下一阶段角色感/延迟优先级。 |

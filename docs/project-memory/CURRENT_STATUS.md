@@ -1,6 +1,6 @@
 # Current Status
 
-最后更新：2026-07-23
+最后更新：2026-07-24
 
 ## 当前阶段
 
@@ -14,7 +14,7 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 - LLM 已支持后端 OpenAI-compatible `openai` / `qwen` / `deepseek` / `custom`；真实 provider 失败时，`/api/dialogue` 默认安全降级到完整 `dialogue.v1` stub 回复。
 - 本地 `npm run dev` 使用 Node 原生 `--env-file-if-exists=.env`：存在本地忽略配置时自动加载，不存在时仍可用 stub/mock 启动。
 - 完整本地 Demo 已提供 `demo:start/status/stop`：Node supervisor 统一托管 Alice 与 CosyVoice2，并以真实 DeepSeek 回复和有效 WAV 作为 ready 标准。
-- Web 会在后端 DeepSeek / CosyVoice 真实 ready 时一次性迁移历史 `stub` / `mock` 默认，并在页面显示当前 Alice 回复；用户之后的明确 provider 选择继续保留。
+- 正式 Web Demo 会在 UI 初始化前读取 provider readiness；DeepSeek / CosyVoice2 ready 时每次加载都采用真实 provider 和后端默认 model，历史 localStorage 不再让正式入口静默回到 Stub / Mock。
 - P1A 已收口 Prompt/Persona 基础正确性：后端控制不可覆盖规则和 Persona，Web `systemPrompt` 只作为低优先级回复偏好，短期历史保持原始 `user` / `assistant` role。
 - P1B 已收口 Memory 确定性问题：偏好保留否定极性，写入指令与召回问句分离，短期消息按 `sessionId + avatarId` 隔离，敏感用户轮次及 assistant 同轮回复不进入 SQLite。
 - P1C 已将 LLM 回复上限配置化为 `LLM_MAX_TOKENS`（默认 `320`），内部保留安全 finish reason / token usage 诊断，并收口舞台提示、emoji 和记忆确认表达边界。
@@ -23,7 +23,7 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 - TTS 当前公开主线是 `mock` 和 `cosyvoice`；其他 provider adapter 可留在后端实验层，但不进入 Web Settings 公开选择。
 - CosyVoice2 已在 Web `TTSService` 内启用首段优先分段调度：仍复用 `/api/tts` 完整 WAV/Base64 Audio Result，不是 PCM streaming；中间段不会触发 idle 收敛。2026-07-22 当前策略为：12 字以内单段；13–24 字短回复允许自然首段或约 `8–10` 字语义首段；25 字以上优先 8–14 字自然首段或 `想听` / `陪我` / `然后` 等中文 cue，避免切断“声音”“心情”等常见词；初始预取采用 adaptive，短两段 `first-ready`，三段以上第二段立即进入 2 路受控预取，后续按播放时长窗口补齐。真实 Alice `/api/tts` objective 探针显示：16 字无自然停顿短句为 `9+7`，首音约 `1.68s`、最大 gap 约 `1.76s`；26 字中句为 `6+8+12`，首音约 `3.27s`、最大 gap 约 `1.13s`；74 / 95 字长句首音约 `4.31s / 4.02s`，最大 gap 约 `1.49s / 2.08s`。额外验证显示：短两段强制并发可把 gap 压到 `2ms`，但首音会退到 `3.15–3.76s`；全局 12 字细分可压低 26 字 gap，但 74 / 95 字会因段数过多和本机推理抖动出现更大空洞。结论：分段调度已能避免“长回复等完整音频”，但当前 macOS 本地 CosyVoice2 FastAPI/WAV/Base64 链路仍不能稳定保证全部段间空洞低于 `300–500ms`。`cosyvoice:start` 会等待 endpoint ready 并完成一次短合成预热，避免首个用户请求承担 runtime 冷启动。
 - VRMRenderer 已进入 Web MVP：业务层输出 `AvatarDirective`，Renderer 负责表达、眨眼、基础 lip-sync；P2 已完成真实 CosyVoice2 浏览器验收，含 99.48 秒真实音频、连续两轮、快速替换、静音取消与上游中断恢复。口型按近景反馈收敛为 U/O 轻量开合，硬上限 `0.22`，常见 warm/curious 不再叠加露齿 happy 表情。
-- 普通 Demo 与 debug 页的默认 `alice` 已统一指向历史 TTS×VRM 验证模型 `assets/avatars/test-vrm/girl.vrm`，保留 `alice` 身份与 localStorage 兼容，并强制使用 `VRMRenderer`。
+- 普通 Demo、debug 与刷新入口的默认 `alice` 已统一指向 `assets/avatars/test-vrm/girl.vrm` 并强制使用 `VRMRenderer`；历史 `avatar_id` 不再改变正式默认，显式 `?avatar=` 仍可用于 QA 覆盖。
 
 ## 已完成能力
 
@@ -53,11 +53,12 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 
 | 方向 | 当前下一步 |
 | --- | --- |
+| 角色感真实评测 | 以“先陪伴、别建议”、人格自述、跨轮引用和表达一致性为固定用例做小步 Persona/Prompt 评测，并邀请陌生用户完成 10 分钟会话；不扩张 Agent/RAG/Provider。 |
 | Project Memory | 后续每次阶段性变更维护 `docs/project-memory/*`，避免聊天记录成为唯一上下文。 |
 | Demo Runtime | macOS 本机完整启停已验收；后续仅在需要跨平台时补 Windows 进程管理。 |
 | TTS | 保持 Mock 稳定；CosyVoice2 已通过 99.48 秒真实浏览器播放和连续两轮，长回复启用首段优先分段调度，TTS 独立上游超时默认 90 秒；17 次 underrun / 最大 6.088 秒 gap 留给 P5 决策。 |
 | VRM | 默认 Alice 已完成 99.48 秒真实音频、连续两轮、替换/取消/恢复和保守口型近景 QA；Shiro / Wambo 及未来模型替换仍需单独视觉验收。 |
-| Memory / Persona | P1A–P1D 已完成：Prompt/Persona、Memory 确定性、回复完整性和最终表达边界均已自动回归并通过真实抽样。 |
+| Memory / Persona | P1A–P1D 基础阶段已完成；下一步只围绕真实会话暴露的角色服从度和会话内关系连续性做产品体验验证。 |
 | Observability | P3 已完成当前单实例闭环；后续真实部署时再评估集中式日志、指标存储与跨服务 tracing。 |
 | Security | 公网前仍需正式鉴权、域名、HTTPS、secret manager 和部署平台策略。 |
 | LLM Provider | 后续用真实 Key 验证 OpenAI / Qwen；DeepSeek 默认 `deepseek-v4-flash` 已完成项目内 `/api/dialogue` live 验证。 |
@@ -219,6 +220,17 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 - 真实 DeepSeek 长回复尝试出现一次 `empty_response`，P3 正确显示 `deepseek → stub`、`llmMs=5685`；因 fallback 音频仅 `8.68s`，长音频验收改用受控 dialogue response 隔离 LLM，TTS/VRM 保持真实。
 - 99.48 秒场景记录 17 次 underrun、最大 gap `6.088s`；归入 P5 延迟/流式决策，不阻塞 P2 表现层收口。
 
+2026-07-24 正式 Demo 真实体验链路收口：
+
+- `demo:start` 使用独立 SQLite 验收库成功启动，ready 输出同时确认 `alice/girl.vrm`、DeepSeek `deepseek-v4-flash/llm_only` 和有效 CosyVoice2 WAV；普通、debug、刷新和历史 `avatar_id=osa_shiro + llm=stub + tts=mock` 均恢复到正式默认，显式 `?avatar=osa_shiro` 仍可作为单次 QA 覆盖。
+- 固定 10 轮浏览器真实对话全部为 DeepSeek `llm_only` + CosyVoice2 `ended`，无自然 fallback；LLM 平均 `3212ms`（`2333–3985ms`），文字出现到首音平均 `5717ms`（`3533–7423ms`）。
+- 第 4 轮明确保存“不喜欢香菜、咖啡偏爱拿铁”一条长期记忆；第 5、9、10 轮均自然引用，第 6 轮准确复述项目评审和“只想缓一缓、不需要建议”的短期上下文。
+- 10/10 轮有真实音频振幅驱动，口型只使用 U/O，happy morph 最大值为 `0`；10/10 轮自然结束后 `idle + lipSync idle + mouth=0`。开心语义继续由声音、轻微 neutral、眨眼和动作表达，不启用可能露齿的 happy morph。
+- 修复真实验收发现的两个阻碍项：用户“很累/有点空/担心”等 distress 语义优先于回复感叹号和 memory，避免误判 `happy`；`intensity=0` 不再被默认值覆盖，结束态表情可真正归零。
+- 受控无效 DeepSeek model 触发 `llm_fallback_stub/upstream_error`，失败调用 `4313ms`；Web Debug 显示 `deepseek/invalid-model → stub`，响应、Debug 和后端专项日志使用同一 requestId。
+- 未通过的体验项：第 3 轮用户明确“先别给建议”后，回复仍主动抛出“要不要聊窗外”；10 轮中 5 轮段间 gap 超过 `1s`，最大 `6271ms`。前者进入下一阶段角色感微调，后者继续作为 P5 的首要输入。
+- 逐轮原始回复、requestId 和指标见 `docs/reports/DEMO_EXPERIENCE_ACCEPTANCE_20260724.md`；本轮不涉及 iOS、RAG、Agent、新 Provider 或新协议。
+
 ## 本次项目记忆更新记录
 
 | 日期 | 更新内容 |
@@ -242,3 +254,4 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 | 2026-07-22 | 完成 P1D 最终表达收口：克制波浪号，记忆确认只说明实际当前记忆；新增默认关闭、production 禁用的五字段安全评测诊断。4 轮 DeepSeek 抽样全部 `llm_only`、`finishReason=stop`、无截断/fallback，P1 可以结束。 |
 | 2026-07-23 | 完成 P3 Dialogue 可观测性收口：兼容 `meta.trace` 增加 requestId、编排耗时与 LLM 耗时；专项脱敏日志覆盖成功/fallback/失败，HTTP 错误 requestId 进入 `AppError`，Web Debug 明确展示真实 provider 或“provider/model → stub”；不改变 `dialogue.v1`。 |
 | 2026-07-23 | 完成 P2 扩展验收：默认 Alice 通过 99.48 秒真实 CosyVoice2、连续两轮和自然结束；按视觉反馈改为 U/O 保守口型、最大 influence 0.22，warm/curious 不再叠加露齿笑；段间 gap 数据转入 P5。 |
+| 2026-07-24 | 完成正式 Demo 入口与 10 轮真实体验验收：girl.vrm / DeepSeek / CosyVoice2 在正常入口强制采用 ready 默认；收口 distress 情绪误判、结束态表情残留和露齿 happy morph；记录长期记忆、连续性、表达联动、受控 fallback 与 TTS gap 证据。 |

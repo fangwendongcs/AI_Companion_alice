@@ -80,7 +80,8 @@ Long playback lifecycle rules:
 - A newer TTS request invalidates older playback callbacks; stale `audio:start` / `audio:end` events cannot reset the new renderer state.
 - Cancelling an `HTMLAudioElement` settles its playback Promise and clears playback references, avoiding unresolved long-audio tasks and delayed cleanup.
 - `audio:end` / `audio:error` clear amplitude sampling, zero mouth influences, and request idle recovery through the same presentation boundary.
-- Common `warm` / `curious` affect uses a light neutral face instead of stacking a happy smile over lip-sync; explicit `happy` remains available at a reduced cap.
+- Common `warm` / `curious` affect uses a light neutral face instead of stacking a happy smile over lip-sync. Explicit `happy` keeps its semantic tone / blink / motion behavior but also uses a light neutral face; it does not activate the model's joy/fun mouth morphs, which can expose teeth.
+- A directive with `intensity=0` remains zero instead of falling back to the default expression intensity, so idle cleanup can fully clear the previous expression.
 
 `AppController` syncs the lip-sync debug snapshot into `state.presentation.lipSync` only while lip-sync is active or when audio lifecycle changes. The Debug Panel reads that state to show mode, amplitude, fallback status, and current mouth group without storing audio objects, morph target names, provider keys, or renderer-specific paths.
 
@@ -166,7 +167,7 @@ Missing local test files do not fail the check because these assets are intentio
 
 - `idle / listening`: neutral expression with automatic blink.
 - `speaking`: lightweight rhythmic mouth movement across `Fcl_MTH_U / O` when available; other mouth groups remain capability metadata.
-- `happy`: mapped to a reduced joy expression.
+- `happy`: mapped to a light neutral face; playful voice, blink and body motion carry the happy semantic without activating toothy joy/fun morphs.
 - `warm / curious`: mapped to a light neutral expression so normal companion speech does not stack a toothy smile over lip-sync.
 - `sad`: mapped to sorrow expressions.
 - `angry`: mapped to angry expressions.
@@ -200,7 +201,7 @@ This verifies:
 - `CharacterManager` owns the active renderer adapter.
 - `AppController` forwards `AvatarDirective`.
 - `VRMRenderer` can apply expression and basic mouth movement on a fake morph-target avatar.
-- `VRMRenderer` can drive girl-style happy / sad / angry / surprised expression groups, conservative U/O speaking mouth movement, and automatic blink while retaining five-vowel capability discovery.
+- `VRMRenderer` can drive conservative happy-as-neutral plus sad / angry / surprised expression groups, U/O speaking mouth movement, and automatic blink while retaining five-vowel capability discovery.
 - `ExpressionController` and `LipSyncController` are covered directly so expression / blink / lip-sync policy does not drift back into `VRMRenderer`.
 - `LipSyncController` is covered for optional audio-amplitude mouth intensity and for fallback when no audio source is available.
 - `PresentationOrchestrator` is covered for object-identity delivery of `audioSource` to the active renderer-owned `LipSyncController`, rather than a static source-code string check.
@@ -227,3 +228,5 @@ The default Alice model passed a real 99.48-second CosyVoice2 browser run with t
 2026-07-14 default-model correction: normal `/` and `/?debug=1` both performed an actual HTTP 200 `GET /assets/avatars/test-vrm/girl.vrm` and initialized `VRMRenderer` with VRM runtime, humanoid, expression manager, lookAt, spring bone and A/I/U/E/O mouth groups. Refresh retained the model with `localStorage.avatar_id=alice`. Two Web dialogue rounds returned real DeepSeek `llm_only` replies and CosyVoice playback with `fallback=false`; an active playback capture on the same `alice` renderer observed `audio-driven` mouth changes across E/A/U/O/I before returning to idle. No VRM load error appeared in Console.
 
 2026-07-23 conservative-mouth status: user-facing visual feedback identified exposed teeth / uncanny-valley risk in the five-vowel profile. The active speaking policy now uses only U/O when available, caps mouth influence at `0.22`, closes around silence, and avoids adding happy/relaxed for common warm/curious affect. A real 455-character CosyVoice2 run produced 36 segments and 99.48 seconds of audio; sampled mouth values stayed on U/O with a maximum observed amount of `0.10`, then returned to zero/idle. Two following short turns also ended cleanly. The same run recorded 17 underruns and a maximum `6.088s` segment gap; that latency issue belongs to P5 and does not reopen P2 wiring.
+
+2026-07-24 no-teeth closure: a 10-turn real DeepSeek + CosyVoice2 browser run kept all speaking mouth samples on U/O, recorded `happy` morph maximum `0`, and returned to `idle / mouth=0` after every turn. The first pass exposed a residual closed-eye smile after audio and a distress sentence incorrectly classified as happy. `ExpressionController` now preserves explicit zero intensity and never writes the happy group; `EmotionPolicy` prioritizes user distress before positive punctuation or memory context. See `docs/reports/DEMO_EXPERIENCE_ACCEPTANCE_20260724.md`.

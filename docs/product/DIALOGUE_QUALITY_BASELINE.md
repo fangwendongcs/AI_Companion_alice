@@ -1,6 +1,6 @@
 # Dialogue Quality Baseline
 
-最后更新：2026-07-22
+最后更新：2026-07-24
 
 ## 目标
 
@@ -11,6 +11,7 @@
 - `backend/services/PromptBuilder.js`
 - `backend/services/DialogueOrchestrationService.js`
 - `backend/services/LLMService.js`
+- `backend/services/EmotionPolicy.js`
 - `backend/config/avatarPersonas.js`
 - `scripts/check-dialogue-quality-logic.mjs`
 
@@ -102,6 +103,8 @@ P1C 针对该证据做最小收口：默认输出上限从 `200` 提高到 `320`
 受控诊断由后端环境变量 `DIALOGUE_DEBUG_LLM_DIAGNOSTICS` 开启，默认关闭且 production 强制关闭。开启时只有兼容 `meta.llmDiagnostics` 可见，字段固定为 `finishReason`、`truncated`、`promptTokens`、`completionTokens`、`totalTokens`；不改变 `dialogue.v1`，不记录或返回 Prompt、用户正文、secret、provider URL 或原始上游响应。
 
 2026-07-22 P1D 使用独立端口、全新 session 和仓库外临时 SQLite 完成 4 轮 `deepseek-v4-flash` 抽样：4/4 均为 `llm_only`、`finishReason=stop`、`truncated=false`，无 fallback、无括号舞台提示；波浪号计数为 `0 / 0 / 1 / 0`，emoji 计数为 `1 / 0 / 0 / 0`。四轮请求合计约 `11.67s`，prompt / completion / total token 合计为 `2112 / 745 / 2857`。第三轮只写入一条 `我不喜欢香菜，吃饭时希望避开它`，确认措辞说明当前记忆状态，未推断相邻偏好或承诺永久保存。中文自然度、共情、回复完整性、长度适配均达到至少 `4/5`，记忆确认准确性 `5/5`。
+
+2026-07-24 使用正式 Web Demo 完成 10 轮 `deepseek-v4-flash` 体验验收：10/10 均为 `llm_only`，长期偏好只写入 1 条并在后续三轮正确引用，短期上下文能准确复述用户刚完成项目评审且“不需要建议”。真实验收发现两个产品问题：用户“很累/有点空”曾被回复感叹号误判为 happy，已让明确 distress 语义优先进入 `concerned`；用户说“先别给建议”后模型仍主动抛出聊天建议，保留为下一阶段 Persona/Prompt 固定用例，不用业务正则掩盖。完整逐轮证据见 `docs/reports/DEMO_EXPERIENCE_ACCEPTANCE_20260724.md`。
 
 主观质量必须人工评审中文自然度、共情分寸、Persona 差异、模板化和多轮稳定性；关键词、字符数和文本相似度只能做初筛，不能代替最终质量结论。
 

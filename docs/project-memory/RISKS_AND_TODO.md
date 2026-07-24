@@ -1,6 +1,6 @@
 # Risks And Todo
 
-最后更新：2026-07-23
+最后更新：2026-07-24
 
 ## 当前风险
 
@@ -13,7 +13,8 @@
 | 当前默认 Alice 依赖 Git-ignored 的本机 `assets/avatars/test-vrm/girl.vrm`。 | 高 | 普通页与 debug 页已固定加载该模型，缺失/损坏时明确报错并仅启用既有 fallback；不静默切回旧 GLB。 | 正式分发前确认模型授权，将二进制迁移到可发布资产路径并更新 manifest。 |
 | `runtime/cosyvoice/` 是本地未提交 runtime，其他机器默认不存在。 | 低 | 文档和脚本说明准备流程。 | `.gitignore`、`docs/guides/COSYVOICE_RUNTIME.md` |
 | 真实 CosyVoice2 口型观感具有模型差异。 | 中 | 默认 Alice 已通过 99.48 秒真实浏览器 QA，并改为 U/O 保守口型、最大 influence `0.22`；其他模型仍需近景验证。 | `docs/architecture/VRM_RENDERER_MVP.md`、浏览器 Debug Panel |
-| 长回复分段 TTS 仍可能出现明显段间空档。 | 中 | 99.48 秒真实音频记录 17 次 underrun、最大 gap `6.088s`；保持现有同步协议，作为 P5 流式/吞吐决策输入。 | `js/voice/TTSService.js`、`scripts/cosyvoice/probe-web-tts-latency.mjs` |
+| 长回复分段 TTS 仍可能出现明显段间空档。 | 中 | 99.48 秒真实音频记录 17 次 underrun、最大 gap `6.088s`；2026-07-24 的 10 轮真实对话有 5 轮超过 `1s`、最大 `6.271s`。保持现有同步协议，作为 P5 流式/吞吐决策输入。 | `js/voice/TTSService.js`、`scripts/cosyvoice/probe-web-tts-latency.mjs` |
+| “先陪伴、别建议”约束在真实模型下仍偶发失守。 | 中 | 10 轮验收第 3 轮能复述要求，但仍主动建议聊窗外；不在本轮堆正则，作为下一阶段固定用例做 Persona/Prompt 小步评测。 | `docs/reports/DEMO_EXPERIENCE_ACCEPTANCE_20260724.md`、`docs/product/DIALOGUE_QUALITY_BASELINE.md` |
 | 真实 LLM 偶发空响应会触发安全降级。 | 低 | 本轮 DeepSeek 长回复出现一次 `empty_response`，P3 requestId/耗时/fallback 均正确；不把单次 provider 抖动误判为 TTS/VRM 问题。 | `docs/api/API_CONTRACT.md`、Dialogue Debug/结构化日志 |
 | P1A/P1B 自动化只能证明 Prompt 与 Memory 的确定性逻辑，不会证明真实中文陪伴质量。 | 中 | 已建立零费用质量逻辑基线；真实模型评测必须另行授权，并使用固定用例/人工量表。 | `docs/product/DIALOGUE_QUALITY_BASELINE.md` |
 | P1B 不做破坏性历史数据清洗；旧库中若曾写入敏感原文，记录不会被本轮自动删除。 | 中 | 新写入有 Service + Repository 双层拦截，检测到的旧敏感记录不会进入活动上下文；彻底擦除旧原文需要后续单独授权安全清理或重建本地库。 | `docs/architecture/PHASE5_MEMORY_ARCHITECTURE.md` |
@@ -89,8 +90,8 @@
 
 ## 下一步建议
 
-1. 选择私有演示部署平台与预览域名后，再补平台变量、HTTPS、Secret Manager、持久化目录和健康检查方案。
-2. 基于本轮首音、17 次 underrun 和最大 `6.088s` gap 决定 P5 是否需要 PCM streaming 或更保守的分段/并发策略，不直接破坏 `dialogue.v1`。
-3. 仅在新增正式 Avatar 时补模型专用近景口型 QA，不重新打开已收口的 Alice P2 主阶段。
-4. 公网演示前，设计正式访问控制，不要把单 token 当完整登录系统。
-5. 后续如需跨平台 Demo，单独实现 Windows 进程所有权与停服策略，不要弱化当前“只停止本脚本进程”的安全边界。
+1. 用固定真实模型用例小步修正“先陪伴、别建议”的角色服从度，再邀请陌生用户完成 10 分钟会话，记录性格辨识、继续聊天意愿和“她记得我”反馈。
+2. 基于 10 轮首音平均 `5.717s`、5 轮 gap 超过 `1s`、最大 `6.271s` 的证据决定 P5 是否需要 PCM streaming 或更保守的分段/并发策略，不直接破坏 `dialogue.v1`。
+3. 选择私有演示部署平台与预览域名后，再补平台变量、HTTPS、Secret Manager、持久化目录和健康检查方案。
+4. 仅在新增正式 Avatar 时补模型专用近景口型 QA，不重新打开已收口的 Alice P2 主阶段。
+5. 公网演示前，设计正式访问控制；跨平台 Demo 另行实现 Windows 进程所有权与停服策略。

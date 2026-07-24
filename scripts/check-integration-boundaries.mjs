@@ -109,6 +109,7 @@ async function checkFrontendStubProviderBoundary() {
 }
 
 async function checkFrontendLiveDemoDefaults() {
+  const appController = await readFile('js/app/AppController.js', 'utf8');
   const previousLocalStorage = globalThis.localStorage;
   const storage = createMemoryStorage({
     llm_stub_default_migration_v1: '1',
@@ -121,29 +122,69 @@ async function checkFrontendLiveDemoDefaults() {
 
   try {
     const { LocalConfigStore } = await import('../js/storage/LocalConfigStore.js');
+    const {
+      resolveDemoAvatarId,
+      resolveReadyDemoDefaults
+    } = await import('../js/config/demoExperience.js');
     const store = new LocalConfigStore();
     const llmConfig = store.loadLLMConfig();
     const ttsConfig = store.loadTTSConfig();
-    const adoptedLLM = store.adoptReadyLLMDefault(llmConfig, [{
-      provider: 'deepseek',
-      configured: true,
-      status: 'ready',
-      mode: 'real',
-      defaultModel: 'deepseek-v4-flash'
-    }]);
-    const adoptedTTS = store.adoptReadyTTSDefault(ttsConfig, [{
-      provider: 'cosyvoice',
-      configured: true,
-      available: true,
-      status: 'ready',
-      health: { live: true }
-    }]);
+    const providerStatus = {
+      llm: [{
+        provider: 'deepseek',
+        configured: true,
+        status: 'ready',
+        mode: 'real',
+        defaultModel: 'deepseek-v4-flash'
+      }],
+      tts: [{
+        provider: 'cosyvoice',
+        configured: true,
+        available: true,
+        status: 'ready',
+        health: { live: true }
+      }]
+    };
+    const resolved = resolveReadyDemoDefaults({
+      llmConfig: { ...llmConfig, provider: 'qwen', model: 'qwen-plus' },
+      ttsConfig,
+      providerStatus
+    });
+    const resolvedAgain = resolveReadyDemoDefaults({
+      llmConfig: { ...resolved.llmConfig, provider: 'stub', model: 'stub' },
+      ttsConfig: { ...resolved.ttsConfig, engine: 'mock' },
+      providerStatus
+    });
+    const unavailable = resolveReadyDemoDefaults({
+      llmConfig,
+      ttsConfig,
+      providerStatus: {
+        llm: [{ provider: 'deepseek', configured: false, status: 'missing_key', mode: 'real' }],
+        tts: [{ provider: 'cosyvoice', configured: true, available: false, status: 'local_service_not_running' }]
+      }
+    });
 
-    assert(adoptedLLM?.provider === 'deepseek', '后端 DeepSeek ready 时，旧 stub 默认应一次性迁移到真实 provider。');
-    assert(adoptedLLM?.model === 'deepseek-v4-flash', '真实 DeepSeek 默认模型必须来自后端 provider 状态。');
-    assert(adoptedTTS?.engine === 'cosyvoice', '后端 CosyVoice live ready 时，旧 mock 默认应一次性迁移。');
-    assert(store.adoptReadyLLMDefault({ ...adoptedLLM, provider: 'stub' }, []) === null, 'LLM live 默认迁移不得重复覆盖用户后续选择。');
-    assert(store.adoptReadyTTSDefault({ ...adoptedTTS, engine: 'mock' }, []) === null, 'TTS live 默认迁移不得重复覆盖用户后续选择。');
+    assert(resolved.llmConfig.provider === 'deepseek', '后端 DeepSeek ready 时，每次正式页面启动都应优先真实 provider。');
+    assert(resolved.llmConfig.model === 'deepseek-v4-flash', '真实 DeepSeek 默认模型必须来自后端 provider 状态。');
+    assert(resolved.ttsConfig.engine === 'cosyvoice', '后端 CosyVoice live ready 时，每次正式页面启动都应优先真实 TTS。');
+    assert(resolvedAgain.llmConfig.provider === 'deepseek' && resolvedAgain.ttsConfig.engine === 'cosyvoice', '历史手动 Stub/Mock 不得在下一次正式页面启动时覆盖 ready 的真实 provider。');
+    assert(unavailable.llmConfig.provider === llmConfig.provider && unavailable.ttsConfig.engine === ttsConfig.engine, '真实 provider 未 ready 时必须保留无 Key 安全默认。');
+    assert(resolveDemoAvatarId({
+      requestedAvatarId: '',
+      defaultAvatarId: 'alice',
+      avatars: [{ id: 'alice' }, { id: 'osa_shiro' }]
+    }) === 'alice', '普通正式入口必须使用 registry 默认 Alice。');
+    assert(resolveDemoAvatarId({
+      requestedAvatarId: 'osa_shiro',
+      defaultAvatarId: 'alice',
+      avatars: [{ id: 'alice' }, { id: 'osa_shiro' }]
+    }) === 'osa_shiro', '显式 avatar 查询参数必须继续覆盖正式默认。');
+    assert(
+      appController.indexOf('await this.applyReadyDemoDefaults()') < appController.indexOf('this.ui.init()'),
+      'AppController 必须在 UI 可交互前完成真实 Demo provider 默认解析。'
+    );
+    assert(appController.includes('resolveDemoAvatarId({'), 'AppController 普通入口必须通过正式 Avatar 默认解析器选择角色。');
+    assert(!appController.includes('const savedAvatarId = this.store.loadAvatarId'), '普通正式入口不得再由历史 avatar_id 覆盖 registry 默认 Alice。');
   } finally {
     if (previousLocalStorage === undefined) delete globalThis.localStorage;
     else globalThis.localStorage = previousLocalStorage;

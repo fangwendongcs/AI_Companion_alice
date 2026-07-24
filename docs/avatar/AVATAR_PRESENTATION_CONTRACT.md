@@ -4,7 +4,7 @@ This document defines the Web avatar presentation boundary for Alice. The goal i
 
 ## Current Audit Result
 
-Status: MVP wiring complete; real CosyVoice2 browser / visual QA remains external-runtime dependent.
+Status: MVP wiring complete; the default Alice has passed real CosyVoice2 browser lifecycle QA. Other avatars remain external-runtime and model-specific visual QA work.
 
 - `/api/dialogue` already returns renderer-agnostic semantic fields such as `companion_state`, `emotion`, `tone`, and `avatar_directive`.
 - `DialogueManager` only forwards dialogue response metadata and does not make renderer decisions.
@@ -142,6 +142,8 @@ Responsibilities:
 
 - Convert semantic emotion and tone into renderer expression instructions.
 - Handle neutral / happy / sad / angry / surprised / concerned / apologetic fallback.
+- Preserve explicit `intensity=0` for full cleanup; do not replace it with the default intensity.
+- Render `happy` with a light neutral face while voice, blink and body motion carry the playful semantic, avoiding joy/fun mouth morphs that can expose teeth.
 - Drive blink policy when the active renderer supports it.
 - Use `manifest.renderer.expressionMap` and capabilities to avoid model-specific hardcoding.
 - Provide expression pattern matching helpers used by `VRMRenderer` during morph target collection.
@@ -356,6 +358,8 @@ Acceptance:
 - `LipSyncController` reports `audio-driven` when amplitude sampling is available, `loop` when it falls back to the basic speaking loop, `no-mouth` when a renderer has no mouth morphs, and `idle` after cleanup.
 - `check:vrm-renderer-flow` and `check:companion-state-flow` cover the debug snapshot and Debug Panel fields.
 - No audio body, provider key, or model-specific morph name is stored in global app state.
+
+2026-07-24 default-Alice evidence: 10 real DeepSeek + CosyVoice2 browser turns all produced audio-driven U/O mouth samples, never activated the happy morph, and ended with idle lip-sync and zero mouth influence. A controlled provider fallback followed the same cleanup path. The full evidence table is in `docs/reports/DEMO_EXPERIENCE_ACCEPTANCE_20260724.md`.
 
 ### Presentation-6: Phoneme / Viseme And Real TTS Evaluation
 

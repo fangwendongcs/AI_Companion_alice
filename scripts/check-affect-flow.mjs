@@ -32,6 +32,14 @@ function checkAffectPolicyOutputs() {
   });
   assert(error.emotion === 'apologetic', '错误或 fallback 应倾向 apologetic。');
   assert(error.motion?.slot === 'apologize', 'apologetic 应映射到 apologize motion hint。');
+
+  const distress = service.decide({
+    message: '我今天很累，也有点空。',
+    reply: '辛苦了，项目做完值得开心！',
+    memory: { longTerm: { count: 2 } }
+  });
+  assert(distress.emotion === 'concerned', '用户明确疲惫或担心时应优先 concerned，不能被回复感叹号或 memory 覆盖。');
+  assert(distress.reason === 'user_distress', '用户负面状态应保留稳定的 user_distress 原因。');
 }
 
 async function checkDialogueAffectMetadata() {

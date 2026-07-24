@@ -17,7 +17,9 @@ http://localhost:3000
 http://localhost:3000?debug=1
 ```
 
-页面加载后会读取 `/api/providers`。如果浏览器仍停留在历史默认的 `stub` / `mock`，且后端报告 DeepSeek `ready`、CosyVoice `live ready`，Web 会一次性迁移到 `deepseek` / `cosyvoice` 并保存选择。迁移后用户仍可在开发设置中手动切回 Stub 或 Mock，后续加载不会再次覆盖明确选择。
+页面加载后会读取 `/api/providers`。正式 Demo 入口以“打开即可演示”为准：只要后端报告 DeepSeek 与 CosyVoice2 ready，每次加载都会在 UI 初始化前选用 `deepseek` / 后端默认 model 与 `cosyvoice`，避免历史 localStorage 把演示静默带回 Stub / Mock。开发设置仍可用于当前页面排障，但刷新后会重新采用 ready 的正式 Demo provider。
+
+普通 `/`、`/?debug=1` 和刷新入口默认使用 registry 的 `alice`，其正式 Demo 模型为 `assets/avatars/test-vrm/girl.vrm`。历史 `avatar_id` 不再改变默认入口；只有显式 `?avatar=<registry-id>` 才作为本次加载的 QA 覆盖。`demo:start` / `demo:status` 会校验 `alice` manifest、模型文件和 Web 模型 URL，缺失时不会把服务误报为完整 ready。
 
 ### `demo:start`
 
@@ -70,7 +72,7 @@ runtime/demo/logs/cosyvoice.log
 - readiness 或真实 LLM / TTS 检查失败：`demo:start` 返回失败并停止本次创建的服务，避免留下半启动状态。
 - stale state：先运行 `npm run demo:stop`；脚本只处理仍能通过进程指纹确认的本实例进程。
 - 未管理端口占用：脚本报告端口并退出，需要用户自行判断占用来源。
-- 页面有端口但回复仍是本地演示文案：检查设置与 localStorage 是否为 `llm_provider=stub` / `tts_engine=mock`；新版 Web 会在真实 provider ready 时做一次性迁移，不要求清空全部浏览器数据。
+- 页面有端口但回复仍是本地演示文案：先看 `/api/providers` 是否真的报告 DeepSeek / CosyVoice2 ready；新版正式 Demo 会在每次加载时采用 ready provider，不要求清空浏览器数据。
 
 ## 环境边界
 
