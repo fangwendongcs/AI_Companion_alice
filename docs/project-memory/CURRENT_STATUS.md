@@ -1,6 +1,6 @@
 # Current Status
 
-最后更新：2026-07-24
+最后更新：2026-07-27
 
 ## 当前阶段
 
@@ -19,6 +19,7 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 - P1B 已收口 Memory 确定性问题：偏好保留否定极性，写入指令与召回问句分离，短期消息按 `sessionId + avatarId` 隔离，敏感用户轮次及 assistant 同轮回复不进入 SQLite。
 - P1C 已将 LLM 回复上限配置化为 `LLM_MAX_TOKENS`（默认 `320`），内部保留安全 finish reason / token usage 诊断，并收口舞台提示、emoji 和记忆确认表达边界。
 - P1D 已收口波浪号与记忆确认措辞，并提供默认关闭、production 强制关闭的五字段安全评测诊断；4 轮 DeepSeek 抽样全部 `llm_only`、无截断、无 fallback，P1 对话质量阶段可以正式结束。
+- 2026-07-27 对话行为微调已收口：后端明确“当前轮要求 > 会话偏好 > Persona 默认主动性 > 建议/追问”，新增即时策略解析、最终草稿行为检查和最多两次受控重写；12 轮真实 DeepSeek 固定集全部 `llm_only`、无 fallback、无最终违规。
 - P3 已收口 Dialogue 可观测链路：`meta.trace` 贯通 `X-Request-ID`、编排耗时和 LLM 耗时；成功、fallback、未降级失败都有固定字段脱敏日志，Web Debug 面板显示 provider/model/mode/requestId/耗时/fallback/errorCode。
 - TTS 当前公开主线是 `mock` 和 `cosyvoice`；其他 provider adapter 可留在后端实验层，但不进入 Web Settings 公开选择。
 - CosyVoice2 已在 Web `TTSService` 内启用首段优先分段调度：仍复用 `/api/tts` 完整 WAV/Base64 Audio Result，不是 PCM streaming；中间段不会触发 idle 收敛。2026-07-22 当前策略为：12 字以内单段；13–24 字短回复允许自然首段或约 `8–10` 字语义首段；25 字以上优先 8–14 字自然首段或 `想听` / `陪我` / `然后` 等中文 cue，避免切断“声音”“心情”等常见词；初始预取采用 adaptive，短两段 `first-ready`，三段以上第二段立即进入 2 路受控预取，后续按播放时长窗口补齐。真实 Alice `/api/tts` objective 探针显示：16 字无自然停顿短句为 `9+7`，首音约 `1.68s`、最大 gap 约 `1.76s`；26 字中句为 `6+8+12`，首音约 `3.27s`、最大 gap 约 `1.13s`；74 / 95 字长句首音约 `4.31s / 4.02s`，最大 gap 约 `1.49s / 2.08s`。额外验证显示：短两段强制并发可把 gap 压到 `2ms`，但首音会退到 `3.15–3.76s`；全局 12 字细分可压低 26 字 gap，但 74 / 95 字会因段数过多和本机推理抖动出现更大空洞。结论：分段调度已能避免“长回复等完整音频”，但当前 macOS 本地 CosyVoice2 FastAPI/WAV/Base64 链路仍不能稳定保证全部段间空洞低于 `300–500ms`。`cosyvoice:start` 会等待 endpoint ready 并完成一次短合成预热，避免首个用户请求承担 runtime 冷启动。
@@ -38,7 +39,7 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 | `dialogue.v1` 语义契约 | 可用 | `backend/contracts/dialogueContract.js` |
 | SQLite-backed Memory | 可用；P1B 极性、召回问句拦截、短期 avatar 隔离与敏感写入防线已收口 | `docs/architecture/PHASE5_MEMORY_ARCHITECTURE.md` |
 | Persona / Affect | 可用 | `backend/config/avatarPersonas.js`、`backend/services/CompanionAffectService.js` |
-| P1A–P1D 对话质量基线 | 可用；自动检查零真实费用，P1D 真实抽样已通过 | `docs/product/DIALOGUE_QUALITY_BASELINE.md`、`scripts/check-dialogue-quality-logic.mjs` |
+| 对话质量与即时行为基线 | 可用；P1A–P1D 基础及 2026-07-27 的 12 轮即时行为固定集已通过 | `docs/product/DIALOGUE_QUALITY_BASELINE.md`、`scripts/check-dialogue-quality-logic.mjs`、`scripts/check-dialogue-behavior.mjs` |
 | P3 Dialogue 可观测性 | 可用；requestId、LLM/编排耗时、fallback/error 日志与 Web Debug 已贯通 | `scripts/check-dialogue-observability.mjs`、`docs/api/API_CONTRACT.md` |
 | Local RAG | 可用 | `docs/guides/KNOWLEDGE_GUIDE.md` |
 | n8n Workflow 边界 | 可选 | `docs/architecture/DIALOGUE_BACKEND_BOUNDARY.md` |
@@ -53,12 +54,12 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 
 | 方向 | 当前下一步 |
 | --- | --- |
-| 角色感真实评测 | 以“先陪伴、别建议”、人格自述、跨轮引用和表达一致性为固定用例做小步 Persona/Prompt 评测，并邀请陌生用户完成 10 分钟会话；不扩张 Agent/RAG/Provider。 |
+| 角色感真实评测 | “先陪伴、别建议”固定集已收口；下一步邀请陌生用户完成 10 分钟会话，记录性格辨识、继续聊天意愿和“她记得我”反馈，不扩张 Agent/RAG/Provider。 |
 | Project Memory | 后续每次阶段性变更维护 `docs/project-memory/*`，避免聊天记录成为唯一上下文。 |
 | Demo Runtime | macOS 本机完整启停已验收；后续仅在需要跨平台时补 Windows 进程管理。 |
 | TTS | 保持 Mock 稳定；CosyVoice2 已通过 99.48 秒真实浏览器播放和连续两轮，长回复启用首段优先分段调度，TTS 独立上游超时默认 90 秒；17 次 underrun / 最大 6.088 秒 gap 留给 P5 决策。 |
 | VRM | 默认 Alice 已完成 99.48 秒真实音频、连续两轮、替换/取消/恢复和保守口型近景 QA；Shiro / Wambo 及未来模型替换仍需单独视觉验收。 |
-| Memory / Persona | P1A–P1D 基础阶段已完成；下一步只围绕真实会话暴露的角色服从度和会话内关系连续性做产品体验验证。 |
+| Memory / Persona | 基础阶段和即时行为微调已完成；下一步只围绕陌生用户真实会话暴露的人格一致性和会话内关系感做产品体验验证。 |
 | Observability | P3 已完成当前单实例闭环；后续真实部署时再评估集中式日志、指标存储与跨服务 tracing。 |
 | Security | 公网前仍需正式鉴权、域名、HTTPS、secret manager 和部署平台策略。 |
 | LLM Provider | 后续用真实 Key 验证 OpenAI / Qwen；DeepSeek 默认 `deepseek-v4-flash` 已完成项目内 `/api/dialogue` live 验证。 |
@@ -78,6 +79,7 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 - 新的 adaptive 分段调度已用自动化、真实 Alice `/api/tts` 探针和浏览器补充验证；Node probe 仍用于稳定复查首音、`segmentGapMs` 和预取策略，99.48 秒浏览器结果则作为真实视觉/生命周期证据。
 - Demo supervisor 的 PID 指纹与 signal 管理当前以 macOS / Linux 为基线，Windows 尚未实现或验收。
 - P3 当前是单实例 requestId + 结构化日志 + Web Debug 基线，不包含集中式日志平台、持久化指标、Sentry/OpenTelemetry 或跨服务 trace。
+- DeepSeek 明确边界轮次可能因复杂规则消耗内部生成预算并触发 2～3 次生成；最终 12 轮虽无 fallback，但最慢一轮为 `17.08s`，服从度提升存在可感知延迟代价。
 
 ## 最近验证
 
@@ -231,6 +233,16 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 - 未通过的体验项：第 3 轮用户明确“先别给建议”后，回复仍主动抛出“要不要聊窗外”；10 轮中 5 轮段间 gap 超过 `1s`，最大 `6271ms`。前者进入下一阶段角色感微调，后者继续作为 P5 的首要输入。
 - 逐轮原始回复、requestId 和指标见 `docs/reports/DEMO_EXPERIENCE_ACCEPTANCE_20260724.md`；本轮不涉及 iOS、RAG、Agent、新 Provider 或新协议。
 
+2026-07-27 Alice 对话行为微调：
+
+- 新增 `DialogueBehaviorPolicy`，只在后端从当前用户输入和最近四条用户消息解析建议、追问、话题、安慰、修正、连续性和低能量约束；当前轮明确要求优先，策略不进入长期 Memory。
+- Prompt 增加统一行为优先级和当前轮策略，近期 role history 继续保持原生角色；短期历史召回不得误称为已保存长期记忆。
+- 首次草稿违规或为空时，最多两次以“原用户消息 → 草稿 → 重写指令”临时 role 序列重写；只保存最终交换，不改变 `dialogue.v1`。
+- `check:dialogue-behavior` 的 12 个固定用例、同义表达、防误判、Affect、Memory、Provider、Observability 和 Contract 专项检查通过。
+- 最终真实 DeepSeek 12/12 为 `deepseek-v4-flash / llm_only`，0 fallback、0 最终行为违规；第 1 轮前两次均为 `finishReason=length / completionTokens=480`，第三次重写成功，总耗时 `17.08s`。
+- 全量 `npm run check`、隔离环境 `npm run smoke` 和 `git diff --check` 通过；smoke 使用临时 SQLite 并清空本机可选 n8n 配置，不修改正式数据库或 `.env`。
+- 逐轮实际回复和验收标准见 `docs/reports/DIALOGUE_BEHAVIOR_TUNING_20260727.md`；本轮未改 TTS、VRM、RAG、Agent、iOS 或 Provider 列表。
+
 ## 本次项目记忆更新记录
 
 | 日期 | 更新内容 |
@@ -255,3 +267,4 @@ Alice 当前处在“网页端本地 MVP + 后端契约收口 + Web VRMRenderer 
 | 2026-07-23 | 完成 P3 Dialogue 可观测性收口：兼容 `meta.trace` 增加 requestId、编排耗时与 LLM 耗时；专项脱敏日志覆盖成功/fallback/失败，HTTP 错误 requestId 进入 `AppError`，Web Debug 明确展示真实 provider 或“provider/model → stub”；不改变 `dialogue.v1`。 |
 | 2026-07-23 | 完成 P2 扩展验收：默认 Alice 通过 99.48 秒真实 CosyVoice2、连续两轮和自然结束；按视觉反馈改为 U/O 保守口型、最大 influence 0.22，warm/curious 不再叠加露齿笑；段间 gap 数据转入 P5。 |
 | 2026-07-24 | 完成正式 Demo 入口与 10 轮真实体验验收：girl.vrm / DeepSeek / CosyVoice2 在正常入口强制采用 ready 默认；收口 distress 情绪误判、结束态表情残留和露齿 happy morph；记录长期记忆、连续性、表达联动、受控 fallback 与 TTS gap 证据。 |
+| 2026-07-27 | 完成 Alice 即时对话行为微调：当前轮要求高于 Persona 主动性，固定禁止建议/追问/转题/过度安慰、历史承接和建议恢复；12 轮真实 DeepSeek 全部 `llm_only`，公开契约不变。 |

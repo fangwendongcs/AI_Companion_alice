@@ -6,6 +6,10 @@ import { LLMService, resolveLLMRequest } from './LLMService.js';
 import { PromptBuilder } from './PromptBuilder.js';
 import { PersonaService } from './PersonaService.js';
 import { CompanionAffectService } from './CompanionAffectService.js';
+import {
+  inspectDialogueReply,
+  resolveDialogueBehavior
+} from './DialogueBehaviorPolicy.js';
 import { buildDialogueContract } from '../contracts/dialogueContract.js';
 import {
   dialogueDebugLLMDiagnostics,
@@ -41,6 +45,7 @@ export class DialogueOrchestrationService {
     promptBuilder = new PromptBuilder(),
     personaService = new PersonaService(),
     affectService = new CompanionAffectService(),
+    behaviorPolicy = resolveDialogueBehavior,
     fallbackToStub = dialogueFallbackToStub,
     debugLLMDiagnostics = dialogueDebugLLMDiagnostics
   } = {}) {
@@ -51,6 +56,7 @@ export class DialogueOrchestrationService {
     this.promptBuilder = promptBuilder;
     this.personaService = personaService;
     this.affectService = affectService;
+    this.behaviorPolicy = behaviorPolicy;
     this.fallbackToStub = fallbackToStub;
     this.debugLLMDiagnostics = Boolean(debugLLMDiagnostics);
   }
@@ -75,6 +81,10 @@ export class DialogueOrchestrationService {
       enabled: options.useMemory,
       sessionId,
       avatarId
+    });
+    const behavior = this.behaviorPolicy({
+      message,
+      history: memory?.context
     });
     const rag = await this.getRagContext(message, {
       enabled: options.useRag
@@ -121,27 +131,53 @@ export class DialogueOrchestrationService {
         persona,
         memory,
         rag,
-        workflow
+        workflow,
+        behavior
       });
       const llmInput = {
         message,
         provider: resolvedRequest.provider,
         model: resolvedRequest.model,
         systemPrompt: dialogueContext.systemPrompt,
-        history: dialogueContext.history
+        history: dialogueContext.history,
+        temperature: resolveDialogueTemperature(behavior),
+        maxTokens: resolveDialogueMaxTokens(behavior, resolvedRequest.provider)
       };
       const llmStartedAt = nowMs();
       try {
-        if (typeof this.llmService.chatDetailed === 'function') {
-          const result = await this.llmService.chatDetailed(llmInput);
+        let result = await callLLMServiceForBehavior(this.llmService, llmInput);
+        reply = result.reply;
+        resolvedRequest = {
+          provider: result.provider,
+          model: result.model
+        };
+        llmDiagnostics = normalizeLLMDiagnostics(result.diagnostics);
+
+        let inspection = inspectReplyDraft({ reply, behavior, message });
+        for (let repairAttempt = 0; repairAttempt < 2 && !inspection.ok; repairAttempt += 1) {
+          result = await callLLMServiceForBehavior(this.llmService, {
+            ...llmInput,
+            provider: resolvedRequest.provider,
+            model: resolvedRequest.model,
+            systemPrompt: buildBehaviorRepairPrompt(
+              dialogueContext.systemPrompt,
+              inspection.violations
+            ),
+            history: [
+              ...dialogueContext.history,
+              { role: 'user', content: message },
+              { role: 'assistant', content: reply }
+            ],
+            message: '请按后端本轮重写要求改写上一条草稿。只输出新的回复正文，不要解释。',
+            temperature: 0.5
+          });
           reply = result.reply;
           resolvedRequest = {
             provider: result.provider,
             model: result.model
           };
           llmDiagnostics = normalizeLLMDiagnostics(result.diagnostics);
-        } else {
-          reply = await this.llmService.chat(llmInput);
+          inspection = inspectReplyDraft({ reply, behavior, message });
         }
       } finally {
         llmMs = elapsedMs(llmStartedAt);
@@ -535,6 +571,98 @@ function normalizeLLMDiagnostics(diagnostics) {
     completionTokens: normalizeDiagnosticTokenCount(diagnostics.usage?.completionTokens),
     totalTokens: normalizeDiagnosticTokenCount(diagnostics.usage?.totalTokens)
   };
+}
+
+async function callLLMService(llmService, input) {
+  if (typeof llmService.chatDetailed === 'function') {
+    const result = await llmService.chatDetailed(input);
+    return {
+      reply: result.reply,
+      provider: result.provider || input.provider,
+      model: result.model || input.model,
+      diagnostics: result.diagnostics || null
+    };
+  }
+  return {
+    reply: await llmService.chat(input),
+    provider: input.provider,
+    model: input.model,
+    diagnostics: null
+  };
+}
+
+async function callLLMServiceForBehavior(llmService, input) {
+  try {
+    return await callLLMService(llmService, input);
+  } catch (error) {
+    if (error?.code !== 'LLM_EMPTY_RESPONSE') throw error;
+    return {
+      reply: '',
+      provider: input.provider,
+      model: input.model,
+      diagnostics: null
+    };
+  }
+}
+
+function buildBehaviorRepairPrompt(systemPrompt, violations = []) {
+  const labels = {
+    forbidden_advice: '只承接用户的感受和边界，不给方案、行动指令或软性引导',
+    missing_requested_advice: '用户已明确请求建议，直接给出至少一条具体建议，不要只追问',
+    empty_reply: '必须生成一条非空、自然的中文回复',
+    forbidden_question: '不要提出任何问题或变相索取信息',
+    forbidden_topic_shift: '不要转移或开启新话题',
+    forbidden_comfort: '不要安慰、哄劝或夸大情绪',
+    response_too_long: '压缩到当前轮规定的句数',
+    too_many_questions: '问题数量必须符合当前轮上限',
+    over_medicalized: '删除无依据的医学化或危机化判断',
+    repetitive_template: '删除重复陪伴模板',
+    stage_direction: '删除所有括号动作、表情和语气提示',
+    mechanical_meta: '像角色一样自然承接，不提“对话记录”“系统”或 AI 自检过程',
+    misstated_memory_scope: '把内容准确表述为近期对话，不声称已保存为记忆或长期记忆',
+    mechanical_echo: '不要机械复述用户原句'
+  };
+  const requirements = [...new Set(violations)]
+    .map((item) => labels[item])
+    .filter(Boolean);
+  const repairSection = [
+    '【后端本轮重写要求】',
+    `上一次草稿未通过行为检查：${requirements.join('；') || '不符合当前轮策略'}。`,
+    '重新生成一条自然、简短、保持当前 Persona 的中文最终回复。句子聚焦用户已经表达的感受或处境，不描述用户接下来该做什么，并自然尊重其即时要求。只输出回复正文，不解释规则，也不要提到重写或检查。'
+  ].join('\n');
+  return `${String(systemPrompt || '').trim()}\n\n${repairSection}`;
+}
+
+function inspectReplyDraft({ reply, behavior, message }) {
+  if (!String(reply || '').trim()) {
+    return { ok: false, violations: ['empty_reply'] };
+  }
+  return inspectDialogueReply({
+    reply,
+    behavior,
+    userMessage: message
+  });
+}
+
+function resolveDialogueTemperature(behavior = {}) {
+  const hasExplicitBoundary = behavior.advice === 'forbidden'
+    || behavior.questions === 'forbidden'
+    || behavior.topicShift === 'forbidden'
+    || behavior.comfort === 'reduced'
+    || behavior.correction !== 'none';
+  if (hasExplicitBoundary) return 0.7;
+  if (behavior.lowEnergy) return 0.65;
+  return 0.8;
+}
+
+function resolveDialogueMaxTokens(behavior = {}, provider = '') {
+  const hasExplicitBoundary = behavior.advice === 'forbidden'
+    || behavior.questions === 'forbidden'
+    || behavior.topicShift === 'forbidden'
+    || behavior.comfort === 'reduced'
+    || behavior.correction !== 'none'
+    || behavior.adviceRequested === true;
+  return provider === 'deepseek' && hasExplicitBoundary ? 480 : undefined;
 }
 
 function normalizeDiagnosticTokenCount(value) {

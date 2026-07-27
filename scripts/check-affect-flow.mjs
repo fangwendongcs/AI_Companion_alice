@@ -40,6 +40,31 @@ function checkAffectPolicyOutputs() {
   });
   assert(distress.emotion === 'concerned', '用户明确疲惫或担心时应优先 concerned，不能被回复感叹号或 memory 覆盖。');
   assert(distress.reason === 'user_distress', '用户负面状态应保留稳定的 user_distress 原因。');
+
+  const venting = service.decide({
+    message: '我就是想抱怨一下，今天真的好烦。',
+    reply: '这一天确实够折腾的！'
+  });
+  assert(venting.emotion === 'concerned', '用户明确抱怨或烦躁时不能被回复感叹号误判为 happy。');
+
+  const noComfort = service.decide({
+    message: '不用安慰我，我只是随口说说。',
+    reply: '好，明白了！'
+  });
+  assert(noComfort.emotion === 'warm', '拒绝安慰或随口表达时应保持低干预 warm，不能被回复感叹号误判为 happy。');
+
+  const currentPositive = service.decide({
+    message: '我今天挺开心的。',
+    reply: '听出来了。',
+    memory: { longTerm: { count: 2 } }
+  });
+  assert(currentPositive.emotion === 'happy', '用户当前轮明确开心时必须高于旧 Memory 的默认 warm。');
+
+  const punctuationOnly = service.decide({
+    message: '我只是随便说一句。',
+    reply: '明白！'
+  });
+  assert(punctuationOnly.emotion === 'warm', '回复感叹号本身不能作为 happy 语义证据。');
 }
 
 async function checkDialogueAffectMetadata() {

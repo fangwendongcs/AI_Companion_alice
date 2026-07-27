@@ -1,6 +1,6 @@
 # Risks And Todo
 
-最后更新：2026-07-24
+最后更新：2026-07-27
 
 ## 当前风险
 
@@ -14,8 +14,9 @@
 | `runtime/cosyvoice/` 是本地未提交 runtime，其他机器默认不存在。 | 低 | 文档和脚本说明准备流程。 | `.gitignore`、`docs/guides/COSYVOICE_RUNTIME.md` |
 | 真实 CosyVoice2 口型观感具有模型差异。 | 中 | 默认 Alice 已通过 99.48 秒真实浏览器 QA，并改为 U/O 保守口型、最大 influence `0.22`；其他模型仍需近景验证。 | `docs/architecture/VRM_RENDERER_MVP.md`、浏览器 Debug Panel |
 | 长回复分段 TTS 仍可能出现明显段间空档。 | 中 | 99.48 秒真实音频记录 17 次 underrun、最大 gap `6.088s`；2026-07-24 的 10 轮真实对话有 5 轮超过 `1s`、最大 `6.271s`。保持现有同步协议，作为 P5 流式/吞吐决策输入。 | `js/voice/TTSService.js`、`scripts/cosyvoice/probe-web-tts-latency.mjs` |
-| “先陪伴、别建议”约束在真实模型下仍偶发失守。 | 中 | 10 轮验收第 3 轮能复述要求，但仍主动建议聊窗外；不在本轮堆正则，作为下一阶段固定用例做 Persona/Prompt 小步评测。 | `docs/reports/DEMO_EXPERIENCE_ACCEPTANCE_20260724.md`、`docs/product/DIALOGUE_QUALITY_BASELINE.md` |
-| 真实 LLM 偶发空响应会触发安全降级。 | 低 | 本轮 DeepSeek 长回复出现一次 `empty_response`，P3 requestId/耗时/fallback 均正确；不把单次 provider 抖动误判为 TTS/VRM 问题。 | `docs/api/API_CONTRACT.md`、Dialogue Debug/结构化日志 |
+| “先陪伴、别建议”在未覆盖中文变体下仍可能出现新表达。 | 低 | 当前轮/近期会话策略、行为检查和最多两次草稿重写已落地；12 轮真实固定集 0 最终违规。后续只把真实用户暴露的新失败加入固定集，不扩张巨型状态机。 | `docs/reports/DIALOGUE_BEHAVIOR_TUNING_20260727.md`、`scripts/check-dialogue-behavior.mjs` |
+| 复杂行为边界可能增加 DeepSeek 生成次数和长尾延迟。 | 中 | 明确边界轮次内部预算为 `480`，空正文或行为违规最多重写两次；最终 12 轮无 fallback，但最慢一轮前两次均 `finishReason=length`，第三次成功，总耗时 `17.08s`。 | `backend/services/DialogueOrchestrationService.js`、`scripts/check-dialogue-behavior-live.mjs` |
+| 真实 LLM 偶发空响应会触发受控重写或安全降级。 | 低 | `LLM_EMPTY_RESPONSE` 先进入最多两次行为重写；仍为空或其他上游失败时保持既有 stub fallback 和 P3 requestId/耗时/原因。 | `docs/api/API_CONTRACT.md`、Dialogue Debug/结构化日志 |
 | P1A/P1B 自动化只能证明 Prompt 与 Memory 的确定性逻辑，不会证明真实中文陪伴质量。 | 中 | 已建立零费用质量逻辑基线；真实模型评测必须另行授权，并使用固定用例/人工量表。 | `docs/product/DIALOGUE_QUALITY_BASELINE.md` |
 | P1B 不做破坏性历史数据清洗；旧库中若曾写入敏感原文，记录不会被本轮自动删除。 | 中 | 新写入有 Service + Repository 双层拦截，检测到的旧敏感记录不会进入活动上下文；彻底擦除旧原文需要后续单独授权安全清理或重建本地库。 | `docs/architecture/PHASE5_MEMORY_ARCHITECTURE.md` |
 | 完整 Demo 的 supervisor 进程管理目前以 macOS / Linux POSIX signal 与 `ps` 为基线。 | 低 | `demo:start/status/stop` 已统一托管、校验进程指纹和真实 readiness；未知端口占用时拒绝自动处理。 | `docs/guides/DEMO_RUNTIME.md`、`scripts/demo/demo-manager.mjs` |
@@ -90,7 +91,7 @@
 
 ## 下一步建议
 
-1. 用固定真实模型用例小步修正“先陪伴、别建议”的角色服从度，再邀请陌生用户完成 10 分钟会话，记录性格辨识、继续聊天意愿和“她记得我”反馈。
+1. 固定真实模型行为用例已通过；下一步邀请陌生用户完成 10 分钟会话，记录性格辨识、继续聊天意愿、“她记得我”反馈，以及边界轮次额外延迟是否可接受。
 2. 基于 10 轮首音平均 `5.717s`、5 轮 gap 超过 `1s`、最大 `6.271s` 的证据决定 P5 是否需要 PCM streaming 或更保守的分段/并发策略，不直接破坏 `dialogue.v1`。
 3. 选择私有演示部署平台与预览域名后，再补平台变量、HTTPS、Secret Manager、持久化目录和健康检查方案。
 4. 仅在新增正式 Avatar 时补模型专用近景口型 QA，不重新打开已收口的 Alice P2 主阶段。

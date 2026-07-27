@@ -96,11 +96,12 @@ export class LLMService {
         throw createCodedHttpError('LLM upstream returned invalid JSON.', 502, 'LLM_INVALID_RESPONSE');
       }
 
+      const diagnostics = extractResponseDiagnostics(data);
       return {
-        reply: extractReplyText(data),
+        reply: extractReplyText(data, diagnostics),
         provider: normalizedProvider,
         model: resolvedModel,
-        diagnostics: extractResponseDiagnostics(data)
+        diagnostics
       };
     } catch (error) {
       throw normalizeUpstreamError(error);
@@ -176,7 +177,7 @@ function allowsKeylessProvider(provider, customKeyOptional) {
   return provider === 'custom' && customKeyOptional === true;
 }
 
-function extractReplyText(data) {
+function extractReplyText(data, diagnostics = null) {
   const content = data?.choices?.[0]?.message?.content;
   if (typeof content !== 'string') {
     throw createCodedHttpError('LLM upstream returned an invalid response.', 502, 'LLM_INVALID_RESPONSE');
@@ -184,7 +185,9 @@ function extractReplyText(data) {
 
   const reply = content.trim();
   if (!reply) {
-    throw createCodedHttpError('LLM upstream returned an empty response.', 502, 'LLM_EMPTY_RESPONSE');
+    const error = createCodedHttpError('LLM upstream returned an empty response.', 502, 'LLM_EMPTY_RESPONSE');
+    error.diagnostics = diagnostics;
+    throw error;
   }
   return reply;
 }
