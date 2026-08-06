@@ -79,10 +79,12 @@ runtime/demo/logs/cosyvoice.log
 默认端口为 Alice `3000`、CosyVoice `50000`。可选超时变量只用于特殊慢机器：
 
 ```text
-DEMO_START_TIMEOUT_MS=180000
+DEMO_START_TIMEOUT_MS=300000
 DEMO_STOP_TIMEOUT_MS=20000
 DEMO_LLM_CHECK_TIMEOUT_MS=60000
 DEMO_TTS_CHECK_TIMEOUT_MS=120000
 ```
+
+`DEMO_START_TIMEOUT_MS` 默认 5 分钟，用于覆盖 CosyVoice2 首次补齐 wetext 缓存和模型初始化的慢启动；服务提前 ready 时会立即继续，不会固定等满。
 
 当前进程管理和指纹检查以 macOS / Linux 的 `ps` 与 POSIX signal 为基线；Windows 尚未验收。旧的 `npm run dev`、`cosyvoice:start/stop` 和 `check:cosyvoice-live` 继续保留，供单服务开发和底层排障使用。

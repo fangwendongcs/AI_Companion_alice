@@ -196,10 +196,12 @@ npm run check:cosyvoice-runtime
 可调参数：
 
 - `COSYVOICE_STARTUP_WAIT_ENDPOINT=0`：只启动进程，不等待 endpoint，也不做预热。
-- `COSYVOICE_STARTUP_READY_ATTEMPTS=24`：endpoint ready 最大尝试次数。
+- `COSYVOICE_STARTUP_READY_ATTEMPTS=60`：endpoint ready 最大尝试次数；按默认 5 秒间隔，可覆盖约 5 分钟的首次启动。
 - `COSYVOICE_STARTUP_READY_INTERVAL_SECONDS=5`：ready 检查间隔。
 
 如果 FastAPI 进程立即退出，或在最大尝试次数内 endpoint 仍不可用，脚本会清理 pid 文件、打印 `runtime/cosyvoice/logs/fastapi.log` 尾部并失败，避免把失败启动误判为 ready。
+
+首次在新机器启动时，中文文本前端还可能向 `MODELSCOPE_CACHE` 补齐 wetext 资源。2026-07-31 本机实测在缓存不完整时超过了原默认的 120 秒；因此单服务启动和 `demo:start` 现在都默认等待最多 5 分钟。缓存完成后的热启动不会固定等满该时间，endpoint ready 且短合成预热成功后会立即返回。
 
 ```bash
 COSYVOICE_PYTHON="$PWD/runtime/cosyvoice/envs/cosyvoice-py310/bin/python" \
@@ -272,11 +274,11 @@ TTS_UPSTREAM_TIMEOUT_MS=90000
 
 Web 端的首音优化发生在 `TTSService`：
 
-1. 仅对 `cosyvoice` 长回复启用文本分段。
-2. 首段短文本优先请求并播放。
-3. 40 字以内且没有早期自然停顿的短/中短回复默认不硬切，避免无语义切分导致首音和段间空洞变差。
-4. 24 字以内且有早期自然停顿的短回复使用更小 follow-up 段和最多 2 路受控窗口，优先减少首段之后的空洞。
-5. 更长回复第二段立即预取，第三段默认延迟预热，之后保持最多 3 路受控窗口，避免本地 CosyVoice2 被无限并发抢占。
+1. 仅对 `cosyvoice` 且超过 `24` 字的回复启用文本分段；更短回复保持单段。
+2. `25–84` 字使用 balanced 档，`85` 字以上使用 extended 档，减少容易耗尽缓冲的过短音频段。
+3. 所有默认分段回复立即预取第二段，并保持最多 2 路受控窗口；3 路并发已被真实压测证实会加重 CPU 争抢。
+4. `25` 字以上在首段 ready 后等待第二段 ready 或最多 `5000ms`，建立早期音频缓冲。显式 `first-ready` 只保留为兼容选项。
+5. 后续段继续按已知音频时长与播放窗口补齐。
 6. 中间段不会触发 `audio:end`，整个回复仍视为同一次 utterance。
 
 这仍然使用现有 `/api/tts` 和完整 WAV/Base64 Audio Result，不是官方 FastAPI raw PCM 的浏览器流式播放。`upstreamStreaming=true` 仍只表示 CosyVoice official runtime 的上游响应形态。
@@ -299,6 +301,11 @@ npm run cosyvoice:probe-web-tts
 TTS_LATENCY_PROBE_TEXT='我想听你用温柔声音回应我一下好吗' \
 TTS_LATENCY_PROBE_REPEATS=10 \
 TTS_LATENCY_PROBE_JSON_OUT=runtime/cosyvoice/output/probe-web-tts-16chars-both-10x.json \
+npm run cosyvoice:probe-web-tts
+
+TTS_LATENCY_PROBE_MODE=segmented \
+TTS_LATENCY_SEGMENT_INITIAL_NEXT_WAIT_MS=5000 \
+TTS_LATENCY_PROBE_REPEATS=3 \
 npm run cosyvoice:probe-web-tts
 ```
 
@@ -329,6 +336,8 @@ npm run cosyvoice:probe-direct
 
 `cosyvoice:probe-direct` 直接调用 `model.model.tts(..., stream=false|true)`，用于判断当前机器、当前模型和当前 Python runtime 是否真的能在模型层先吐出首个 PCM chunk。该命令可能触发模型加载、文本前端、CPU/MPS 计算和 ModelScope / wetext 依赖初始化；失败时应记录具体依赖或运行时错误，不要归因成 Alice 后端 provider 失败。
 
+诊断脚本支持 `COSYVOICE_STREAM_PROBE_RESET_TOKEN_HOP=1`、`COSYVOICE_STREAM_PROBE_TOKEN_HOP_LEN`、`COSYVOICE_STREAM_PROBE_SCALE_FACTOR`、`COSYVOICE_STREAM_PROBE_LABELS` 和 `COSYVOICE_STREAM_PROBE_DEVICE=cpu|mps`。CosyVoice2 的 stream 调用会修改共享 `token_hop_len`，做重复对照时应显式重置，避免前一轮状态污染后一轮。
+
 2026-07-15 本机 macOS arm64 / MPS 实测：
 
 - `cosyvoice:probe-fastapi` 10 轮显示官方 FastAPI 在 4 / 8 / 16 / 30 字样本上均无 true streaming evidence；`stream=true` form 字段不会改变当前 HTTP contract。
@@ -336,18 +345,26 @@ npm run cosyvoice:probe-direct
 - 同日最新 3 轮复测仍为 `streamingEvidenceCount=0`；4 字样本 p50 约 `2.95s`，8 字样本 p50 约 `7.74s`，30 字样本 p50 约 `16.03s`，`firstPcm` 与 `allPcm` 基本相等，说明当前官方 FastAPI 路径仍需要等完整 PCM 生成。
 - `cosyvoice:probe-direct` 10 轮显示 Python API 的 `stream=true` 对 30 字样本有模型层提前 chunk 证据，但 p50 首 PCM 仍约 `11.70s`，且总完成时间更长；短句没有稳定收益。
 - 本轮当前 runtime 复测：FastAPI 3 轮中 4 字 p50 `1.43–1.49s`，8 字 p50 `3.25–3.37s`，16 字 p50 `1.96–2.57s`，30 字 p50 `9.83–10.05s`，`streamingEvidenceCount=0`。Direct Python 3 轮 warmup 后，4 字 p50 `1.69s`，8 字 p50 `2.57–2.63s`，16 字 p50 `2.53–3.36s`；`stream=True` 对 30 字能提前到 p50 `6.71s` 首块，但对 4–16 字仍基本不能产生稳定低延迟多 chunk。
-- Alice `/api/tts` + Web `TTSService` 分段调度最新复测：74 字样本单段首音约 `22.2s`，分段首音约 `4.9s`；95 字样本单段约 `28.2s`，分段约 `4.4s`，但 Node 探针仍显示多秒级段间 gap 风险。
+- Alice `/api/tts` + Web `TTSService` 当时复测：74 字样本单段首音约 `22.2s`，分段首音约 `4.9s`；95 字样本单段约 `28.2s`，分段约 `4.4s`，但 Node 探针仍显示多秒级段间 gap 风险。
 - 真实浏览器复测：16 字无自然停顿短句首音约 `1.97s`；53 字中回复首音约 `5.28s`、完整音频 ready 约 `12.75s`、播放完成约 `17.65s`；最终状态均回 idle；播放中取消、连续替换、静音和 runtime 停止 fallback 均未产生旧音频串音。
-- 因此当前阶段优先保留 Web 侧首段优先分段调度，并把 CosyVoice2 启动脚本改为 endpoint ready + 短合成预热；真正 PCM streaming / 自定义 FastAPI `stream=True` endpoint 对 5–20 字短回复收益有限，不应在未完成更多浏览器听感与多场景回归前替换现有 Audio Result 链路。
+- 因此 2026-07-15 当时优先保留 Web 侧首段优先分段调度，并把 CosyVoice2 启动脚本改为 endpoint ready + 短合成预热；真正 PCM streaming / 自定义 FastAPI `stream=True` endpoint 对 5–20 字短回复收益有限，不应在未完成更多浏览器听感与多场景回归前替换现有 Audio Result 链路。
+
+2026-07-28 P5 决策复测：
+
+- 官方 FastAPI 三次重复仍无 true streaming evidence；26 字样本即使提交 `stream=true`，首块 / 完成 p50 均约 `9661ms`。
+- Direct Python 对同一 26 字样本确认模型层 `stream=True` 可提前到 p50 `2503ms` 首块，但完整生成 p50 `10050ms`，无缓冲最大 gap p50 `2662ms`，`500ms` 缓冲后仍为 `2162ms`。
+- MPS 单次对照为首块 `3831ms`、完成 `11926ms`、最大 gap `3293ms`，并出现无效浮点转 int16 告警；当前不把 MPS 当作加速路径。
+- 采用 balanced / extended 分段、第二段即时 2 路预取和 `5000ms` 有界连续性等待后，Node 真实 `/api/tts` 探针在 26 / 54 / 95 字各三次重复中最大 gap 为 `3 / 5 / 4ms`。
+- 真实浏览器 54 / 95 字最大 gap 为 `24 / 236ms`；相对正式 Demo `6271ms` 基线下降约 `96.2%`。完整证据见 `docs/reports/P5_CONTINUOUS_TTS_DECISION_20260728.md`。
 
 候选方案评分（5 分最高）：
 
 | 方案 | 短回复首音 | 中文音质 | Mac 可运行性 | 改造复杂度 | 中断能力 | 扩展性 | 结论 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
 | 启动 ready + 短合成预热 | 3 | 5 | 5 | 1 | 5 | 4 | 本轮采用；消除冷启动误判和首个用户请求冷启动。 |
-| 保留 WAV/Base64 + 智能分段 | 2 | 5 | 5 | 2 | 4 | 4 | 已用于长回复；短回复无自然停顿时不硬切。 |
-| 自定义 FastAPI `stream=True` + PCM 转发 | 2 | 5 | 4 | 4 | 3 | 4 | 30 字可能有收益；4–16 字实测收益弱，暂不作为本轮主线。 |
-| WebSocket/AudioWorklet PCM streaming | 3 | 5 | 3 | 5 | 4 | 4 | 需要 provider 真首块足够快才值得做；当前证据不足。 |
+| 保留 WAV/Base64 + 平衡分段 / 有界缓冲 | 2 | 5 | 5 | 2 | 4 | 4 | P5 采用；真实浏览器最大 gap `236ms`，但中长回复首音约 `10–13s`。 |
+| 自定义 FastAPI `stream=True` + PCM 转发 | 2 | 5 | 4 | 4 | 3 | 4 | 模型层首块可提前，但当前 CPU chunk gap 仍超过 `2s`，本轮拒绝。 |
+| WebSocket/AudioWorklet PCM streaming | 2 | 5 | 3 | 5 | 4 | 4 | provider 实时系数仍大于 1，协议改造不能消除生成空洞，暂不实施。 |
 | 换实时 TTS provider | 5 | 待验证 | 待验证 | 4 | 4 | 3 | 可后续评估，但不能在中文、音色、许可和设备性能未验证前替换 CosyVoice2。 |
 
 ## 一键回归流程

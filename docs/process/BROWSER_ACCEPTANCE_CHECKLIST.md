@@ -18,6 +18,7 @@
 | `npm run check:mvp-flow` | 对话、音频、fallback、错误事件链路 | 否 |
 | `npm run check:avatar-flow` | registry / manifest / motions / runtime path 合约 | 否 |
 | `npm run check:runtime-contracts` | EventBus、StateStore、Debug Panel、AppController 收口合约 | 否 |
+| `npm run check:experience-entry` | 单一 Alice 普通入口、首次记忆同意、开发工具隔离和文案一致性 | 否 |
 | `npm run check:provider-config` | Provider readiness、默认 stub 与前端 secret 边界 | 否 |
 | `npm run check:memory-flow` | 后端短期 Memory、sessionId、maxTurns 裁剪 | 否 |
 | `npm run check:knowledge-flow` | 本地知识源读取与简单检索边界 | 否 |
@@ -35,13 +36,36 @@
 npm run dev
 ```
 
-2. 打开：
+2. 普通用户验收打开：
+
+```text
+http://localhost:3000/
+```
+
+3. 开发与 QA 验收打开：
 
 ```text
 http://localhost:3000?debug=1
 ```
 
-3. 展开右下或左下的 Debug Panel。
+4. 只有显式 `?debug=1` / `?localVrm=1` 入口显示开发设置和 Debug Panel。
+
+## 0. 普通用户 60 秒首次进入
+
+操作步骤：
+
+- 使用新的浏览器上下文打开 `http://localhost:3000/`。
+- 等待 Alice 出现，不提供任何开发者讲解。
+- 根据需要勾选“允许 Alice 记住这次聊天”，点击“开始聊聊”。
+- 输入一句自然中文并发送。
+
+预期 UI：
+
+- 首屏只有 Alice、一次点击即可完成的欢迎卡、声音开关和对话输入；不显示 Provider、Stub、Mock、上传、Debug、服装、亲密度、录制或分享入口。
+- 记忆默认关闭；用户选择后，右上角“记忆与隐私”可以再次开关并清除本次会话记忆。
+- 完整服务未 ready 时只显示“对话/声音还在准备”的用户提示，不显示 Key、URL 或 Provider 术语。
+- 点击“开始聊聊”后输入框立即获得焦点；用户应能在 60 秒内发送第一句话。
+- 普通本地入口不显示 Debug Panel；`?debug=1` 仍能恢复完整开发工具。
 
 ## 1. 默认 Alice 加载
 
@@ -61,7 +85,7 @@ http://localhost:3000?debug=1
 预期 UI：
 
 - 页面显示 Alice。
-- 状态徽章回到 `ONLINE`。
+- 状态徽章回到“在这里”。
 
 失败优先检查：
 

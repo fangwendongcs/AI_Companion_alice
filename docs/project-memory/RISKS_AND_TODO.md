@@ -1,6 +1,6 @@
 # Risks And Todo
 
-最后更新：2026-07-27
+最后更新：2026-07-31
 
 ## 当前风险
 
@@ -13,7 +13,9 @@
 | 当前默认 Alice 依赖 Git-ignored 的本机 `assets/avatars/test-vrm/girl.vrm`。 | 高 | 普通页与 debug 页已固定加载该模型，缺失/损坏时明确报错并仅启用既有 fallback；不静默切回旧 GLB。 | 正式分发前确认模型授权，将二进制迁移到可发布资产路径并更新 manifest。 |
 | `runtime/cosyvoice/` 是本地未提交 runtime，其他机器默认不存在。 | 低 | 文档和脚本说明准备流程。 | `.gitignore`、`docs/guides/COSYVOICE_RUNTIME.md` |
 | 真实 CosyVoice2 口型观感具有模型差异。 | 中 | 默认 Alice 已通过 99.48 秒真实浏览器 QA，并改为 U/O 保守口型、最大 influence `0.22`；其他模型仍需近景验证。 | `docs/architecture/VRM_RENDERER_MVP.md`、浏览器 Debug Panel |
-| 长回复分段 TTS 仍可能出现明显段间空档。 | 中 | 99.48 秒真实音频记录 17 次 underrun、最大 gap `6.088s`；2026-07-24 的 10 轮真实对话有 5 轮超过 `1s`、最大 `6.271s`。保持现有同步协议，作为 P5 流式/吞吐决策输入。 | `js/voice/TTSService.js`、`scripts/cosyvoice/probe-web-tts-latency.mjs` |
+| P5 连续播放以更晚首音换取低 gap，中长回复首音仍可感知。 | 中 | balanced / extended 分段、2 路即时预取和 `5000ms` 有界缓冲已把真实浏览器最大 gap 从 `6.271s` 降至 `236ms`；54 字 Node 首次播放 p50 约 `12.5s`。当前不引入吞吐不足的 PCM streaming。 | `docs/reports/P5_CONTINUOUS_TTS_DECISION_20260728.md`、`js/voice/TTSService.js` |
+| CosyVoice2 冷启动可因 wetext 缓存不完整超过原 120/180 秒窗口。 | 中 | `cosyvoice:start` 默认改为 `60 × 5s`，`demo:start` 默认 `300s`；仍在 ready 后立即返回并预热。 | `scripts/cosyvoice/start-official-fastapi.sh`、`scripts/demo/demo-manager.mjs` |
+| 其他 TTS adapter 存在不等于可作为正式 Demo provider。 | 中 | OpenAI / MiniMax / Higgs 分别因凭据无效或 base URL 缺失未完成 live；继续保持后端实验层，不扩大 Settings / API 公开集合。 | `docs/reports/TTS_FOLLOWUP_AUDIT_20260731.md`、`docs/guides/LOCAL_TTS.md` |
 | “先陪伴、别建议”在未覆盖中文变体下仍可能出现新表达。 | 低 | 当前轮/近期会话策略、行为检查和最多两次草稿重写已落地；12 轮真实固定集 0 最终违规。后续只把真实用户暴露的新失败加入固定集，不扩张巨型状态机。 | `docs/reports/DIALOGUE_BEHAVIOR_TUNING_20260727.md`、`scripts/check-dialogue-behavior.mjs` |
 | 复杂行为边界可能增加 DeepSeek 生成次数和长尾延迟。 | 中 | 明确边界轮次内部预算为 `480`，空正文或行为违规最多重写两次；最终 12 轮无 fallback，但最慢一轮前两次均 `finishReason=length`，第三次成功，总耗时 `17.08s`。 | `backend/services/DialogueOrchestrationService.js`、`scripts/check-dialogue-behavior-live.mjs` |
 | 真实 LLM 偶发空响应会触发受控重写或安全降级。 | 低 | `LLM_EMPTY_RESPONSE` 先进入最多两次行为重写；仍为空或其他上游失败时保持既有 stub fallback 和 P3 requestId/耗时/原因。 | `docs/api/API_CONTRACT.md`、Dialogue Debug/结构化日志 |
@@ -92,7 +94,7 @@
 ## 下一步建议
 
 1. 固定真实模型行为用例已通过；下一步邀请陌生用户完成 10 分钟会话，记录性格辨识、继续聊天意愿、“她记得我”反馈，以及边界轮次额外延迟是否可接受。
-2. 基于 10 轮首音平均 `5.717s`、5 轮 gap 超过 `1s`、最大 `6.271s` 的证据决定 P5 是否需要 PCM streaming 或更保守的分段/并发策略，不直接破坏 `dialogue.v1`。
+2. P5 已选择更保守的分段/缓冲并拒绝当前 PCM streaming；下一步在陌生用户 10 分钟会话中同时记录 `10–13s` 中长回复首音是否比原有段间断裂更影响继续聊天意愿。
 3. 选择私有演示部署平台与预览域名后，再补平台变量、HTTPS、Secret Manager、持久化目录和健康检查方案。
 4. 仅在新增正式 Avatar 时补模型专用近景口型 QA，不重新打开已收口的 Alice P2 主阶段。
 5. 公网演示前，设计正式访问控制；跨平台 Demo 另行实现 Windows 进程所有权与停服策略。

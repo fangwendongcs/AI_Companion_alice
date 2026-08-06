@@ -5,6 +5,7 @@ import { ChatPanelController } from './ChatPanelController.js';
 import { DebugPanelController } from './DebugPanelController.js';
 import { DomEffectsController } from './DomEffectsController.js';
 import { ErrorView } from './ErrorView.js';
+import { ExperienceEntryController } from './ExperienceEntryController.js';
 import { InteractionPanelController } from './InteractionPanelController.js';
 import { LLMSettingsController } from './LLMSettingsController.js';
 import { MemoryPanelController } from './MemoryPanelController.js';
@@ -24,6 +25,12 @@ export class UIController {
       ...deps,
       registry: this.registry,
       showLoading: () => this.errorView.showLoading()
+    });
+    this.experience = new ExperienceEntryController({
+      ...deps,
+      registry: this.registry,
+      getConfig: deps.getLLMConfig,
+      setConfig: deps.setLLMConfig
     });
     this.controllers = [
       new SettingsController({ refs: this.refs, registry: this.registry }),
@@ -56,6 +63,7 @@ export class UIController {
         registry: this.registry,
         statusView: this.statusView
       }),
+      this.experience,
       new DebugPanelController({ ...deps, registry: this.registry }),
       new DomEffectsController({ refs: this.refs, registry: this.registry })
     ];

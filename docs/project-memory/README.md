@@ -1,16 +1,17 @@
 # Project Memory
 
-最后更新：2026-07-27
+最后更新：2026-08-03
 
 这是 Alice 项目的长期记忆导航页。它不是又一份长 README，而是“单一事实来源”的入口：新 Agent 先从这里找到当前状态、权威文档、历史决策和下一步，不再依赖聊天记录。
 
 ## 当前一句话
 
-Alice 是一个 AI digital companion / interactive avatar 原型：当前仓库主线是 Web 端 Three.js / VRM Avatar 体验 + Node Backend。Backend 提供 `/api/dialogue`、Memory、RAG、TTS、provider readiness 和安全边界；Web 负责 Avatar 展示、交互、调试和设置面板。
+Alice 是一个工程闭环完整的本地可测试 AI digital companion MVP：Web、Node Backend、DeepSeek、CosyVoice2、Memory 和 VRM 表现已有重复验收；消费级产品价值尚未经过陌生用户与实际复访验证，当前主线是收敛单一测试入口和验证 5–10 分钟低压力中文交流场景。
 
 ## 当前状态入口
 
 - 当前状态与下一步：[CURRENT_STATUS.md](./CURRENT_STATUS.md)
+- 产品与技术全面审核：[ALICE_PROJECT_AUDIT_20260803.md](../reports/ALICE_PROJECT_AUDIT_20260803.md)
 - 重大决策记录：[DECISION_LOG.md](./DECISION_LOG.md)
 - 风险与待验证项：[RISKS_AND_TODO.md](./RISKS_AND_TODO.md)
 - Agent 交接与验证清单：[AGENT_HANDOFF_CHECKLIST.md](./AGENT_HANDOFF_CHECKLIST.md)
@@ -20,7 +21,7 @@ Alice 是一个 AI digital companion / interactive avatar 原型：当前仓库�
 
 | 主题 | 最新权威来源 | 辅助来源 |
 | --- | --- | --- |
-| 项目愿景与产品定位 | `README.md`、`docs/product/PROJECT_SHOWCASE.md` | `docs/product/PHASE5_COMPANION_EXPERIENCE.md` |
+| 项目愿景与产品定位 | `docs/reports/ALICE_PROJECT_AUDIT_20260803.md`、`README.md` | `docs/product/PROJECT_SHOWCASE.md`、`docs/product/PHASE5_COMPANION_EXPERIENCE.md` |
 | 当前状态 | `docs/project-memory/CURRENT_STATUS.md` | `README.md` |
 | 总体架构 | `docs/architecture/ARCHITECTURE.md` | `docs/architecture/MODULE_BOUNDARIES.md` |
 | Dialogue 语义契约 | `docs/contracts/DIALOGUE_CONTRACT.md` | `backend/contracts/dialogueContract.js`、`docs/api/API_CONTRACT.md` |
@@ -112,6 +113,9 @@ Alice 是一个 AI digital companion / interactive avatar 原型：当前仓库�
 | `docs/product/MVP_BASELINE.md` | Phase 2.9 本地 MVP 封版结论 | 历史参考 | 理解 3D 数字人基本回归链路 | 不含后续 SQLite Memory、dialogue.v1、CosyVoice2、VRMRenderer |
 | `docs/reports/DEMO_EXPERIENCE_ACCEPTANCE_20260724.md` | 当前正式 Demo 的 10 轮真实 DeepSeek × CosyVoice2 × girl.vrm 验收 | 当前权威 | 判断入口、角色感、记忆、表达联动、fallback 和延迟实况 | 当前机器实测；不代表公开用户留存或其他 Avatar |
 | `docs/reports/DIALOGUE_BEHAVIOR_TUNING_20260727.md` | 12 轮即时指令服从、连续性和建议恢复的真实 DeepSeek 验收 | 当前权威 | 修改 Persona、Prompt、行为策略或回归集前 | 当前模型固定集；不代表所有中文变体或公开用户留存 |
+| `docs/reports/P5_CONTINUOUS_TTS_DECISION_20260728.md` | CosyVoice2 真实 stream 探针、连续播放选型和短/中/长浏览器验收 | 当前权威 | 修改 TTS 分段、预取、缓冲或重新评估 PCM streaming 前 | 当前机器 CPU / speaker 实测；其他硬件需复测 |
+| `docs/reports/TTS_FOLLOWUP_AUDIT_20260731.md` | P5 后首音、CPU 调度、冷启动和其他 TTS provider 进入门槛复核 | 当前权威 | 继续优化 CosyVoice2 或考虑开放新 TTS provider 前 | 当前 provider 凭据无效/不完整；未做成功付费合成 |
+| `docs/reports/ALICE_PROJECT_AUDIT_20260803.md` | 当前产品阶段、价值假设、投入取舍、一个月路线和继续/转向/停止门槛 | 当前权威 | 决定下一阶段方向或评估是否新增功能前 | 基于当前代码和已有验收；产品判断仍需陌生用户与复访数据验证 |
 | `docs/product/PHASE3_ACCEPTANCE.md` | Phase 3 智能能力验收标准 | 历史参考 | 回查 Provider/Memory/RAG/n8n/Agent 验收 | 后续接口和 TTS 已变化；当前看 `API_CONTRACT.md` |
 | `docs/product/PHASE3_BASELINE.md` | Phase 3.9 智能能力基线封版 | 历史参考 | 理解智能编排为何集中到后端 | 不含后续长期 Memory、dialogue.v1、TTS provider 重构 |
 | `docs/process/PHASE3_IMPLEMENTATION_PLAN.md` | Phase 3 分阶段实施计划 | 历史参考 | 查当时实现顺序和取舍 | 计划不是当前事实；当前看对应 baseline / API /源码 |
@@ -188,3 +192,6 @@ Alice 是一个 AI digital companion / interactive avatar 原型：当前仓库�
 | 2026-07-03 | 建立根目录 `AGENTS.md` 与 `docs/project-memory/` 项目记忆体系；修正文档索引入口；把当前 Web / Backend / `dialogue.v1`、Mock/CosyVoice2、VRMRenderer 边界纳入权威导航。 |
 | 2026-07-24 | 记录正式 Demo 入口收口、10 轮真实 DeepSeek × CosyVoice2 × girl.vrm 验收、保守不露齿表现、受控 fallback 和下一阶段角色感/延迟优先级。 |
 | 2026-07-27 | 记录 Alice 即时行为微调、12 轮真实 DeepSeek 固定集、草稿重写与复杂边界轮次延迟风险。 |
+| 2026-07-28 | 完成 P5 CosyVoice2 连续播放决策：拒绝当前吞吐不足的 PCM streaming，采用平衡分段、2 路预取和 5 秒有界缓冲；真实浏览器最大 gap 降至 `236ms`。 |
+| 2026-08-03 | 完成 Alice 产品与技术全面审核：确认当前为本地可测试 MVP、尚非成立产品；下一主线调整为单一测试入口、10 人体验和 7 天复访验证。 |
+| 2026-08-03 | 完成普通用户单一 Alice 入口：一次点击开始、记忆默认关闭且可随时管理，普通入口隐藏开发与占位控件；桌面/手机浏览器及显式 Debug 入口通过验收。 |

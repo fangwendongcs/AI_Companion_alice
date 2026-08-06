@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 const MANAGER_SCRIPT = fileURLToPath(import.meta.url);
 const ROOT_DIR = path.resolve(path.dirname(MANAGER_SCRIPT), '../..');
 const STATE_VERSION = 1;
-const DEFAULT_START_TIMEOUT_MS = 180_000;
+const DEFAULT_START_TIMEOUT_MS = 300_000;
 const DEFAULT_STOP_TIMEOUT_MS = 20_000;
 const DEFAULT_LLM_TIMEOUT_MS = 60_000;
 const DEFAULT_TTS_TIMEOUT_MS = 120_000;

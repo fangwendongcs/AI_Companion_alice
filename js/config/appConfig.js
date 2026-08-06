@@ -8,11 +8,15 @@ export const APP_MODE = hostname === 'localhost' || hostname === '127.0.0.1'
   ? 'development'
   : 'production';
 
+export function shouldUseDeveloperExperience(search = globalThis.location?.search || '') {
+  const params = new URLSearchParams(search);
+  return params.get('debug') === '1' || params.get('localVrm') === '1';
+}
+
 export function shouldShowDebugPanel(search = globalThis.location?.search || '') {
   const debug = new URLSearchParams(search).get('debug');
   if (debug === '0') return false;
-  if (debug === '1') return true;
-  return APP_MODE === 'development';
+  return shouldUseDeveloperExperience(search);
 }
 
 export const AVATAR_REGISTRY_URL = 'public/avatars/registry.json';

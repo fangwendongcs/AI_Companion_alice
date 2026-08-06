@@ -143,11 +143,7 @@ export class TTSService {
     metrics.segmentCount = segments.length;
     metrics.segmentTextLengths = segments.map((segment) => segment.length);
     const segmentedOptions = normalizeSegmentedPlaybackOptions(config.segmentedTTSOptions, text);
-    const initialPrefetchMode = resolveInitialPrefetchMode(
-      segmentedOptions.initialPrefetchMode,
-      segments.length,
-      segmentedOptions.isShortText
-    );
+    const initialPrefetchMode = resolveInitialPrefetchMode(segmentedOptions.initialPrefetchMode);
     const secondPrefetchDelayMs = initialPrefetchMode === 'first-ready'
       ? 0
       : segmentedOptions.secondSegmentDelayMs;
@@ -160,6 +156,8 @@ export class TTSService {
     metrics.segmentShortInitialAudioThresholdMs = segmentedOptions.shortInitialAudioThresholdMs;
     metrics.segmentShortInitialPlaybackBufferMs = segmentedOptions.shortInitialPlaybackBufferMs;
     metrics.segmentInitialPlaybackBufferMs = segmentedOptions.initialPlaybackBufferMs;
+    metrics.segmentContinuityProfile = segmentedOptions.continuityProfile;
+    metrics.segmentInitialNextSegmentWaitMs = segmentedOptions.initialNextSegmentWaitMs;
     metrics.segmentMaxInFlight = segmentedOptions.maxInFlight;
     metrics.segmentShortTextProfile = segmentedOptions.isShortText;
 
@@ -266,6 +264,13 @@ export class TTSService {
         };
         const beforePlayback = async (segmentMetrics = payload.segment) => {
           if (index !== 0 || segments.length <= 1) return;
+          await waitForInitialContinuityBuffer({
+            segment: segmentMetrics,
+            nextPayload: payloadPromises.get(index + 1),
+            session,
+            shouldContinue,
+            waitMs: segmentedOptions.initialNextSegmentWaitMs
+          });
           await waitForShortInitialSegmentBuffer({
             segment: segmentMetrics,
             nextPayload: payloadPromises.get(index + 1),
@@ -625,6 +630,9 @@ function normalizeSegmentedPlaybackOptions(options = {}, text = '') {
   const initialPlaybackBufferMs = Number.isFinite(Number(options?.initialPlaybackBufferMs))
     ? Math.max(0, Number(options.initialPlaybackBufferMs))
     : DEFAULT_TTS_SEGMENT_OPTIONS.initialPlaybackBufferMs;
+  const initialNextSegmentWaitMs = Number.isFinite(Number(options?.initialNextSegmentWaitMs))
+    ? Math.max(0, Number(options.initialNextSegmentWaitMs))
+    : playbackProfile.initialNextSegmentWaitMs;
   return {
     prefetchDelayMs,
     initialPrefetchMode,
@@ -634,9 +642,28 @@ function normalizeSegmentedPlaybackOptions(options = {}, text = '') {
     shortInitialAudioThresholdMs,
     shortInitialPlaybackBufferMs,
     initialPlaybackBufferMs,
+    initialNextSegmentWaitMs,
+    continuityProfile: playbackProfile.continuityProfile,
     maxInFlight,
     isShortText: playbackProfile.isShortText
   };
+}
+
+async function waitForInitialContinuityBuffer({
+  segment,
+  nextPayload,
+  session,
+  shouldContinue,
+  waitMs
+} = {}) {
+  if (!segment || !nextPayload || !waitMs || waitMs <= 0) return;
+  const waitStartedAt = nowMs();
+  await Promise.race([
+    nextPayload,
+    delayWithSession(waitMs, session)
+  ]);
+  segment.initialContinuityBufferWaitMs = roundMs(nowMs() - waitStartedAt);
+  if (!canContinue(shouldContinue) || session?.cancelled) return;
 }
 
 function normalizeInitialPrefetchMode(value) {
@@ -646,9 +673,9 @@ function normalizeInitialPrefetchMode(value) {
   return DEFAULT_TTS_SEGMENT_OPTIONS.initialPrefetchMode;
 }
 
-function resolveInitialPrefetchMode(mode, segmentCount, isShortText = false) {
+function resolveInitialPrefetchMode(mode) {
   if (mode === 'delay' || mode === 'first-ready') return mode;
-  return segmentCount <= 2 && isShortText ? 'first-ready' : 'delay';
+  return 'delay';
 }
 
 function computePlaybackAwarePrefetchDelay(audioDurationMs, leadMs) {
@@ -766,6 +793,7 @@ function createSegmentMetrics(metrics, { index = 0, total = 1, text = '' } = {})
     playbackAwarePrefetchDelayMs: null,
     audioReadyAwarePrefetchDelayMs: null,
     shortInitialBufferWaitMs: null,
+    initialContinuityBufferWaitMs: null,
     providerTimings: null
   };
   if (metrics && !metrics.segments[index]) metrics.segments[index] = segment;

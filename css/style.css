@@ -31,6 +31,25 @@ body {
     linear-gradient(0deg, #020202 0%, #0a0a0a 100%);
 }
 
+body.experience-mode .developer-only {
+  display: none !important;
+}
+
+body.developer-mode .experience-only {
+  display: none !important;
+}
+
+body.experience-intro-active .bottom-hud {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+body.experience-intro-active .interaction-hint,
+body.experience-intro-active .dialogue-caption,
+body.has-experience-notice .interaction-hint {
+  display: none;
+}
+
 /* 科技感网格背景 */
 .grid-bg {
   position: fixed;
@@ -123,6 +142,12 @@ body {
   border-color: rgba(105, 240, 174, 0.3);
 }
 
+.memory-btn[data-enabled='true'] {
+  color: #69f0ae;
+  border-color: rgba(105, 240, 174, 0.42);
+  background: rgba(105, 240, 174, 0.1);
+}
+
 @keyframes badgePulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
@@ -166,6 +191,212 @@ body {
 
 .dialogue-caption[data-state='error'] {
   border-color: rgba(255, 82, 82, 0.35);
+  color: #ffb3b3;
+}
+
+.welcome-card {
+  position: absolute;
+  left: clamp(24px, 7vw, 96px);
+  top: 50%;
+  z-index: 24;
+  width: min(410px, calc(100vw - 48px));
+  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 24px;
+  background: linear-gradient(145deg, rgba(16, 22, 29, 0.92), rgba(7, 10, 14, 0.82));
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.52), 0 0 0 1px rgba(0, 229, 255, 0.04) inset;
+  backdrop-filter: blur(24px);
+  transform: translateY(-50%);
+  pointer-events: auto;
+}
+
+.welcome-card[hidden],
+.privacy-popover[hidden],
+.experience-notice[hidden] {
+  display: none;
+}
+
+.welcome-card__eyebrow,
+.privacy-popover__eyebrow {
+  display: block;
+  margin-bottom: 8px;
+  color: rgba(127, 231, 243, 0.86);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+}
+
+.welcome-card h1,
+.privacy-popover h2 {
+  margin: 0;
+  color: #fff;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.welcome-card h1 {
+  font-size: clamp(28px, 4vw, 40px);
+}
+
+.welcome-card > p {
+  margin: 14px 0 20px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.welcome-memory-choice,
+.privacy-memory-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 13px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+}
+
+.welcome-memory-choice input,
+.privacy-memory-choice input {
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  flex: 0 0 auto;
+  accent-color: var(--accent);
+}
+
+.welcome-memory-choice span,
+.privacy-memory-choice span {
+  display: grid;
+  gap: 4px;
+}
+
+.welcome-memory-choice strong,
+.privacy-memory-choice strong {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 13px;
+}
+
+.welcome-memory-choice small,
+.privacy-memory-choice small {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.welcome-start-btn {
+  width: 100%;
+  min-height: 46px;
+  margin-top: 14px;
+  border: 0;
+  border-radius: 14px;
+  color: #061014;
+  background: linear-gradient(135deg, #eefcff, #7fe7f3);
+  box-shadow: 0 10px 28px rgba(0, 229, 255, 0.2);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.welcome-start-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 32px rgba(0, 229, 255, 0.28);
+}
+
+.welcome-start-btn:focus-visible,
+.privacy-clear-btn:focus-visible,
+.privacy-close-btn:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+
+.experience-notice {
+  position: absolute;
+  left: 50%;
+  bottom: 82px;
+  z-index: 22;
+  width: max-content;
+  max-width: min(560px, calc(100vw - 40px));
+  padding: 8px 13px;
+  border: 1px solid rgba(255, 202, 40, 0.25);
+  border-radius: 999px;
+  color: rgba(255, 236, 179, 0.9);
+  background: rgba(28, 24, 12, 0.84);
+  backdrop-filter: blur(14px);
+  transform: translateX(-50%);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+  pointer-events: none;
+}
+
+.privacy-popover {
+  position: fixed;
+  top: 78px;
+  right: 24px;
+  z-index: 120;
+  width: min(360px, calc(100vw - 32px));
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 18px;
+  color: var(--text);
+  background: rgba(10, 14, 19, 0.94);
+  box-shadow: 0 20px 54px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(24px);
+  pointer-events: auto;
+}
+
+.privacy-popover__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.privacy-popover__header h2 {
+  font-size: 18px;
+}
+
+.privacy-close-btn {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.62);
+  background: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+}
+
+.privacy-clear-btn {
+  width: 100%;
+  min-height: 40px;
+  margin-top: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.04);
+  font: inherit;
+  cursor: pointer;
+}
+
+.privacy-clear-btn:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
+.privacy-status {
+  min-height: 18px;
+  margin: 9px 2px 0;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.privacy-status[data-state='error'] {
   color: #ffb3b3;
 }
 
@@ -1126,6 +1357,24 @@ select.custom-input:hover {
 
 /* ===== 响应式适配 ===== */
 @media screen and (max-width: 768px) {
+  .welcome-card {
+    left: 50%;
+    top: auto;
+    bottom: 94px;
+    width: min(420px, calc(100vw - 32px));
+    padding: 20px;
+    transform: translateX(-50%);
+  }
+
+  .experience-notice {
+    bottom: 72px;
+  }
+
+  .privacy-popover {
+    top: 66px;
+    right: 16px;
+  }
+
   .debug-panel {
     left: 12px;
     bottom: 84px;
@@ -1203,6 +1452,32 @@ select.custom-input:hover {
 }
 
 @media screen and (max-width: 480px) {
+  .welcome-card {
+    bottom: 82px;
+    padding: 18px;
+    border-radius: 20px;
+  }
+
+  .welcome-card h1 {
+    font-size: 28px;
+  }
+
+  .welcome-card > p {
+    margin: 10px 0 14px;
+    font-size: 14px;
+  }
+
+  .welcome-memory-choice,
+  .privacy-memory-choice {
+    padding: 11px 12px;
+  }
+
+  .privacy-popover {
+    top: 62px;
+    right: 12px;
+    width: calc(100vw - 24px);
+  }
+
   .debug-panel {
     right: 12px;
     width: auto;

@@ -3,7 +3,13 @@ import { AvatarState, MotionManager, MotionSlot } from '../animation/MotionManag
 import { AudioManager } from '../audio/AudioManager.js';
 import { CharacterManager } from '../avatar/CharacterManager.js';
 import { PresentationOrchestrator, createFallbackAffect } from '../avatar/presentation/PresentationOrchestrator.js';
-import { APP_MODE, EVENT_NAMES, REQUEST_TIMEOUTS, UI_TIMING } from '../config/appConfig.js';
+import {
+  APP_MODE,
+  EVENT_NAMES,
+  REQUEST_TIMEOUTS,
+  UI_TIMING,
+  shouldUseDeveloperExperience
+} from '../config/appConfig.js';
 import { resolveDemoAvatarId, resolveReadyDemoDefaults } from '../config/demoExperience.js';
 import { DEFAULT_DIALOGUES, MOOD_DIALOGUES } from '../config/dialogues.js';
 import { validateRuntimeConfig } from '../config/validateConfig.js';
@@ -33,6 +39,8 @@ export class AppController {
     this.documentRef = documentRef;
     this.registry = new DisposableRegistry();
     this.refs = createDomRefs(documentRef);
+    this.developerExperience = shouldUseDeveloperExperience();
+    this.applyExperienceMode();
     this.eventBus = new EventBus();
     this.store = new LocalConfigStore();
     this.apiClient = new ApiClient({ timeoutMs: REQUEST_TIMEOUTS.ttsMs });
@@ -44,6 +52,7 @@ export class AppController {
       getConfig: () => this.ttsConfig
     });
     this.runtime = new SceneRuntime(documentRef.getElementById('scene'));
+    this.runtime.setDebugEnabled(this.developerExperience);
     this.characterManager = new CharacterManager(this.runtime);
     this.motionManager = new MotionManager();
     this.presentation = new PresentationOrchestrator({
@@ -54,6 +63,7 @@ export class AppController {
     this.recognitionService = new SpeechRecognitionService();
     this.llmConfig = this.store.loadLLMConfig();
     this.ttsConfig = this.store.loadTTSConfig();
+    this.demoReadiness = { checked: false, deepseek: false, cosyvoice: false };
     this.avatarSwitchChain = Promise.resolve();
     this.avatarSwitchVersion = 0;
     this.lastDialogueInput = '';
@@ -219,6 +229,7 @@ export class AppController {
       setLLMConfig: (config) => { this.llmConfig = config; },
       getTTSConfig: () => this.ttsConfig,
       setTTSConfig: (config) => { this.ttsConfig = config; },
+      getDemoReadiness: () => ({ ...this.demoReadiness }),
       readFormConfig: () => this.readLLMFormConfig(),
       requestAvatarSwitch: (avatarId) => this.requestAvatarSwitch(avatarId),
       speakText: (text) => this.speakText(text),
@@ -437,10 +448,22 @@ export class AppController {
       });
       this.llmConfig = resolved.llmConfig;
       this.ttsConfig = resolved.ttsConfig;
+      this.demoReadiness = { checked: true, ...resolved.ready };
       if (resolved.changed.llm) this.store.saveLLMConfig(this.llmConfig);
       if (resolved.changed.tts) this.store.saveTTSConfig(this.ttsConfig);
     } catch (error) {
+      this.demoReadiness = { checked: true, deepseek: false, cosyvoice: false };
       this.log.warn('真实 Demo 默认配置读取失败，保留本地安全默认:', error?.message || error);
+    }
+  }
+
+  applyExperienceMode() {
+    const body = this.documentRef.body;
+    if (!body) return;
+    body.classList.toggle('developer-mode', this.developerExperience);
+    body.classList.toggle('experience-mode', !this.developerExperience);
+    if (this.documentRef.documentElement) {
+      this.documentRef.documentElement.dataset.experience = this.developerExperience ? 'developer' : 'alice';
     }
   }
 
@@ -838,7 +861,7 @@ export class AppController {
         fadeMs: UI_TIMING.loadingFadeMs,
         onHidden: () => {
           if (switchVersion === this.avatarSwitchVersion) {
-            this.showDialogue('[SYSTEM] 模型装载完毕，交互系统已激活。');
+            this.ui.experience?.handleAvatarReady();
           }
         }
       });
@@ -884,7 +907,14 @@ export class AppController {
   toggleMute() {
     this.patchState({ isMuted: !this.state.isMuted }, 'audio:mute');
     this.refs.muteBtn.style.color = this.state.isMuted ? 'var(--muted)' : 'var(--text)';
-    this.showDialogue(this.state.isMuted ? '语音播报已静音。' : '语音播报已开启。');
+    const label = this.state.isMuted ? '打开 Alice 的声音' : '关闭 Alice 的声音';
+    this.refs.muteBtn.title = label;
+    this.refs.muteBtn.setAttribute('aria-label', label);
+    if (this.refs.dialogueCaption) {
+      this.refs.dialogueCaption.textContent = this.state.isMuted ? 'Alice 的声音已关闭。' : 'Alice 的声音已打开。';
+      this.refs.dialogueCaption.dataset.state = 'notice';
+      this.refs.dialogueCaption.hidden = false;
+    }
   }
 
   setMood(mood) {
@@ -997,7 +1027,7 @@ export class AppController {
       });
     } catch (error) {
       this.log.error('LLM 调用失败:', error);
-      const fallbackReply = '抱歉，连接出现问题。请确认后端服务已启动，并配置了对应模型的 API Key。';
+      const fallbackReply = '抱歉，我刚刚没接上。等一下再和我说一遍，好吗？';
       const affect = createFallbackAffect();
       this.eventBus.emit(EVENT_NAMES.DIALOGUE_ASSISTANT, {
         text: fallbackReply,
@@ -1052,16 +1082,16 @@ export class AppController {
       currentState: newState,
       animationState: newState
     }, 'animation:state');
-    this.refs.statusText.textContent = `ONLINE / ${newState.toUpperCase()}`;
+    this.refs.statusText.textContent = `Alice / ${newState}`;
     this.refs.statusBadge.className = 'status-badge';
     if (newState === AvatarState.THINKING) {
-      this.refs.statusBadge.textContent = 'THINKING';
+      this.refs.statusBadge.textContent = '在想';
       this.refs.statusBadge.classList.add('thinking');
     } else if (newState === AvatarState.SPEAKING) {
-      this.refs.statusBadge.textContent = 'SPEAKING';
+      this.refs.statusBadge.textContent = '在说话';
       this.refs.statusBadge.classList.add('speaking');
     } else {
-      this.refs.statusBadge.textContent = 'ONLINE';
+      this.refs.statusBadge.textContent = '在这里';
     }
   }
 

@@ -27,6 +27,7 @@ checkWavValidation();
 checkDemoAvatarValidation();
 await checkPackageCommands();
 await checkGeneratedRuntimeIgnored();
+await checkCosyVoiceStartupDefaults();
 
 if (failures.length) {
   console.error('[check-demo-lifecycle] failed:');
@@ -41,6 +42,7 @@ function checkDefaultResolution() {
   assert(config.cosyvoicePort === 50000, 'CosyVoice demo port must default to 50000.');
   assert(config.cosyvoiceBaseUrl === 'http://127.0.0.1:50000', 'Empty COSYVOICE_BASE_URL must resolve to the supervised local runtime.');
   assert(config.stateFile === path.join(rootDir, 'runtime/demo/state.json'), 'Demo state must stay under ignored runtime/demo.');
+  assert(config.startTimeoutMs === 300_000, 'Demo startup must allow five minutes for a cold CosyVoice text frontend cache.');
 }
 
 function checkRuntimeOverrides() {
@@ -136,6 +138,14 @@ async function checkPackageCommands() {
 async function checkGeneratedRuntimeIgnored() {
   const gitignore = await readFile('.gitignore', 'utf8');
   assert(gitignore.includes('runtime/demo/'), 'runtime/demo state and logs must be Git-ignored.');
+}
+
+async function checkCosyVoiceStartupDefaults() {
+  const startScript = await readFile('scripts/cosyvoice/start-official-fastapi.sh', 'utf8');
+  assert(
+    startScript.includes('STARTUP_READY_ATTEMPTS="${COSYVOICE_STARTUP_READY_ATTEMPTS:-60}"'),
+    'Standalone CosyVoice startup must allow 60 readiness attempts by default.'
+  );
 }
 
 function assert(condition, message) {

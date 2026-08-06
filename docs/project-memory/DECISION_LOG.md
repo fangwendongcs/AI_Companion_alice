@@ -1,6 +1,6 @@
 # Decision Log
 
-最后更新：2026-07-22
+最后更新：2026-07-31
 
 本文件只记录会影响后续开发方向的关键决策。小修复、局部命名、纯样式调整不需要写入。
 
@@ -24,6 +24,8 @@
 | 2026-07-14 | P1C 将 LLM 回复上限改为后端 `LLM_MAX_TOKENS` 配置，默认 `320`；`finish_reason` 与 token usage 仅保留为安全内部诊断，Prompt 增加克制表达和准确记忆确认规则。 | 首次 10 轮 DeepSeek 基线出现多次可见截断、舞台提示与记忆确认扩写，需要先收口回复完整性和可诊断性，同时保持公开契约稳定。 | `serverConfig`、`LLMService`、`PromptBuilder`、零费用质量检查 | `docs/product/DIALOGUE_QUALITY_BASELINE.md`、`backend/services/LLMService.js`、`backend/services/PromptBuilder.js` |
 | 2026-07-22 | P1D 保持 `LLM_MAX_TOKENS=320` 与 Persona/Memory 逻辑不变，在 Prompt 中克制波浪号并限定记忆确认措辞；非 production 可用默认关闭的 `DIALOGUE_DEBUG_LLM_DIAGNOSTICS` 读取五个白名单诊断字段。 | P1C 对照复测已消除截断，但仍需收口个性标点和过度记忆承诺，并让隔离评测在不扩大公开契约及敏感暴露面的前提下确认截断和 token usage。 | `PromptBuilder`、Dialogue 兼容 `meta`、后端环境配置、零费用质量检查 | `docs/product/DIALOGUE_QUALITY_BASELINE.md`、`backend/services/DialogueOrchestrationService.js`、`docs/api/API_CONTRACT.md` |
 | 2026-07-22 | CosyVoice2 首音优化先采用中文语义分段、同一 utterance session 和受控预取，不引入 WebSocket / AudioWorklet / PCM streaming。 | 官方 FastAPI 当前返回完整 raw PCM，Node 包装和浏览器解码只占毫秒级；主要瓶颈是本机 CosyVoice2 生成。分段能让长回复不再等待完整音频，同时保留现有取消、静音、fallback 和 lip-sync 生命周期。 | `TTSService`、`TTSTextSegmenter`、`AudioManager`、Presentation lifecycle、TTS 文档 | `docs/guides/LOCAL_TTS.md`、`js/voice/TTSService.js`、`js/voice/TTSTextSegmenter.js` |
+| 2026-07-28 | P5 保留完整 WAV/Base64，采用长度分档、2 路即时预取和 5 秒有界首段连续性缓冲；当前不实现 PCM streaming。 | 官方 FastAPI 无模型级 true streaming；Direct Python 虽能提前首 PCM，但 CPU chunk 最大 gap 仍超过 2 秒。最终真实浏览器最大 gap `236ms`，相对 `6271ms` 基线下降约 96.2%，且不改变既有取消/fallback/表现层契约。 | `TTSService`、`TTSTextSegmenter`、CosyVoice probes、浏览器 TTS/lip-sync lifecycle | `docs/reports/P5_CONTINUOUS_TTS_DECISION_20260728.md`、`docs/guides/LOCAL_TTS.md` |
+| 2026-07-31 | 保持 TTS 公开主线为 `mock + cosyvoice`，未完成中文 live 的 OpenAI / MiniMax / Higgs 不进入正式 Demo；CosyVoice 冷启动默认等待提升到约 5 分钟。 | 新 provider 当前分别存在凭据无效或必需 URL 缺失，无法证明中文声线、延迟和 fallback 优于现有主线；首次 wetext 缓存补齐又可超过原 120/180 秒启动窗口。 | CosyVoice 启动、Demo supervisor、TTS provider 公开边界、回归与文档 | `docs/reports/TTS_FOLLOWUP_AUDIT_20260731.md`、`docs/guides/COSYVOICE_RUNTIME.md` |
 | 2026-07-14 | 完整本地 Demo 使用 detached Node supervisor 统一托管 Alice 与 CosyVoice2，状态以进程所有权、endpoint、真实 DeepSeek 回复和有效 WAV 四层证据为准。 | 单独 `npm run dev` 与 `cosyvoice:start` 无法解决受控环境子进程存活、空 CosyVoice URL、幂等启停和真实 readiness；停服又必须避免按端口误杀未知进程。 | 本地 Demo 启停、PID/state/log、安全边界、真实 provider 验收 | `scripts/demo/demo-manager.mjs`、`docs/guides/DEMO_RUNTIME.md` |
 
 ## 新增决策模板

@@ -9,6 +9,7 @@ export class SceneControlsController {
   }
 
   init() {
+    if (this.refs.debugToggle) this.refs.debugToggle.checked = Boolean(this.runtime.debug.enabled);
     this.registry.addEventListener(this.refs.scaleSlider, 'input', (event) => {
       if (!this.getState().modelLoaded) return;
       this.runtime.avatarRoot.scale.setScalar(parseFloat(event.target.value));
@@ -38,10 +39,7 @@ export class SceneControlsController {
     });
 
     this.registry.addEventListener(this.refs.debugToggle, 'change', (event) => {
-      this.runtime.debug.enabled = event.target.checked;
-      this.runtime.debug.boxes.forEach((box) => {
-        box.visible = this.runtime.debug.enabled;
-      });
+      this.runtime.setDebugEnabled(event.target.checked);
     });
 
     this.registry.addEventListener(this.refs.freezeAnimToggle, 'change', (event) => {

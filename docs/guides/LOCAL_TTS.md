@@ -9,6 +9,8 @@
 3. **浏览器兜底**：仅在后端语音不可用时由 Web 端自动 fallback，保证文字对话和状态链路不被 TTS 阻断。
 4. **其他 provider**：旧 adapter 可以保留在后端实验层，但当前 Web Settings 和 `GET /api/providers` 只暴露 Mock / CosyVoice2。
 
+2026-07-31 复核后继续保持该公开集合：OpenAI 本地值未通过 secret 格式检查，MiniMax 上游返回 Authorization 失败，Higgs 缺必需 base URL，三者都未完成中文 live 音质、延迟和 fallback 验收。详见 `docs/reports/TTS_FOLLOWUP_AUDIT_20260731.md`。
+
 ## 后端边界
 
 后端结构：
@@ -107,35 +109,35 @@ Web 播放生命周期约束：
 
 CosyVoice2 官方 FastAPI 会先生成完整 raw PCM，Alice 后端再包装为 WAV/Base64。旧链路必须等整段音频完成后 Web 才能播放，因此长回复的首音等待会随完整音频长度一起增长。
 
-当前 Web 端对 `cosyvoice` 启用低风险分段调度：
+当前 Web 端对 `cosyvoice` 启用连续性优先的分段调度：
 
-- 12 字以内很短回复保持单段，避免过度切碎。
-- 13–24 字短回复允许首段优先：优先选择自然中文停顿；没有自然停顿时回退到约 `8–10` 字首段，避免 16–24 字回复必须等待整句音频完成。
-- 25 字以上继续首段优先分段：优先取 `8–14` 字自然停顿；没有自然停顿时回退到语义 cue，例如 `想听`、`陪我`、`然后`，尽量避免把“声音”“心情”这类常见中文词切断。
-- 初始预取采用 adaptive 策略：短两段默认 `first-ready`，首段 ready 前不预取第二段，优先保证首音；三段以上默认 `delay`，第二段立即进入 2 路受控预取，减少首段后的大空洞。
-- 后续段根据当前段已知音频时长和 `playbackAwareLeadMs` 调度，最多保持 2 路窗口，避免本地 CosyVoice2 被无限并发拖慢。
-- 当前默认不人为等待首段播放；如果首段非常短，可能保留一次可观测的 `segmentGapMs`，但中间段不会反复触发 idle。
-- 首个 follow-up 的强停顿会被保留，避免中文短句被重新合并成过长第二段；同时分段器会避免产生孤立标点语音段。
+- `24` 字以内保持单段，避免为了更早首音人为制造短回复断点。
+- `25–84` 字进入 `balanced` 档：首段上限约 `16–18` 字，后续段目标约 `22` 字，减少过多短段耗尽缓冲。
+- `85` 字以上进入 `extended` 档：首段上限约 `18–20` 字，后续段目标约 `24` 字。
+- 所有默认分段回复都立即预取第二段；显式 `first-ready` 仍保留为兼容选项，但不再是默认。并发窗口保持 `2`，因为 3 路实测会加重本机 CPU 争抢。
+- `25` 字以上在首段 ready 后等待第二段 ready 或最多 `5000ms` 再开始播放。这个等待是可提前结束的 promise gate，不是固定睡眠，用首音延迟换取足够的早期音频缓冲。
+- 后续段根据当前段已知音频时长和 `playbackAwareLeadMs` 调度，继续保持最多 2 路窗口。
+- 分段器优先保留自然停顿并避免切断常见中文词，也不会产生孤立标点语音段。
 - 整个回答仍是同一个 utterance session：中间段结束不会触发 `audio:end`、不会反复恢复 idle；只有最后一段结束、取消或错误后才统一清理 lip-sync 和 motion。
 - 每段仍复用现有 `/api/tts`、统一 Audio Result、`HTMLAudioElement`、AudioManager 和 PresentationOrchestrator，不引入第二套播放器。
 - Mock、极短回复和浏览器 fallback 不强制分段。
 
-这不是客户端 PCM streaming，也不是 LLM streaming。它只是用已有完整 WAV/Base64 传输方式降低首音等待。后续若继续优化，可在保持同一契约的前提下评估 LLM streaming、服务端音频队列或 WebSocket/PCM streaming。
+这不是客户端 PCM streaming，也不是 LLM streaming。它使用已有完整 WAV/Base64 传输方式，在不改变 `/api/tts` 的前提下优先收口播放连续性。
 
 本机 CosyVoice2 + Alice `/api/tts` 探针实测：
 
-| 样本 | 调整前 | 当前 adaptive 分段 | 备注 |
+| 样本 | 当前策略 | 真实结果 | 备注 |
 | --- | ---: | ---: | --- |
-| 4 字短回复 | `1.29s` | `1.64s` | 保持单段；差异主要来自本机 runtime 波动。 |
-| 8 字短回复 | `2.55s` | `2.70s` | 保持单段；首音主要由 CosyVoice2 首块生成决定。 |
-| 16 字无自然停顿短回复 | `2.64s`，gap `1ms` | `9+7` 语义分段 `1.68s`，gap `1.76s` | 更快听到第一声，但第二段可能因 `first-ready` 保护首段而产生一次空洞。强制并发可把 gap 压到 `2ms`，但首音会退到 `3.15–3.76s`，因此未作为默认。 |
-| 26 字中回复 | `3.60s`，最大 gap `1.79s` | `6+8+12` 语义分段 `3.27s`，最大 gap `1.13s` | 第二段立即受控预取；本机推理抖动仍可能留下约 1 秒空洞。 |
-| 74 字中长回复 | `2.77s`，最大 gap `3.13s` | `7+13+9+10+14+9+12`，首音 `4.31s`，最大 gap `1.49s` | 首音本轮慢于旧样本，但段间大空洞明显下降；长回复仍不等完整音频。 |
-| 95 字长回复 | `3.10s`，最大 gap `1.53s` | `7+13+9+10+14+9+12+13+8`，首音 `4.02s`，最大 gap `2.08s` | 首音不随完整回复长度同比增加；少数段仍会因本地生成追不上而 underrun。 |
+| 16 字短回复 | 单段 | Node 两次最大 gap `0ms`；浏览器首段 ready `2694ms`、gap `0ms` | 不再拆成 `9+7`。 |
+| 26 字中回复 | `6+20` | Node 三次首次播放 p50 `6903ms`、最大 gap `3ms` | 进入 balanced 档并等待第二段建立缓冲。 |
+| 54 字中回复 | `14+24+16` | Node 三次最大 gap `5ms`；浏览器最大 gap `24ms` | Node 首次播放 p50 `12497ms`。 |
+| 95 字长回复 | `20+19+14+21+21` | Node 三次最大 gap `4ms`；浏览器最大 gap `236ms` | 浏览器总播放链路 `31415ms`。 |
 
-这些结果说明当前优化主要降低“长回复必须等完整音频”的等待，并把中等回复的早期大空洞收敛到更可控范围；它不会显著降低 CosyVoice2 的单段生成成本，也不能完全消除本机生成波动导致的段间空洞。Mac 本机无 CUDA，官方 FastAPI 也没有暴露真正可消费的首块 PCM streaming，因此 1.5 秒目标在当前机器上不稳定。对 25–60 字中文回复，当前默认在“短首段”和“后续连续性”之间取中；如果强行把长回复全局切到 12 字级别，26 字样本 gap 可以降到 `2ms`，但 74 / 95 字会因为段数过多和推理抖动出现 `2.3s` 甚至 `18s` 级空洞，因此已回退为更稳的 18 字 follow-up 自然段。
+相对 2026-07-24 正式 Demo 的最大 gap `6271ms`，真实浏览器长回复最大 gap 已下降约 `96.2%`，达到当前“不超过 `1s` 且至少下降 `80%`”的门槛。代价是中长回复首音变慢：54 字 Node p50 首次播放约 `12.5s`。完整对比、PCM 流式结论和剩余风险见 `docs/reports/P5_CONTINUOUS_TTS_DECISION_20260728.md`。
 
-2026-07-22 以前台长会话重启官方 FastAPI 后再次复测，`check:cosyvoice-live` 通过。连续压测证明：早期并发预取会和首段争抢本地推理资源；完全等首段 ready 又会让短两段的第二段跟不上播放。当前采用 adaptive 折中：短两段优先 `first-ready`，三段以上第二段立即受控预取，后续按播放时长窗口补齐。结论是：前端分段调度已经能避免“长回复等完整音频”，但不能用当前 FastAPI/WAV/Base64 链路稳定保证 300–500ms 内的所有段间衔接。
+2026-07-22 的 adaptive / `first-ready` 结果保留为历史基线：它能缩短首音，但 16 字和中长回复仍出现 `1–2s` 甚至更大的空洞。2026-07-28 已改为连续性优先策略。
+
+2026-07-31 又对“延后第二段、预测第二段 ready、限制 CPU 线程”做了真实回归。最快方案虽可将 54 字首音 p50 提前到约 `6.5s`，但同时带回 `5.367s` 最大 gap；线程限制又在 95 字上出现 `16.871–25.119s` 首音长尾。因此正式 Demo 不采用这些不稳定调参，继续保留 P5 策略。
 
 短回复专项结论：
 
@@ -161,13 +163,21 @@ CosyVoice2 官方 FastAPI 会先生成完整 raw PCM，Alice 后端再包装为 
 - 74 字分段在首段 ready 前取消：`AudioManager.stop()` 返回 `true`，页面回 `ONLINE / IDLE`，未出现旧音频串音。
 - 本轮没有重新完整覆盖 60–120 秒长音频听感和口型视觉；Playwright console 仍有既有 favicon 404 和 VRM LookAt warning，不属于本轮 TTS 分段改动。
 
+2026-07-28 P5 连续播放验收：
+
+- 官方 FastAPI 的 `stream=true` form 对 4 / 8 / 16 / 26 字三次重复均没有 true streaming evidence；HTTP transport chunk 不能当成模型级 PCM chunk。
+- Direct Python `stream=True` 对 26 字能提前到 p50 `2503ms` 首块，但完成 p50 `10050ms`，模拟连续播放最大 gap p50 `2662ms`；`500ms` 缓冲后仍有 `2162ms`。
+- `3000ms` 首段连续性等待在三次 54 字重复中仍出现一次 `1674ms` gap，因此最终采用 `5000ms` 有界等待。
+- Node 真实 `/api/tts` 探针：16 字两次最大 gap `0ms`；26 / 54 / 95 字各三次最大 gap `3 / 5 / 4ms`，均无 underrun。
+- 真实浏览器：16 / 54 / 95 字最大 gap 分别为 `0 / 24 / 236ms`；所有分段开始时 `isSpeaking=true`、lip-sync 为 `audio-driven`，最后统一恢复 `idle`，无 fallback/error。
+
 可通过浏览器控制台查看最近一次播放指标：
 
 ```js
 window.__aliceApp.audioManager.ttsService.getLastMetrics()
 ```
 
-关键字段包括 `llmDoneToTTSRequestMs`、`ttsRequestToFirstAudioReadyMs`、`firstAudioReadyToPlayStartMs`、`textVisibleToFirstPlayMs`、`fullAudioReadyMs`、`segmentGapMs`、`playbackAwarePrefetchDelayMs`、`shortInitialBufferWaitMs` 和每段的 provider timing。
+关键字段包括 `llmDoneToTTSRequestMs`、`ttsRequestToFirstAudioReadyMs`、`firstAudioReadyToPlayStartMs`、`textVisibleToFirstPlayMs`、`fullAudioReadyMs`、`segmentGapMs`、`segmentContinuityProfile`、`segmentInitialNextSegmentWaitMs`、`initialContinuityBufferWaitMs`、`playbackAwarePrefetchDelayMs` 和每段的 provider timing。
 
 ## 验证
 

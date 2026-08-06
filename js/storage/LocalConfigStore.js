@@ -9,6 +9,7 @@ const llmLiveDefaultMigrationKey = 'llm_live_default_migration_v1';
 const ttsLiveDefaultMigrationKey = 'tts_live_default_migration_v1';
 const llmSupplementalPromptMigrationKey = 'llm_supplemental_prompt_migration_v1';
 const memorySessionKey = 'llm_memory_session_id';
+const experienceIntroKey = 'alice_experience_intro_v1';
 const legacyIdentityPrompts = new Set([
   '你是 Alice，一个元气满满的青少年 AI 伙伴。请用简短活泼的语气回复，每次回复控制在 60 字以内。',
   '你是 Alice，一个元气满满的青少年 AI 伙伴。请用简短活泼的语气回复，每次控制在 50 字以内。'
@@ -59,6 +60,14 @@ export class LocalConfigStore {
     localStorage.setItem('llm_use_memory', config.useMemory ? '1' : '0');
     if (config.sessionId) localStorage.setItem(memorySessionKey, config.sessionId);
     localStorage.setItem(llmLiveDefaultMigrationKey, '1');
+  }
+
+  hasCompletedExperienceIntro() {
+    return localStorage.getItem(experienceIntroKey) === '1';
+  }
+
+  markExperienceIntroComplete() {
+    localStorage.setItem(experienceIntroKey, '1');
   }
 
   adoptReadyLLMDefault(config, providerStatuses = []) {

@@ -8,6 +8,7 @@ const COMMON_JOINED_PAIRS = new Set([
   '回应',
   '温柔',
   '一下',
+  '下子',
   '心情',
   '事情',
   '所有',
@@ -34,7 +35,7 @@ export const DEFAULT_TTS_SEGMENT_OPTIONS = {
   firstPreferredMinChars: 8,
   firstMaxChars: 8,
   firstNaturalMaxChars: 14,
-  shortTextSingleMaxChars: 12,
+  shortTextSingleMaxChars: 24,
   minFollowupChars: 8,
   maxChars: 18,
   hardMaxChars: 26,
@@ -56,6 +57,9 @@ export const DEFAULT_TTS_SEGMENT_OPTIONS = {
   shortInitialAudioThresholdMs: 1250,
   shortInitialPlaybackBufferMs: 0,
   initialPlaybackBufferMs: 0,
+  continuityTextMinChars: 25,
+  extendedContinuityTextMinChars: 85,
+  continuityInitialNextSegmentWaitMs: 5000,
   maxInFlight: 2
 };
 
@@ -66,11 +70,8 @@ export function shouldUseSegmentedBackendTTS(text, provider, config = {}) {
 }
 
 export function segmentTextForTTS(text, options = {}) {
-  const config = {
-    ...DEFAULT_TTS_SEGMENT_OPTIONS,
-    ...(options || {})
-  };
   const normalized = normalizeText(text);
+  const config = resolveSegmentConfig(normalized, options);
   if (!normalized || normalized.length < config.minTotalChars) return normalized ? [normalized] : [];
   if (normalized.length <= config.shortTextSingleMaxChars) return [normalized];
   if (
@@ -112,18 +113,64 @@ export function segmentTextForTTS(text, options = {}) {
 }
 
 export function getSegmentedPlaybackProfile(text, options = {}) {
-  const config = {
-    ...DEFAULT_TTS_SEGMENT_OPTIONS,
-    ...(options || {})
-  };
   const normalized = normalizeText(text);
+  const config = resolveSegmentConfig(normalized, options);
+  const continuityProfile = resolveContinuityProfile(normalized, config);
   return {
     isShortText: Boolean(normalized && normalized.length <= config.shortTextMaxChars),
     normalizedLength: normalized.length,
+    continuityProfile,
+    initialNextSegmentWaitMs: continuityProfile
+      ? Math.max(0, Number(config.continuityInitialNextSegmentWaitMs) || 0)
+      : 0,
     maxInFlight: normalized && normalized.length <= config.shortTextMaxChars
       ? Math.max(1, Math.min(3, Number(config.shortMaxInFlight) || DEFAULT_TTS_SEGMENT_OPTIONS.shortMaxInFlight))
       : Math.max(1, Math.min(3, Number(config.maxInFlight) || DEFAULT_TTS_SEGMENT_OPTIONS.maxInFlight))
   };
+}
+
+function resolveSegmentConfig(text, options = {}) {
+  const requested = options || {};
+  const base = {
+    ...DEFAULT_TTS_SEGMENT_OPTIONS,
+    ...requested
+  };
+  const continuityProfile = resolveContinuityProfile(text, base);
+  const profile = continuityProfile === 'extended'
+    ? {
+        firstMinChars: 4,
+        firstPreferredMinChars: 8,
+        firstMaxChars: 18,
+        firstNaturalMaxChars: 20,
+        minFollowupChars: 10,
+        maxChars: 24,
+        hardMaxChars: 30,
+        earlyFollowupSplitMaxTotalChars: 0
+      }
+    : continuityProfile === 'balanced'
+      ? {
+          firstMinChars: 4,
+          firstPreferredMinChars: 8,
+          firstMaxChars: 16,
+          firstNaturalMaxChars: 18,
+          minFollowupChars: 10,
+          maxChars: 22,
+          hardMaxChars: 28,
+          earlyFollowupSplitMaxTotalChars: 0
+        }
+      : {};
+  return {
+    ...base,
+    ...profile,
+    ...requested
+  };
+}
+
+function resolveContinuityProfile(text, config) {
+  if (!text || config.continuityProfile === false) return null;
+  if (text.length >= config.extendedContinuityTextMinChars) return 'extended';
+  if (text.length >= config.continuityTextMinChars) return 'balanced';
+  return null;
 }
 
 function hasEarlySpeechBreak(text, config) {

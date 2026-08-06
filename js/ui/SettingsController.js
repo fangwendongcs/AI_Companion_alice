@@ -7,10 +7,12 @@ export class SettingsController {
   init() {
     this.registry.addEventListener(this.refs.settingsBtn, 'click', () => {
       this.refs.sidePanel.classList.add('show');
+      this.refs.sidePanel.setAttribute('aria-hidden', 'false');
       this.refs.sidePanel.style.setProperty('left', this.getOpenPanelLeft(), 'important');
     });
     this.registry.addEventListener(this.refs.closePanelBtn, 'click', () => {
       this.refs.sidePanel.classList.remove('show');
+      this.refs.sidePanel.setAttribute('aria-hidden', 'true');
       this.refs.sidePanel.style.removeProperty('left');
     });
   }

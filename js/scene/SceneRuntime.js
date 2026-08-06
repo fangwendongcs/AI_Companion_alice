@@ -21,9 +21,10 @@ export class SceneRuntime {
     this.frameId = 0;
     this.isDestroyed = false;
     this.debug = {
-      enabled: true,
+      enabled: false,
       freezeAnim: false,
-      boxes: []
+      boxes: [],
+      axes: null
     };
   }
 
@@ -61,7 +62,9 @@ export class SceneRuntime {
     rimLight.position.set(-100, 50, -100);
     this.scene.add(rimLight);
 
-    this.scene.add(new THREE.AxesHelper(100));
+    this.debug.axes = new THREE.AxesHelper(100);
+    this.debug.axes.visible = this.debug.enabled;
+    this.scene.add(this.debug.axes);
     this.avatarRoot.add(this.avatarAnim);
     this.scene.add(this.avatarRoot);
   }
@@ -147,6 +150,14 @@ export class SceneRuntime {
     rootBox.visible = this.debug.enabled;
     this.scene.add(rootBox);
     this.debug.boxes = [rootBox];
+  }
+
+  setDebugEnabled(enabled) {
+    this.debug.enabled = Boolean(enabled);
+    if (this.debug.axes) this.debug.axes.visible = this.debug.enabled;
+    this.debug.boxes.forEach((box) => {
+      box.visible = this.debug.enabled;
+    });
   }
 
   onResize() {
