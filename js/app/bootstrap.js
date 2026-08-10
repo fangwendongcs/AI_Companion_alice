@@ -12,9 +12,9 @@ export function bootstrap() {
     globalLog.error('Unhandled promise rejection:', event.reason);
   });
 
-  if (location.protocol === 'file:') {
-    alert('请使用本地服务器运行本项目，例如：npm run dev、npx serve . 或 python -m http.server。');
-  }
+  // The classic inline guard in index.html owns the file:// error view because
+  // module scripts may be blocked before this module can execute.
+  if (location.protocol === 'file:') return null;
 
   const app = new AppController();
   window.__aliceApp = app;

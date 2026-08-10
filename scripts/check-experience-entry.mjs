@@ -6,10 +6,11 @@ import {
 } from '../js/config/appConfig.js';
 
 const failures = [];
-const [html, css, app, controller, ui, refs, store, dialogues, manifest, errorView, sceneRuntime] = await Promise.all([
+const [html, css, app, bootstrap, controller, ui, refs, store, dialogues, manifest, errorView, sceneRuntime] = await Promise.all([
   readFile('index.html', 'utf8'),
   readFile('css/style.css', 'utf8'),
   readFile('js/app/AppController.js', 'utf8'),
+  readFile('js/app/bootstrap.js', 'utf8'),
   readFile('js/ui/ExperienceEntryController.js', 'utf8'),
   readFile('js/ui/UIController.js', 'utf8'),
   readFile('js/ui/domRefs.js', 'utf8'),
@@ -28,6 +29,11 @@ assert(shouldShowDebugPanel('?debug=1') === true, 'Debug 面板必须保留显�
 assert(shouldShowDebugPanel('?debug=0') === false, 'debug=0 必须强制关闭 Debug 面板。');
 
 assert(html.includes('<body class="experience-mode">'), 'HTML 首帧必须默认为 experience mode，避免开发控件闪现。');
+assert(html.includes("window.location.protocol !== 'file:'"), '直接打开 index.html 时必须识别 file 协议。');
+assert(html.includes('id="startupHelp"') && html.includes('http://localhost:3000'), 'file 协议必须显示可操作的本地服务入口，不能停在加载层。');
+assert(html.includes('<code>npm run demo:start</code>'), 'file 协议说明必须把完整 Demo 启动器作为首选，不能用基础开发模式掩盖 provider 问题。');
+assert(bootstrap.includes("if (location.protocol === 'file:') return null"), '即使浏览器允许本地 module，也不得继续初始化不完整的 Alice。');
+assert(!bootstrap.includes("alert('请使用本地服务器"), 'file 协议错误必须使用页面内可操作说明，不得依赖不可达的 module alert。');
 assert(html.includes('id="welcomeCard"') && html.includes('id="welcomeStartBtn"'), '普通入口必须包含一次点击即可开始的欢迎卡。');
 assert(html.includes('id="welcomeMemoryToggle"') && html.includes('允许 Alice 记住这次聊天'), '首次进入必须提供明确且默认关闭的记忆同意选择。');
 assert(html.includes('id="memoryBtn"') && html.includes('id="privacyPopover"'), '普通入口必须提供持续可访问的记忆与隐私入口。');

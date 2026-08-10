@@ -14,11 +14,28 @@
   <div class="grid-bg" id="gridBg"></div>
 
   <div id="loading">
-    <div>Alice 正在准备见面…</div>
-    <div class="loader-bar">
+    <div id="loadingMessage">Alice 正在准备见面…</div>
+    <div class="loader-bar" id="loaderBar">
       <div class="loader-progress" id="loaderProgress"></div>
     </div>
+    <div class="startup-help" id="startupHelp" role="alert" hidden>
+      <span class="startup-help__eyebrow">需要先启动 Alice</span>
+      <h1>这个页面不能直接双击打开</h1>
+      <p>请先在 Alice 项目目录的终端运行：</p>
+      <code>npm run demo:start</code>
+      <a href="http://localhost:3000">服务启动后，打开 Alice</a>
+      <small>只调试 Web / Backend 时才使用 <code>npm run dev</code>。</small>
+    </div>
   </div>
+
+  <script>
+    (() => {
+      if (window.location.protocol !== 'file:') return;
+      document.getElementById('loadingMessage').hidden = true;
+      document.getElementById('loaderBar').hidden = true;
+      document.getElementById('startupHelp').hidden = false;
+    })();
+  </script>
 
   <canvas id="scene"></canvas>
 

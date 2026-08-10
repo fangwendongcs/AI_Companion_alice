@@ -17,6 +17,8 @@ http://localhost:3000
 http://localhost:3000?debug=1
 ```
 
+不要从 Finder 或文件管理器直接双击 `index.html`。Alice 使用浏览器 ES Modules、后端 API 和模型资源，`file://` 无法运行这些链路；误用这种方式时，页面会显示启动说明和正确的本地地址，不再停留在加载画面。
+
 页面加载后会读取 `/api/providers`。正式 Demo 入口以“打开即可演示”为准：只要后端报告 DeepSeek 与 CosyVoice2 ready，每次加载都会在 UI 初始化前选用 `deepseek` / 后端默认 model 与 `cosyvoice`，避免历史 localStorage 把演示静默带回 Stub / Mock。开发设置仍可用于当前页面排障，但刷新后会重新采用 ready 的正式 Demo provider。
 
 普通 `/`、`/?debug=1` 和刷新入口默认使用 registry 的 `alice`，其正式 Demo 模型为 `assets/avatars/test-vrm/girl.vrm`。历史 `avatar_id` 不再改变默认入口；只有显式 `?avatar=<registry-id>` 才作为本次加载的 QA 覆盖。`demo:start` / `demo:status` 会校验 `alice` manifest、模型文件和 Web 模型 URL，缺失时不会把服务误报为完整 ready。
@@ -70,6 +72,7 @@ runtime/demo/logs/cosyvoice.log
 - DeepSeek Key 缺失或仍是 placeholder：`demo:start` 在启动前失败，不打印 Key。
 - CosyVoice runtime / 模型 / speaker 不完整：前置检查失败，查看 supervisor 日志。
 - readiness 或真实 LLM / TTS 检查失败：`demo:start` 返回失败并停止本次创建的服务，避免留下半启动状态。
+- DeepSeek 显示 `upstream_error`，同时 Node 报 `ECONNRESET`、`curl https://api.deepseek.com/` 在收到 HTTP 状态前 TLS 失败：先对比系统解析与当前 DNS 解析；macOS 若仍缓存旧地址，可在用户自己的 Terminal 执行 `sudo dscacheutil -flushcache` 和 `sudo killall -HUP mDNSResponder`。不要通过放宽 readiness、改成 Stub 或硬编码 IP 掩盖 DNS 问题。
 - stale state：先运行 `npm run demo:stop`；脚本只处理仍能通过进程指纹确认的本实例进程。
 - 未管理端口占用：脚本报告端口并退出，需要用户自行判断占用来源。
 - 页面有端口但回复仍是本地演示文案：先看 `/api/providers` 是否真的报告 DeepSeek / CosyVoice2 ready；新版正式 Demo 会在每次加载时采用 ready provider，不要求清空浏览器数据。

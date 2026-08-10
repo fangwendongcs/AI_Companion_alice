@@ -1,6 +1,6 @@
 # Current Status
 
-最后更新：2026-08-03
+最后更新：2026-08-10
 
 ## 当前阶段
 
@@ -269,6 +269,13 @@ Alice 当前处在“工程闭环完整的本地可测试 MVP + 消费级产品�
 - `npm run cosyvoice:verify` 通过：热缓存下第 3 次 polling 完成 ready / prewarm，Alice live 生成 `4.32s / 207404 bytes / 24000Hz` 有效 WAV，停机降级正常。全量 `npm run check`、独立 `3102` Stub/Mock + 临时 SQLite 的 `npm run smoke`、`check:deployment-readiness` 和 `git diff --check` 均通过。
 - 完整数据和新 provider 门槛见 `docs/reports/TTS_FOLLOWUP_AUDIT_20260731.md`。
 
+2026-08-10 普通入口启动故障收口：
+
+- 根因一是用户从 Finder 直接打开 `index.html`，而原 `file://` 提示位于 ES Module 内；Module 在执行提示前已被浏览器拦截，页面因此永久停在加载层。检测现已移到首屏 classic inline guard，直接打开文件会显示 `demo:start` 和正确 URL，Module 即使被特殊配置放行也不会继续初始化。
+- 根因二是 macOS 系统解析缓存把 `api.deepseek.com` 指向无法完成 TLS 的旧地址；DeepSeek 模型、Base URL、Key 配置与 CosyVoice2 runtime 均未发现代码问题。强制使用当前 DNS 地址时 HTTPS 正常，重载 mDNSResponder 后系统 HTTPS 恢复。
+- DNS 恢复后重新执行 `npm run demo:start`：`alice/girl.vrm` ready；真实 DeepSeek `deepseek-v4-flash/llm_only`，耗时 `2859ms`；真实 CosyVoice2 返回 `149804` bytes WAV，耗时 `4718ms`。没有用 Stub、Mock、放宽 readiness 或硬编码上游 IP 绕过故障。
+- `npm run check`、独立 `3109` Stub/Mock + 临时 SQLite 的 `npm run smoke`、`git diff --check` 通过；入口专项检查新增 file 协议不可达诊断回归。
+
 ## 本次项目记忆更新记录
 
 | 日期 | 更新内容 |
@@ -298,3 +305,4 @@ Alice 当前处在“工程闭环完整的本地可测试 MVP + 消费级产品�
 | 2026-07-31 | 复核 TTS 首音、CPU 调度与其他 provider：拒绝会带回 gap / 长尾的调参，将 CosyVoice 单服务和 Demo 冷启动默认等待提升到约 5 分钟；OpenAI / MiniMax / Higgs 继续留在实验层。 |
 | 2026-08-03 | 完成产品与技术全面审核：项目阶段调整为“本地可测试 MVP、产品价值验证前”；下一优先级收敛单一入口、完成 10 人测试和 7 天实际复访，不再扩张 Provider、Agent、RAG、动作或移动端。 |
 | 2026-08-03 | 完成普通用户单一 Alice 入口：首次记忆同意默认关闭，一次点击进入对话，普通入口隐藏开发设置和进阶控件，保留显式 Debug/QA 入口；点击、加载、错误和状态文案统一为日常 Persona。 |
+| 2026-08-10 | 收口普通入口无法打开问题：修复 ES Module 内 `file://` 提示永远不可达的设计缺陷，并定位/清除 macOS DeepSeek 旧 DNS 缓存；完整 Demo 重新通过 girl.vrm、真实 DeepSeek 和真实 CosyVoice2 readiness。 |
