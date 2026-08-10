@@ -65,3 +65,6 @@ runtime/cosyvoice/*.mp3
 
 # Local Alice Demo supervisor state and logs
 runtime/demo/
+
+# Local TTS live-comparison evidence
+runtime/tts/

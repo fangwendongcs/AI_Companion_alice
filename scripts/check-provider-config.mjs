@@ -24,6 +24,8 @@ async function checkEnvExamplePlaceholders() {
   assert(source.includes('QWEN_API_KEY=replace_with_your_key'), '.env.example 必须使用 QWEN_API_KEY placeholder。');
   assert(source.includes('DEEPSEEK_API_KEY=replace_with_your_key'), '.env.example 必须使用 DEEPSEEK_API_KEY placeholder。');
   assert(source.includes('CUSTOM_API_KEY=replace_with_your_key'), '.env.example 必须使用 CUSTOM_API_KEY placeholder。');
+  assert(source.includes('QWEN3_TTS_API_KEY=replace_with_your_key'), '.env.example 必须使用 QWEN3_TTS_API_KEY placeholder。');
+  assert(source.includes('FISH_AUDIO_API_KEY=replace_with_your_key'), '.env.example 必须使用 FISH_AUDIO_API_KEY placeholder。');
   assert(!/\bsk-[A-Za-z0-9_-]{12,}/.test(source), '.env.example 不应包含真实 sk- key。');
   assert(!/Bearer\s+[A-Za-z0-9._-]+/.test(source), '.env.example 不应包含 Bearer token。');
 }
@@ -40,8 +42,11 @@ async function checkProviderStatusContract() {
   assert(Array.isArray(status.tts), 'Provider status 必须包含 tts 列表。');
   assert(status.tts.some((item) => item.provider === 'mock' && item.configured === true), 'TTS provider status 必须包含 configured mock。');
   assert(status.tts.some((item) => item.provider === 'cosyvoice'), 'TTS provider status 必须包含 cosyvoice。');
-  assert(!status.tts.some((item) => ['higgs', 'openai', 'minimax'].includes(item.provider)), '公开 TTS provider status 当前只能暴露 mock / cosyvoice。');
+  assert(status.tts.some((item) => item.provider === 'qwen3_tts'), 'TTS provider status 必须包含 qwen3_tts。');
+  assert(status.tts.some((item) => item.provider === 'fish_audio'), 'TTS provider status 必须包含 fish_audio。');
+  assert(!status.tts.some((item) => ['higgs', 'openai', 'minimax', 'siliconflow'].includes(item.provider)), '公开 TTS provider status 只能暴露 mock / cosyvoice / qwen3_tts / fish_audio。');
   assert(status.tts.every((item) => item.capabilities), 'TTS provider status 必须包含 capabilities。');
+  assert(status.tts.every((item) => item.metadata?.provider === item.provider), 'TTS provider status 必须包含统一安全 metadata。');
   assertNoSecretFields(status, 'Provider status');
   const deepseek = status.llm.find((item) => item.provider === 'deepseek');
   assert(deepseek?.defaultModel === providerDefaultModels.deepseek, 'Provider status DeepSeek defaultModel 必须与后端默认模型一致。');
@@ -89,10 +94,10 @@ async function checkFrontendProviderBoundary() {
   assert(providers.includes("provider: 'stub'"), '默认 provider 必须保持 stub。');
   assert(settings.includes('/api/providers'), 'LLM 设置面板必须通过 /api/providers 读取安全 provider 状态。');
   assert(ttsSettings.includes('/api/providers'), 'TTS 设置面板必须通过 /api/providers 读取安全 provider 状态。');
-  assert(ttsSettings.includes('DISPLAYED_TTS_PROVIDERS') && ttsSettings.includes("'mock'") && ttsSettings.includes("'cosyvoice'"), 'TTS 设置面板当前只能展示 mock / cosyvoice。');
-  assert(ttsRegistry.includes("provider: 'mock'") && ttsRegistry.includes("provider: 'cosyvoice'"), '前端 TTS registry 必须只传 mock / cosyvoice provider id。');
-  assert(!/provider:\s*['"`](higgs|openai|minimax)['"`]/i.test(ttsRegistry), '前端 TTS registry 当前不应暴露 higgs / openai / minimax provider。');
-  assert(!/Higgs Audio v3|value="higgs"|value="openai"|value="minimax"/i.test(ttsSection), 'TTS Settings UI 当前不应展示 Higgs / OpenAI / MiniMax。');
+  assert(ttsSettings.includes('DISPLAYED_TTS_PROVIDERS') && ['mock', 'cosyvoice', 'qwen3_tts', 'fish_audio'].every((id) => ttsSettings.includes(`id: '${id}'`)), 'TTS 设置面板必须展示四个公开 provider。');
+  assert(['mock', 'cosyvoice', 'qwen3_tts', 'fish_audio'].every((id) => ttsRegistry.includes(`provider: '${id}'`)), '前端 TTS registry 必须只传四个公开 provider id。');
+  assert(!/provider:\s*['"`](higgs|openai|minimax|siliconflow)['"`]/i.test(ttsRegistry), '前端 TTS registry 当前不应暴露 Higgs / OpenAI / MiniMax / SiliconFlow provider。');
+  assert(!/Higgs Audio v3|SiliconFlow|value="higgs"|value="openai"|value="minimax"|value="siliconflow"/i.test(ttsSection), 'TTS Settings UI 当前不应展示 Higgs / OpenAI / MiniMax / SiliconFlow。');
   assert(settings.includes('本地演示模式，无需 API Key'), 'LLM 设置面板必须提示 stub 无需 API Key。');
   assert(html.includes('apiKeyInput') && html.includes('disabled'), '前端 API Key 输入框必须保持禁用。');
   assert(settings.includes('已迁移到后端环境变量'), 'LLM 设置控制器必须保持后端环境变量迁移提示。');

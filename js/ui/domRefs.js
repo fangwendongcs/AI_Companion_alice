@@ -64,6 +64,7 @@ export function createDomRefs(root = document) {
     ttsProviderStatusSummary: byId('ttsProviderStatusSummary'),
     ttsCurrentProvider: byId('ttsCurrentProvider'),
     ttsProviderAvailability: byId('ttsProviderAvailability'),
+    ttsProviderModel: byId('ttsProviderModel'),
     ttsProviderVoice: byId('ttsProviderVoice'),
     ttsProviderCapabilities: byId('ttsProviderCapabilities'),
     ttsProviderReason: byId('ttsProviderReason'),

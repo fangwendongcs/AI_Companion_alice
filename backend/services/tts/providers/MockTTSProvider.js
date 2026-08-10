@@ -20,6 +20,9 @@ export class MockTTSProvider {
       health,
       mode: 'demo',
       requiresKey: false,
+      defaultModel: 'mock-silence',
+      defaultVoice: 'mock-silence',
+      sampleRate: 16000,
       capabilities: this.getCapabilities()
     };
   }

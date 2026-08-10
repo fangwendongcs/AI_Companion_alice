@@ -69,7 +69,7 @@ flowchart LR
 | Interaction Events | MVP | head / body / arm / leg 交互可触发动作槽位或 fallback。 |
 | Animation System | MVP / evolving | motion slots、queue、state-machine checks、boot/idle/gesture/speaking/listening 流程。 |
 | Dialogue Flow | MVP | 前端主对话路径使用 `/api/dialogue`，`/api/chat` 保留兼容。 |
-| TTS / Audio | MVP | 浏览器语音兜底 + 后端 TTS proxy 边界，真实 provider Key 只在后端。 |
+| TTS / Audio | MVP / 可插拔 | Mock、本地 CosyVoice2、官方 DashScope 的 Qwen3-TTS 与 Fish Audio 共用后端 Provider 边界，并复用既有 AudioManager、分段、LipSync 和浏览器 fallback；远程 live 仍待验收。 |
 | Backend API Boundary | MVP | 原生 Node 后端，包含 routes、services、provider readiness、上传校验与安全检查。 |
 | LLM Provider | MVP / configurable | 默认 `stub` 无 Key 可运行，真实 provider 需要后端环境变量。 |
 | Memory | MVP / evolving | SQLite-backed 最近上下文 + 保守长期 `memory_items`；不是自动用户画像系统。 |
@@ -110,7 +110,7 @@ http://localhost:3000
 http://localhost:3000?debug=1
 ```
 
-默认 LLM provider 是 `stub`，所以本地开发不需要 API Key。Web Settings 当前只展示 `Mock` 和 `CosyVoice2` 两个 TTS 测试入口：`mock` 不依赖外部服务，`cosyvoice` 在本地 CosyVoice2 runtime 启动后通过后端环境变量启用。服务地址、模型路径、端口和 secret 都不会写进前端代码。
+默认 LLM provider 是 `stub`，所以本地开发不需要 API Key。Web Settings 展示 `Mock`、本地 `CosyVoice2`、`Qwen3-TTS（DashScope）` 和 `Fish Audio` 四个 TTS 测试入口；服务地址、model、voice、端口和 secret 全部留在后端环境变量中。Qwen3/Fish 已完成代码接入，但仍需要用户在忽略的 `.env` 中配置凭据并完成真实 API 验收。
 
 ## 部署模式与 Secret 管理
 

@@ -1,21 +1,24 @@
 # Risks And Todo
 
-最后更新：2026-07-31
+最后更新：2026-08-10
 
 ## 当前风险
 
 | 风险 | 等级 | 当前处理 | 需要检查 |
 | --- | --- | --- | --- |
 | CosyVoice2 live 依赖本地 Python、模型、speaker、端口和官方 runtime。 | 中 | `mock` 保持默认可用；CosyVoice2 有独立脚本和文档。 | `docs/guides/COSYVOICE_RUNTIME.md`、`scripts/cosyvoice/*` |
-| VRM / VRMA / FBX 动作质量无法只靠自动化证明。 | 中 | 外部动作进入 QA-only gate；产品动作需视觉验证。 | `docs/architecture/VRM_MOTION_READINESS.md`、`docs/architecture/VRM_MOTION_QUALITY_V1.md` |
+| Qwen3-TTS / Fish Audio adapter 已公开但当前没有真实 remote live 证据；现有 `QWEN_API_KEY` 只是 placeholder。 | 高 | Provider 显式拒绝 `replace_with_*`；Qwen 两轮 live 停在 `missing_key` 预检、Fish 固定 live 停在未配置，不把非空字符串或 readiness 当成可调用。用户已决定本阶段先完成代码收口，不执行真实对照。 | 后续恢复验收时，在忽略的 `.env` 配置有效同 region Key，再分别完成真实中文、连续两轮、延迟、听感、账单和故障恢复；见 `docs/reports/REMOTE_TTS_PROVIDER_AUDIT_20260810.md`。 |
+| 模型名可能让人误以为当前 Qwen3/Fish provider 是开源本地部署。 | 中 | 文档明确当前两个 identity 都是云 API；本地开源部署不向厂商取 Key，也不与云端共享 readiness。 | 若决定本地跑 Qwen3/Fish，先评估机器/GPU/许可证，再新增独立 self-hosted adapter 与真实本地验收；不改 AudioManager。 |
+| 非空 remote TTS 配置可能仍不可用。 | 中 | live check 验证真实音频签名；本机 MiniMax 已实证鉴权拒绝，OpenAI 已实证当前网络 TLS 不通，不把 `configured=true` 当成 live。 | 更换有效 credential / 网络后必须重新执行真实短中文和两轮对照。 |
+| VRM / VRMA / FBX 动作质量无法只靠自动化证明。 | 中 | 原始全身 FBX 保持 QA-only；本地 Demo 正式 slot 只保留上半身轨道，已通过髋/腿不变断言和截图视觉 QA。更换模型或动作仍需重做验证。 | `docs/architecture/VRM_MOTION_READINESS.md`、`docs/architecture/VRM_MOTION_QUALITY_V1.md` |
 | 部分早期文档是历史阶段记录，容易被误读为当前状态。 | 中 | 新建 project-memory 作为导航；docs index 标注历史参考。 | `docs/project-memory/DOCUMENT_AUDIT.md` |
-| Alice 模型、测试模型、motion 素材授权需要正式分发前复核。 | 中 | 已有 motion license 目录；正式产品化前不能跳过授权检查。 | `docs/assets/licenses/MOTION_ASSET_LICENSES.md`、`docs/architecture/VRM_MOTION_READINESS.md` |
+| Alice 模型、测试模型、motion 素材授权需要正式分发前复核。 | 中 | 已有 motion license 目录；当前 FBX slot 仅 `local-only`，原始资产仍为 `pending verification`，不能因浏览器播放通过就视为可公开分发。 | `docs/assets/licenses/MOTION_ASSET_LICENSES.md`、`docs/architecture/VRM_MOTION_READINESS.md` |
 | 当前默认 Alice 依赖 Git-ignored 的本机 `assets/avatars/test-vrm/girl.vrm`。 | 高 | 普通页与 debug 页已固定加载该模型，缺失/损坏时明确报错并仅启用既有 fallback；不静默切回旧 GLB。 | 正式分发前确认模型授权，将二进制迁移到可发布资产路径并更新 manifest。 |
 | `runtime/cosyvoice/` 是本地未提交 runtime，其他机器默认不存在。 | 低 | 文档和脚本说明准备流程。 | `.gitignore`、`docs/guides/COSYVOICE_RUNTIME.md` |
 | 真实 CosyVoice2 口型观感具有模型差异。 | 中 | 默认 Alice 已通过 99.48 秒真实浏览器 QA，并改为 U/O 保守口型、最大 influence `0.22`；其他模型仍需近景验证。 | `docs/architecture/VRM_RENDERER_MVP.md`、浏览器 Debug Panel |
 | P5 连续播放以更晚首音换取低 gap，中长回复首音仍可感知。 | 中 | balanced / extended 分段、2 路即时预取和 `5000ms` 有界缓冲已把真实浏览器最大 gap 从 `6.271s` 降至 `236ms`；54 字 Node 首次播放 p50 约 `12.5s`。当前不引入吞吐不足的 PCM streaming。 | `docs/reports/P5_CONTINUOUS_TTS_DECISION_20260728.md`、`js/voice/TTSService.js` |
 | CosyVoice2 冷启动可因 wetext 缓存不完整超过原 120/180 秒窗口。 | 中 | `cosyvoice:start` 默认改为 `60 × 5s`，`demo:start` 默认 `300s`；仍在 ready 后立即返回并预热。 | `scripts/cosyvoice/start-official-fastapi.sh`、`scripts/demo/demo-manager.mjs` |
-| 其他 TTS adapter 存在不等于可作为正式 Demo provider。 | 中 | OpenAI / MiniMax / Higgs 分别因凭据无效或 base URL 缺失未完成 live；继续保持后端实验层，不扩大 Settings / API 公开集合。 | `docs/reports/TTS_FOLLOWUP_AUDIT_20260731.md`、`docs/guides/LOCAL_TTS.md` |
+| TTS adapter 存在不等于可作为正式 Demo provider。 | 中 | OpenAI / MiniMax / Higgs 继续留在后端实验层；Qwen3-TTS / Fish Audio 虽进入公开选择，但在各自 remote live 通过前只能视为待验收 provider。 | `docs/reports/TTS_FOLLOWUP_AUDIT_20260731.md`、`docs/reports/REMOTE_TTS_PROVIDER_AUDIT_20260810.md` |
 | “先陪伴、别建议”在未覆盖中文变体下仍可能出现新表达。 | 低 | 当前轮/近期会话策略、行为检查和最多两次草稿重写已落地；12 轮真实固定集 0 最终违规。后续只把真实用户暴露的新失败加入固定集，不扩张巨型状态机。 | `docs/reports/DIALOGUE_BEHAVIOR_TUNING_20260727.md`、`scripts/check-dialogue-behavior.mjs` |
 | 复杂行为边界可能增加 DeepSeek 生成次数和长尾延迟。 | 中 | 明确边界轮次内部预算为 `480`，空正文或行为违规最多重写两次；最终 12 轮无 fallback，但最慢一轮前两次均 `finishReason=length`，第三次成功，总耗时 `17.08s`。 | `backend/services/DialogueOrchestrationService.js`、`scripts/check-dialogue-behavior-live.mjs` |
 | 真实 LLM 偶发空响应会触发受控重写或安全降级。 | 低 | `LLM_EMPTY_RESPONSE` 先进入最多两次行为重写；仍为空或其他上游失败时保持既有 stub fallback 和 P3 requestId/耗时/原因。 | `docs/api/API_CONTRACT.md`、Dialogue Debug/结构化日志 |
@@ -83,10 +86,11 @@
 | Web 页面是否无控制台错误、Avatar 可见、Shiro/Wambo VRM 可切换。 | `npm run dev` 后浏览器手动验收 `http://localhost:3000?debug=1` |
 | `dialogue.v1` 是否仍满足 Web 表现层语义契约。 | `npm run check:dialogue-contract` |
 | Dialogue requestId、耗时、fallback/error 日志和 Web Debug 是否保持一致。 | `npm run check:dialogue-observability` |
-| TTS provider 合约是否仍只公开 Mock / CosyVoice2。 | `npm run check:tts-provider-flow` |
+| TTS provider 合约是否只公开 Mock / CosyVoice2 / Qwen3-TTS / Fish Audio，且 metadata/secret 边界稳定。 | `npm run check:tts-provider-flow`、`npm run check:provider-config` |
 | CosyVoice2 本地 runtime 是否可用。 | `npm run check:cosyvoice-runtime`、`npm run check:cosyvoice-live` |
+| Qwen3-TTS / Fish Audio 是否真实生成中文、连续两轮并产生可信 latency。 | 配置本地 `.env` 后分别运行固定 live 与 compare 命令，再做浏览器两轮/取消/静音/idle 验收。 |
 | VRMRenderer 和 local test manifest 是否仍受 debug gate 保护。 | `npm run check:vrm-renderer-flow` |
-| VRM 外部动作 QA 是否存在形变、位移、springBone 残留。 | 浏览器 debug 手动 QA，参考 `docs/architecture/VRM_MOTION_READINESS.md` |
+| VRM 校准文件动作是否继续保持髋/腿稳定、无程序化替身或 springBone 残留。 | 运行 `scripts/qa/vrm-file-motion-product-runner.js` 并检查 `output/playwright/vrm-file-motion-product/` |
 | Shiro / Wambo 或未来替换 Avatar 的保守口型是否仍不露齿、结束后归零。 | 为每个目标模型播放 5–10 秒真实 CosyVoice2，并做面部近景与 Debug Panel 验收。 |
 | Memory 修正、真正遗忘、过期和语义去重策略是否正确。 | 保持后续独立阶段；不要基于少量例子堆正则或在 P1B 扩张系统。 |
 | Demo supervisor 是否能在 Windows 工作。 | 当前只在 macOS / POSIX 环境设计与验收；Windows 的 detached process、`ps` 和 signal 行为需单独实现与验证。 |
@@ -94,7 +98,8 @@
 ## 下一步建议
 
 1. 固定真实模型行为用例已通过；下一步邀请陌生用户完成 10 分钟会话，记录性格辨识、继续聊天意愿、“她记得我”反馈，以及边界轮次额外延迟是否可接受。
-2. P5 已选择更保守的分段/缓冲并拒绝当前 PCM streaming；下一步在陌生用户 10 分钟会话中同时记录 `10–13s` 中长回复首音是否比原有段间断裂更影响继续聊天意愿。
-3. 选择私有演示部署平台与预览域名后，再补平台变量、HTTPS、Secret Manager、持久化目录和健康检查方案。
-4. 仅在新增正式 Avatar 时补模型专用近景口型 QA，不重新打开已收口的 Alice P2 主阶段。
-5. 公网演示前，设计正式访问控制；跨平台 Demo 另行实现 Windows 进程所有权与停服策略。
+2. 在忽略的 `.env` 配置 Qwen3-TTS 与 Fish Audio 后分别完成真实中文两轮、首 chunk/完整耗时、音质和实际成本；完成这两个目标前不接第三个 remote provider。
+3. P5 已选择更保守的分段/缓冲并拒绝当前 PCM streaming；下一步在陌生用户 10 分钟会话中同时记录 `10–13s` 中长回复首音是否比原有段间断裂更影响继续聊天意愿。
+4. 选择私有演示部署平台与预览域名后，再补平台变量、HTTPS、Secret Manager、持久化目录和健康检查方案。
+5. 仅在新增正式 Avatar 时补模型专用近景口型 QA，不重新打开已收口的 Alice P2 主阶段。
+6. 公网演示前，设计正式访问控制；跨平台 Demo 另行实现 Windows 进程所有权与停服策略。

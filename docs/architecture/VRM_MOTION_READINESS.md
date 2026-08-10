@@ -7,7 +7,7 @@ This note records the minimum contract before Alice adds external humanoid motio
 - `local_girl_vrm_test` is loaded through three-vrm and exposes humanoid, expression, lookAt, and springBone runtime features.
 - Body motion is still owned by `MotionManager` / `AnimationController`.
 - `VRMRenderer` reports renderer capabilities and runs `vrm.update(delta)`, but it does not choose motion resources.
-- The local girl VRM `motions.json` has one authorized test entry for the `wave` slot; other routine body motion still relies on procedural fallbacks unless explicitly configured.
+- The local girl VRM `motions.json` maps `intro / idle / listening / thinking / speaking / chat / wave` to calibrated local FBX file actions. Procedural versions remain registered only as failure fallbacks.
 - The 7 local VRMA test files and 6 user-provided Mixamo FBX files are now registered and classified in `assets/avatars/test-vrm/motions.json`. See `docs/architecture/VRM_MOTION_QUALITY_V1.md` for the asset status gate, QA-only slots, and rejected-action boundaries.
 
 ## Recommended Motion Config Fields
@@ -41,68 +41,25 @@ Field guidance:
 - `layer`: `base`, `upperBody`, `gesture`, or `face`.
 - `fallback`: safe slot to use when loading or retargeting fails.
 
-## Manual Test Motion Placement
+## Local Calibrated Motion Placement
 
-The local VRM validation setup uses a single external `wave` motion entry for `local_girl_vrm_test`.
-
-The local girl VRM config points the test slot at:
+The local girl config consumes the existing Mixamo files through stable slots, not raw filenames in business code:
 
 ```text
-assets/motions/vrm/test/VRMA_02Greeting.vrma
+Standing Idle.fbx -> idle, listening
+Thinking.fbx     -> thinking
+Talking (1).fbx  -> speaking
+Talking.fbx      -> chat
+Waving.fbx       -> intro, wave
 ```
 
-Use this slot only with a motion file whose source and license are explicitly verified. If the file is absent or fails to load, Alice must keep loading the avatar, report `motion.lastError`, and fall back to the procedural `wave` / `idle` behavior. A missing or failed test file is configuration readiness, not proof that external motion has entered the mixer.
+Every formal local entry uses `mode=retargeted`, `source=file`, `releaseScope=local-only`, `calibrationProfile=mixamo-vrm-upper-body-v1`, and an include filter for upper-limb/torso tracks. `thinking` additionally retains head/neck. Hips and leg groups are excluded, so source root translation, crossed legs, and foot sliding do not reach the avatar. If a file cannot load or retarget, the same semantic slot keeps its procedural fallback.
 
-Expected debug state after a valid authorized file is placed and the `wave` slot is triggered:
+Expected runtime evidence is `motion.mode=retargeted`, `motion.format=fbx`, `motion.source=file`, `motion.proceduralActive=false`, and `motion.tracks < motion.originalTracks`. The product runner at `scripts/qa/vrm-file-motion-product-runner.js` also samples normalized hips and both leg/foot chains against the idle baseline.
 
-- `motion.current=wave`
-- `motion.mode=vrma`
-- `motion.source=file`
-- `motion.mixerActive=true`
-- `vrm.secondaryMotion=false` while `wave` is running
+`qa=motion` still exposes raw `qaFbx*` and `qaGreeting` full-body entries. These remain `qaOnly=true` and `productMapping=false`; `Shoot`, `Spin`, and `Squat` remain rejected. The original `VRMA_02Greeting.vrma` is now `qaGreeting`, uses `layer=fullBody` plus `secondaryMotion=suppress`, and is not the formal standing `wave`.
 
-Use this debug URL when visually checking body shape, feet, hips, shoulders, hair, and clothing deformation:
-
-```text
-http://localhost:3001?debug=1&avatar=local_girl_vrm_test&motion=wave&qa=motion
-```
-
-`qa=motion` is a debug-only layout mode. It hides the bottom input dock and interaction hint so the full body stays visible during motion QA. It does not change the animation pipeline.
-
-To A/B test the observed hair / clothing stretch after the VRMA gesture, enable the debug-only secondary motion reset:
-
-```text
-http://localhost:3001?debug=1&avatar=local_girl_vrm_test&motion=wave&qa=motion&springReset=gestureEnd
-```
-
-`springReset=gestureEnd` only applies with `qa=motion`. It triggers one `VRMRenderer.resetSecondaryMotion()` call after a `vrma` gesture action completes. Use `qa.springReset` and `vrm.springBoneResetAt` in the Debug Panel to confirm whether the reset path ran. This is a controlled QA experiment, not a default animation policy.
-
-`VRMA_02Greeting.vrma` contains full-body tracks, including hips, spine/chest, neck/head, arms, and legs. It should be applied as a full-body one-shot action rather than as a small overlaid gesture. Browser A/B testing showed that this file can over-drive the girl VRM secondary motion, causing hair and chest clothing to stretch upward during the crouch/greeting pose. The local girl VRM config therefore uses:
-
-```json
-"layer": "fullBody",
-"baseWeightWhileActive": 0,
-"secondaryMotion": "suppress"
-```
-
-This lets the original VRMA file drive the complete humanoid pose while the procedural idle layer fades out during playback. `secondaryMotion` is an explicit per-motion policy, not an automatic `fullBody + vrma` rule.
-
-Supported secondary motion policies:
-
-- `keep`: leave VRM secondary motion running.
-- `reset`: reset secondary motion at action boundaries without disabling it.
-- `suppress`: disable secondary motion while the action is active, then restore it on completion, interruption, avatar switch, or app destroy.
-
-`qa=motion` also exposes QA-only motion slots for visual review. These slots are not product mappings and must keep `qaOnly=true` plus `productMapping=false`. `Shoot`, `Spin`, and `Squat` are stress-test/rejected assets and must not enter formal companion behavior. FBX entries must use `format=fbx` and `mode=retargeted`; they are not considered VRM-ready until browser retarget QA passes.
-
-Debug should show `motion.layer=fullBody`, `motion.tracks=53`, `motion.actions`, and `vrm.secondaryMotion`.
-
-Expected debug state while the file is absent:
-
-- `motion.current=idle`
-- `motion.mode=procedural`
-- `motion.source=procedural`
-- `motion.lastError=motion_file_missing_or_failed:wave:assets/motions/vrm/test/VRMA_02Greeting.vrma`
+The local-only exception does not verify the underlying license. Public distribution still requires source and redistribution terms to be verified and the binary moved into an approved publishable asset path.
 
 ## Retarget Risks
 

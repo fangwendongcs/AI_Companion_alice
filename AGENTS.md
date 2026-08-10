@@ -1,6 +1,6 @@
 # AGENTS.md
 
-最后更新：2026-07-03
+最后更新：2026-08-10
 
 这是所有 Coding Agent 进入 Alice 项目后的第一阅读入口。目标是在 10 分钟内理解项目是什么、当前做到哪里、怎么运行、哪些边界不能破坏、下一步从哪里开始。
 
@@ -10,7 +10,7 @@ Alice 是一个 AI digital companion / interactive avatar 项目，不是普通�
 
 - Web 端：HTML / CSS / Vanilla JS + Three.js，提供 3D/VRM Avatar、交互、调试和设置面板。
 - Backend：Node HTTP 服务，统一承接 Dialogue、Memory、RAG、TTS、provider readiness、安全边界。
-- TTS：当前公开主线是 `mock` + `cosyvoice`，真实服务由后端接 CosyVoice2 官方 FastAPI runtime。
+- TTS：当前公开集合是 `mock` + `cosyvoice` + `qwen3_tts` + `fish_audio`；CosyVoice2 已完成本地 live，两个远程 provider 已接入代码但仍待有效凭据下的真实验收。
 - VRM：Web 已有 renderer adapter 边界，业务层只消费 `AvatarDirective` 语义，不绑定 VRM/FBX 细节。
 
 ## 仓库结构速览
@@ -89,18 +89,20 @@ npm run cosyvoice:stop
 
 ## 修改模块时同步更新
 
+文档记忆是完成条件，不是可选收尾。任何会影响当前能力、配置、架构边界、契约、运行方式、验收结论、故障判断或后续调试的修改，都必须在同一轮同步写入对应权威文档和 `docs/project-memory/`。聊天记录、终端输出和代码 diff 不能替代项目记忆；没有执行过的验证必须明确写为“未验证/待验收”，不能从自动化或 Mock 结果推断为真实可用。
+
 | 修改内容 | 必须同步检查/更新 |
 | --- | --- |
 | 项目状态、阶段、下一步 | `docs/project-memory/CURRENT_STATUS.md` |
 | 架构边界、目录职责 | `docs/project-memory/README.md`、相关 `docs/architecture/*` |
 | `/api/dialogue` 字段 | `docs/contracts/DIALOGUE_CONTRACT.md`、`docs/api/API_CONTRACT.md` |
-| TTS provider / Audio Result | `docs/guides/LOCAL_TTS.md`、`docs/api/API_CONTRACT.md` |
+| TTS provider / Audio Result | `docs/guides/LOCAL_TTS.md`、`docs/api/API_CONTRACT.md`、`docs/project-memory/CURRENT_STATUS.md` |
 | CosyVoice2 runtime | `docs/guides/COSYVOICE_RUNTIME.md` |
 | Avatar / VRM / motion | `docs/architecture/VRM_RENDERER_MVP.md`、`docs/avatar/AVATAR_PRESENTATION_CONTRACT.md` |
 | 重大技术选择 | `docs/project-memory/DECISION_LOG.md` |
 | 新风险、待验证项 | `docs/project-memory/RISKS_AND_TODO.md` |
 
-小修复不需要写长篇文档，但不能让核心状态、契约、运行方式长期落后于代码。
+小修复不需要写长篇文档，但仍需判断它是否改变排障事实；只要会影响后续复现或调试，就应留下简洁记录。核心状态、契约、运行方式和验收状态不得落后于代码。
 
 ## 当前最高优先级
 

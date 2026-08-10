@@ -91,6 +91,7 @@ export class OpenAICompatibleTTSProvider {
     };
     if (this.apiKey) headers.Authorization = `Bearer ${this.apiKey}`;
 
+    const requestStartedAt = nowMs();
     const upstream = await fetchWithProviderTimeout(this.fetchImpl, `${this.baseUrl}${this.path}`, {
       method: 'POST',
       headers,
@@ -100,7 +101,8 @@ export class OpenAICompatibleTTSProvider {
     return parseProviderResponse(upstream, {
       provider: this.id,
       fallbackFormat: this.outputFormat,
-      streaming: payload.stream === true
+      streaming: payload.stream === true,
+      requestStartedAt
     });
   }
 
@@ -117,6 +119,10 @@ export class OpenAICompatibleTTSProvider {
     if (style.instruction) payload.instructions = style.instruction;
     return payload;
   }
+}
+
+function nowMs() {
+  return globalThis.performance?.now?.() ?? Date.now();
 }
 
 function getStatus({ hasBaseUrl, hasKey, requiresKey }) {

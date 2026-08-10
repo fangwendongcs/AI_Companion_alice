@@ -5,8 +5,8 @@ This document records the current VRM motion asset gate for Alice Web. It separa
 ## Scope
 
 - Avatar under test: `local_girl_vrm_test`
-- Current product candidate slot: `wave`
-- Current authored motion source: `assets/motions/vrm/test/VRMA_02Greeting.vrma`
+- Current local-demo file slots: `intro / idle / listening / thinking / speaking / chat / wave`
+- Current authored local-demo source: calibrated upper-body views of the Mixamo FBX files in `assets/motions/fbx/`
 - Motion sources under management: existing VRMA files in `assets/motions/vrm/test/` and user-provided Mixamo FBX files in `assets/motions/fbx/`.
 - No binary motion files are downloaded by this phase.
 - `VRMRenderer` remains an execution layer. Motion selection stays in `MotionManager` and avatar motion config.
@@ -20,7 +20,7 @@ Motion assets use `qualityStatus`:
 - `debugOnly`: may be loaded and played in `qa=motion`, but must not drive product behavior.
 - `rejected`: may remain as a stress-test asset, but must not enter formal product mapping.
 
-Formal `slots` may only reference `approved` assets. `qaSlots` must declare `qaOnly=true` and `productMapping=false`.
+Raw assets retain their audit status. Formal public/distributable slots may only reference `approved` and license-verified assets. A local-only slot may reference a raw `debugOnly` FBX only when the slot itself declares `localUseApproved=true`, `releaseScope=local-only`, an explicit calibration profile, and a track filter that removes the known bad hips/root/leg channels. `qaSlots` still declare `qaOnly=true` and `productMapping=false`.
 
 V1.1 also separates the status dimensions that were previously easy to conflate:
 
@@ -38,12 +38,14 @@ Current Mixamo FBX files are technically playable but visually incorrect after t
 }
 ```
 
-A product interaction candidate must satisfy all of these before `MotionManager` allows it through `interactionIntents`:
+A public/distributable product interaction candidate must satisfy all of these before `MotionManager` allows it through `interactionIntents`:
 
 - `qualityStatus=approved`
 - `technicalStatus=playable`
 - `productStatus=approved`
 - `licenseStatus=verified`
+
+The local demo has one narrow exception: a slot with `calibrationProfile=mixamo-vrm-upper-body-v1`, `releaseScope=local-only`, enabled `trackFilter`, and `licenseStatus=pending verification` may run on the current machine. This exception does not upgrade the raw asset or grant redistribution rights.
 
 ## Unified Motion Call Path
 
@@ -59,7 +61,7 @@ InteractionManager
   -> VRMA loader, FBX retarget adapter, or procedural fallback
 ```
 
-For the current local VRM test avatar, `interaction.greeting` deliberately does not trigger `wave`. `wave` still points to `VRMA_02Greeting.vrma`, which is a full-body crouch/greeting validation asset rather than a final standing click response. The configured candidate is `qaFbxWaving`, but it remains `debugOnly`; therefore the runtime resolves the click to the `armTap` procedural fallback and records `candidate_debugOnly_qa_only` in Debug.
+For the current local VRM test avatar, `interaction.greeting` resolves directly to the formal local-only `wave` slot backed by `Waving.fbx`. `interaction.chat` resolves to `Talking.fbx`. Both go through normalized humanoid retargeting and keep only upper-limb/torso tracks; missing or failed files still fall back to the configured procedural slot without blocking the avatar.
 
 ## Current VRMA Asset Registry
 
@@ -141,7 +143,23 @@ output/playwright/vrm-motion-quality-v1-1/qaFbx*-mid.png
 output/playwright/vrm-motion-quality-v1-1/qaFbx*-late.png
 ```
 
-Conclusion: the FBX pipeline is connected far enough to load, retarget by name, enter `AnimationMixer`, suppress procedural overlap, and return to idle. The V1.1 normalized humanoid retarget fix removes the previous T-pose blocker. It is still not product-ready because the assets and retarget layer need root/hips normalization, standing-foot stability, and motion-specific product QA. License status also remains `pending verification`.
+Conclusion for raw full-body playback: the FBX pipeline loads, retargets by name, enters `AnimationMixer`, suppresses procedural overlap, and returns to idle. The normalized humanoid retarget fix removes the previous T-pose blocker, but the raw full-body views remain QA-only because root/hips/feet are unsuitable and license status is still `pending verification`.
+
+## Local Demo Calibrated File Slots
+
+The local demo now derives restrained upper-body actions from the useful parts of the raw FBX files. It does not copy or rewrite the binary files. The runtime filters tracks after retargeting so hips, upper/lower legs, feet, and toes remain on the stable VRM base pose.
+
+| Slot | File asset | Layer / loop | Retained tracks | Safe fallback |
+| --- | --- | --- | --- | --- |
+| `intro` | `fbxWaving` | gesture / once | upper limbs + torso | procedural `intro` |
+| `idle` | `fbxStandingIdle` | base / repeat | upper limbs + torso | procedural `idle` |
+| `listening` | `fbxStandingIdle` | base / repeat | upper limbs + torso | procedural `listening` |
+| `thinking` | `fbxThinking` | base / repeat | upper limbs + torso + head | procedural `thinking` |
+| `speaking` | `fbxTalking1` | base / repeat | upper limbs + torso | procedural `speaking` |
+| `chat` | `fbxTalking` | gesture / once | upper limbs + torso | procedural `chat` |
+| `wave` | `fbxWaving` | gesture / once | upper limbs + torso | procedural `wave` |
+
+Browser verification on 2026-08-10 confirmed every slot reports `source=file`, `format=fbx`, `mode=retargeted`, `qaOnly=false`, and `proceduralActive=false`. Retargeting matched `21/53` source tracks across 20 target bones; the calibrated clips retained 11 tracks, or 13 for `thinking`. Sampled normalized hips and both leg/foot chains remained bit-for-bit equal to the idle baseline, and screenshots showed straight planted legs without the raw crossed-foot/root drift. Evidence is under `output/playwright/vrm-file-motion-product/`.
 
 ## Repeatable QA Runners
 
@@ -151,6 +169,14 @@ Browser QA uses:
 http://localhost:3001?debug=1&avatar=local_girl_vrm_test&qa=motion
 ```
 
+The calibrated product-slot runner is tracked at:
+
+```text
+scripts/qa/vrm-file-motion-product-runner.js
+```
+
+It verifies all seven local-demo slots, exact file asset ids, file/FBX/retargeted debug state, track filtering, procedural suppression, stable hips/legs/feet, greeting intent resolution, screenshots, and final idle recovery.
+
 The lifecycle runner is tracked at:
 
 ```text
@@ -159,11 +185,11 @@ scripts/qa/vrm-motion-lifecycle-runner.js
 
 It verifies:
 
-- initial idle has no gesture/fullBody action, no queued action, no secondary-motion suppression;
-- one model click routes through `interaction.greeting`, resolves to `armTap`, and records `qaFbxWaving:candidate_debugOnly_qa_only`;
+- initial idle is the calibrated file-backed FBX slot with no gesture/fullBody action, queue, or secondary-motion suppression;
+- `interaction.greeting` resolves to the calibrated file-backed `wave` without fallback;
 - repeated model clicks settle back to idle without active request, queued action, or secondary-motion residue;
-- `wave` starts as fullBody `vrma` with `secondaryMotion=suppress`;
-- a fullBody `wave` followed by `interaction.greeting` is interrupted by the procedural gesture fallback without fullBody/gesture overlap;
+- raw `qaGreeting` starts as fullBody `vrma` with `secondaryMotion=suppress`;
+- a fullBody `qaGreeting` followed by `interaction.greeting` is interrupted by the calibrated `wave` gesture without fullBody/gesture overlap;
 - `qaFbxStandingIdle` enters the `retargeted` FBX debug-only path and cuts back to idle cleanly;
 - switching to `local_boy_vrm_test` and back to `local_girl_vrm_test` settles with only base idle active;
 - a missing motion id fails safely with `motion_not_registered:*` and leaves the avatar in idle.
@@ -186,6 +212,7 @@ Run with the Playwright wrapper from the Codex desktop environment:
 mkdir -p output/playwright/vrm-motion-quality-v1-1
 PORT=3001 npm run dev
 /Users/fangwendong/.codex/skills/playwright/scripts/playwright_cli.sh --session alice-vrm-motion-v1-1 open 'http://localhost:3001?debug=1&avatar=local_girl_vrm_test&qa=motion' --headed
+/Users/fangwendong/.codex/skills/playwright/scripts/playwright_cli.sh --session alice-vrm-motion-v1-1 run-code --filename scripts/qa/vrm-file-motion-product-runner.js
 /Users/fangwendong/.codex/skills/playwright/scripts/playwright_cli.sh --session alice-vrm-motion-v1-1 run-code --filename scripts/qa/vrm-motion-lifecycle-runner.js
 /Users/fangwendong/.codex/skills/playwright/scripts/playwright_cli.sh --session alice-vrm-motion-v1-1 run-code --filename scripts/qa/vrm-fbx-retarget-qa-runner.js
 ```
@@ -258,7 +285,7 @@ Supported per-motion policies:
 
 `secondaryMotionRestoreDelayMs` may delay `suppress` recovery until the base pose has faded back in. The current full-body VRMA QA entries use `450ms`, slightly longer than the `0.35s` idle transition, so `reset()` runs against the restored idle pose instead of the final authored action pose.
 
-`wave` currently uses:
+The raw full-body `qaGreeting` currently uses:
 
 ```json
 "secondaryMotion": "suppress"
@@ -270,7 +297,7 @@ Browser A/B on `VRMA_02Greeting.vrma` showed:
 - `reset`: reset at start/end does not fix the in-action hair explosion.
 - `suppress`: prevents the hair explosion and restores secondary motion after completion.
 
-Therefore `wave -> suppress` remains the stable default.
+Therefore `qaGreeting -> suppress` remains the stable raw-file QA policy. The calibrated upper-body `wave` uses `secondaryMotion=keep` because it no longer drives hips/legs or the full-body crouch.
 
 ## Group-Level SpringBone Control
 
@@ -287,8 +314,8 @@ Do not ship a group-level `hair-suppress` policy by monkeypatching individual jo
 - FBX Binary data can be parsed for version, duration, animated bones, and hips/root motion;
 - configured duration/channel/node counts match the files;
 - motion entries have legal `mode`, `format`, `layer`, and `secondaryMotion`;
-- formal `slots` do not reference `debugOnly` or `rejected` assets;
-- formal `slots` do not reference `qa` assets;
+- formal public slots do not reference unapproved assets; the narrow local-only calibrated exception requires its profile, scope, track filter, root-motion stripping, and procedural fallback fields;
+- calibrated slots keep hips/legs out of their include filters and point to the expected file assets;
 - `Shoot`, `Spin`, and `Squat` are blocked from formal slots;
 - QA slots are marked `qaOnly=true` and `productMapping=false`.
 
@@ -298,7 +325,7 @@ This check is included in `npm run check`.
 
 ## Next Missing Product Assets
 
-The next useful licensed/owned motion assets are:
+For distribution, the next useful licensed/owned replacements are:
 
 - standing `wave` with restrained upper-body motion;
 - soft `talking` upper-body loop;

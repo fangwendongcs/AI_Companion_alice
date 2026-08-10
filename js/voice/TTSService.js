@@ -103,33 +103,40 @@ export class TTSService {
   }
 
   async speakWithBackend(text, config, provider = getTTSProvider(config.engine), { onStart, shouldContinue, metrics } = {}) {
-    const payload = await this.fetchBackendAudioPayload(text, config, provider, {
-      shouldContinue,
-      metrics,
-      segment: createSegmentMetrics(metrics, {
-        index: 0,
-        total: 1,
-        text
-      })
-    });
-    if (!canContinue(shouldContinue) || !payload) return;
+    const requestSession = createBackendRequestSession();
+    this.currentPlayback = requestSession;
+    try {
+      const payload = await this.fetchBackendAudioPayload(text, config, provider, {
+        signal: requestSession.controller.signal,
+        shouldContinue,
+        metrics,
+        segment: createSegmentMetrics(metrics, {
+          index: 0,
+          total: 1,
+          text
+        })
+      });
+      if (!canContinue(shouldContinue) || requestSession.cancelled || !payload) return;
 
-    if (payload.type === 'json') {
-      await this.playAudioResult(payload.result, {
+      if (payload.type === 'json') {
+        await this.playAudioResult(payload.result, {
+          onStart,
+          shouldContinue,
+          metrics,
+          segment: payload.segment
+        });
+        return;
+      }
+
+      await this.playBlob(payload.blob, {
         onStart,
         shouldContinue,
         metrics,
         segment: payload.segment
       });
-      return;
+    } finally {
+      if (this.currentPlayback === requestSession) this.currentPlayback = null;
     }
-
-    await this.playBlob(payload.blob, {
-      onStart,
-      shouldContinue,
-      metrics,
-      segment: payload.segment
-    });
   }
 
   async speakWithBackendSegments(text, config, provider = getTTSProvider(config.engine), { onStart, shouldContinue, metrics } = {}) {
@@ -603,6 +610,19 @@ function createSegmentedPlaybackSession() {
   };
 }
 
+function createBackendRequestSession() {
+  const controller = new AbortController();
+  return {
+    type: 'backend-request',
+    controller,
+    cancelled: false,
+    cancel() {
+      this.cancelled = true;
+      controller.abort();
+    }
+  };
+}
+
 function normalizeSegmentedPlaybackOptions(options = {}, text = '') {
   const playbackProfile = getSegmentedPlaybackProfile(text, options);
   const prefetchDelayMs = Number.isFinite(Number(options?.prefetchDelayMs))
@@ -794,7 +814,8 @@ function createSegmentMetrics(metrics, { index = 0, total = 1, text = '' } = {})
     audioReadyAwarePrefetchDelayMs: null,
     shortInitialBufferWaitMs: null,
     initialContinuityBufferWaitMs: null,
-    providerTimings: null
+    providerTimings: null,
+    providerMetadata: null
   };
   if (metrics && !metrics.segments[index]) metrics.segments[index] = segment;
   return metrics?.segments[index] || segment;
@@ -816,8 +837,10 @@ function markAudioReady(metrics, segment, payload) {
     segment.audioReadyAt = audioReadyAt;
     segment.requestToAudioReadyMs = roundMs(audioReadyAt - segment.requestStartedAt);
     segment.providerTimings = payload?.metadata?.timings || null;
+    segment.providerMetadata = payload?.metadata || null;
   }
   if (!metrics) return;
+  if (payload?.metadata) metrics.providerMetadata = payload.metadata;
   if (segment?.index === 0 || !metrics.firstAudioReadyAt) {
     metrics.firstAudioReadyAt = audioReadyAt;
     if (metrics.firstTTSRequestStartedAt) {

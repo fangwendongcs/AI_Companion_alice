@@ -335,10 +335,13 @@ async function assertProviderStatus() {
   if (!mockTTS) throw new Error('/api/providers missing mock TTS provider');
   if (mockTTS.configured !== true) throw new Error('/api/providers mock TTS should be configured');
   if (!ttsProviders.some((item) => item.provider === 'cosyvoice')) throw new Error('/api/providers missing cosyvoice TTS provider');
-  if (ttsProviders.some((item) => ['higgs', 'openai', 'minimax'].includes(item.provider))) {
-    throw new Error('/api/providers public TTS status should only expose mock/cosyvoice');
+  if (!ttsProviders.some((item) => item.provider === 'qwen3_tts')) throw new Error('/api/providers missing qwen3_tts TTS provider');
+  if (!ttsProviders.some((item) => item.provider === 'fish_audio')) throw new Error('/api/providers missing fish_audio TTS provider');
+  if (ttsProviders.some((item) => ['higgs', 'openai', 'minimax', 'siliconflow'].includes(item.provider))) {
+    throw new Error('/api/providers public TTS status should only expose mock/cosyvoice/qwen3_tts/fish_audio');
   }
   if (!ttsProviders.every((item) => item.capabilities)) throw new Error('/api/providers TTS providers should expose safe capabilities');
+  if (!ttsProviders.every((item) => item.metadata?.provider === item.provider)) throw new Error('/api/providers TTS providers should expose unified safe metadata');
 
   const serialized = JSON.stringify(payload);
   if (/"(apiKey|secret|token|webhookUrl)"\s*:/i.test(serialized)) {

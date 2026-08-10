@@ -253,6 +253,8 @@
             <select class="custom-input" id="ttsEngine">
               <option value="mock">Mock（本地演示）</option>
               <option value="cosyvoice">CosyVoice2（本地服务）</option>
+              <option value="qwen3_tts">Qwen3-TTS（DashScope）</option>
+              <option value="fish_audio">Fish Audio（远程 API）</option>
             </select>
           </div>
           <div class="setting-group">
@@ -267,6 +269,10 @@
                 <strong id="ttsProviderAvailability">读取中</strong>
               </div>
               <div class="provider-status-summary__row">
+                <span>当前 model</span>
+                <strong id="ttsProviderModel">mock</strong>
+              </div>
+              <div class="provider-status-summary__row">
                 <span>当前 voiceId</span>
                 <strong id="ttsProviderVoice">mock-silence</strong>
               </div>
@@ -279,7 +285,7 @@
                 <strong id="ttsProviderReason">-</strong>
               </div>
             </div>
-            <div class="setting-help">仅开发模式允许在 Mock 与 CosyVoice2 间切换；前端不会显示服务地址、模型路径或密钥。</div>
+            <div class="setting-help">仅开发模式允许切换 Mock、本地 CosyVoice2、Qwen3-TTS 与 Fish Audio；URL、model、voice 和密钥均由后端环境变量控制。</div>
           </div>
           <div class="setting-group">
             <span class="setting-label">语速 <span id="rateVal">1.05</span>x</span>

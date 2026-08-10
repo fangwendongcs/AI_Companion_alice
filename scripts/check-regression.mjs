@@ -105,6 +105,16 @@ function checkTTSRegression() {
     'CosyVoice2 TTS provider 配置不完整。'
   );
   assert(
+    TTSProviders.qwen3_tts?.transport === 'backend'
+      && typeof TTSProviders.qwen3_tts.createPayload === 'function',
+    'Qwen3-TTS remote provider 配置不完整。'
+  );
+  assert(
+    TTSProviders.fish_audio?.transport === 'backend'
+      && typeof TTSProviders.fish_audio.createPayload === 'function',
+    'Fish Audio remote provider 配置不完整。'
+  );
+  assert(
     getTTSProvider('unsupported-provider') === TTSProviders.mock,
     '未知 TTS provider 必须回退到 mock。'
   );

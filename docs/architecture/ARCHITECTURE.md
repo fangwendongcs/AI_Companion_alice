@@ -34,6 +34,9 @@ backend/server.js
   -> middleware/*
   -> routes/*
   -> services/* (Avatar / StaticAsset / DialogueOrchestration / Memory / Rag / N8nWorkflow)
+     -> TTSOrchestrator -> TTSProviderRegistry
+        -> CosyVoice2 Local / Qwen3-TTS Remote / Fish Audio Remote / future self-hosted adapter
+        -> unified Audio Result
   -> utils/*
   -> static files
 ```
@@ -44,7 +47,8 @@ backend/server.js
 - 动作通过标准槽位管理，不在 UI 中写具体 FBX 文件名。
 - 模块间优先通过 EventBus、StateStore 或明确 Manager 接口协作。
 - API Key 只允许在后端环境变量中出现。
-- TTS 默认使用浏览器本机语音兜底，保证无 Key 时也有声音。
+- TTS provider 只在后端接触服务 URL、model、voice 和 secret；本地、远程与未来自建服务必须返回统一 Audio Result，再复用同一个 Web AudioManager / LipSync / Presentation 链路。
+- 浏览器本机语音只作为后端 TTS 失败后的兜底，保证无 Key 或上游故障时文字与状态链路仍可继续。
 - RAG、Memory、n8n 和 Agent 编排只允许进入后端边界，当前统一对话入口为 `POST /api/dialogue`。
 - 默认 LLM provider 为本地 `stub`，保证无 API Key 的开发环境也能跑通对话演示链路。
 

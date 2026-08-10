@@ -44,7 +44,7 @@ const stateActions = {
   [AvatarState.ENTERING]: { action: 'intro', layer: 'gesture', mode: 'play' },
   [AvatarState.IDLE]: { action: 'idle', layer: 'base', mode: 'base' },
   [AvatarState.LISTENING]: { action: 'listening', layer: 'base', mode: 'base' },
-  [AvatarState.THINKING]: { action: 'listening', layer: 'base', mode: 'base' },
+  [AvatarState.THINKING]: { action: 'thinking', layer: 'base', mode: 'base' },
   [AvatarState.SPEAKING]: { action: 'speaking', layer: 'base', mode: 'base' },
   [AvatarState.REACTING]: { action: 'bodyTap', layer: 'gesture', mode: 'enqueue' },
   [AvatarState.INTERACTING]: { action: 'bodyTap', layer: 'gesture', mode: 'enqueue' },

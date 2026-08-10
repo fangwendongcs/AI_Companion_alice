@@ -905,7 +905,15 @@ export class AppController {
   }
 
   toggleMute() {
-    this.patchState({ isMuted: !this.state.isMuted }, 'audio:mute');
+    const nextMuted = !this.state.isMuted;
+    this.patchState({ isMuted: nextMuted }, 'audio:mute');
+    if (nextMuted) {
+      this.audioManager.stop({
+        emitEnd: true,
+        engine: this.ttsConfig.engine,
+        affect: this.state.affect
+      });
+    }
     this.refs.muteBtn.style.color = this.state.isMuted ? 'var(--muted)' : 'var(--text)';
     const label = this.state.isMuted ? '打开 Alice 的声音' : '关闭 Alice 的声音';
     this.refs.muteBtn.title = label;

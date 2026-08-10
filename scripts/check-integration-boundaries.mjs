@@ -46,6 +46,9 @@ async function checkFrontendSecretBoundary() {
   const forbiddenEnvAssignments = [
     /\bOPENAI_API_KEY\s*[:=]/,
     /\bMINIMAX_API_KEY\s*[:=]/,
+    /\bQWEN3_TTS_API_KEY\s*[:=]/,
+    /\bDASHSCOPE_API_KEY\s*[:=]/,
+    /\bFISH_AUDIO_API_KEY\s*[:=]/,
     /\bCOSYVOICE_API_KEY\s*[:=]/,
     /\bHIGGS_API_KEY\s*[:=]/,
     /\bELEVENLABS_API_KEY\s*[:=]/,
@@ -72,7 +75,7 @@ async function checkFrontendSecretBoundary() {
       });
     }
 
-    if (!allowedUiSecretHints.has(file) && /\b(OPENAI_API_KEY|MINIMAX_API_KEY|COSYVOICE_API_KEY|HIGGS_API_KEY|ELEVENLABS_API_KEY|QDRANT_API_KEY|N8N_WEBHOOK_SECRET)\b/.test(source)) {
+    if (!allowedUiSecretHints.has(file) && /\b(OPENAI_API_KEY|MINIMAX_API_KEY|COSYVOICE_API_KEY|QWEN3_TTS_API_KEY|DASHSCOPE_API_KEY|FISH_AUDIO_API_KEY|HIGGS_API_KEY|ELEVENLABS_API_KEY|QDRANT_API_KEY|N8N_WEBHOOK_SECRET)\b/.test(source)) {
       failures.push(`${file} 不应在业务前端代码中出现后端 secret 环境变量名。`);
     }
   }

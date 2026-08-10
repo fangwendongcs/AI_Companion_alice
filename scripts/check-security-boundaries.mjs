@@ -75,6 +75,8 @@ async function checkEnvExample() {
     'DIALOGUE_DEBUG_LLM_DIAGNOSTICS',
     'OPENAI_API_KEY',
     'COSYVOICE_API_KEY',
+    'QWEN3_TTS_API_KEY',
+    'FISH_AUDIO_API_KEY',
     'HIGGS_API_KEY',
     'N8N_WEBHOOK_URL',
     'N8N_WEBHOOK_SECRET'
@@ -112,6 +114,9 @@ async function checkFrontendSecretBoundary() {
     /\bOPENAI_API_KEY\b/,
     /\bMINIMAX_API_KEY\b/,
     /\bCOSYVOICE_API_KEY\b/,
+    /\bQWEN3_TTS_API_KEY\b/,
+    /\bDASHSCOPE_API_KEY\b/,
+    /\bFISH_AUDIO_API_KEY\b/,
     /\bHIGGS_API_KEY\b/,
     /\bQWEN_API_KEY\b/,
     /\bDEEPSEEK_API_KEY\b/,

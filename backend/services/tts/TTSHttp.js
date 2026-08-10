@@ -26,7 +26,8 @@ export async function fetchWithProviderTimeout(fetchImpl, url, options = {}, tim
 export async function parseProviderResponse(response, {
   provider,
   fallbackFormat = 'mp3',
-  streaming = false
+  streaming = false,
+  requestStartedAt = null
 } = {}) {
   if (!response || response.__timeout) {
     return createFailedResult(provider, 'TTS provider timed out.', 'TTS_PROVIDER_TIMEOUT');
@@ -51,14 +52,35 @@ export async function parseProviderResponse(response, {
     });
   }
 
-  const audioBuffer = Buffer.from(await response.arrayBuffer());
+  const responseReceivedAt = nowMs();
+  const upstreamRead = await readProviderAudioBuffer(response, {
+    requestStartedAt,
+    responseReceivedAt
+  });
+  const base64StartedAt = nowMs();
+  const audioBase64 = upstreamRead.buffer.toString('base64');
+  const base64Ms = roundMs(nowMs() - base64StartedAt);
   return createAudioResult({
     provider,
     format: contentTypeToFormat(contentType, fallbackFormat),
-    audioBase64: audioBuffer.toString('base64'),
+    audioBase64,
     contentType,
     streaming: false,
-    upstreamStreaming: Boolean(streaming)
+    upstreamStreaming: Boolean(streaming),
+    metadata: {
+      timings: {
+        upstreamHeadersMs: upstreamRead.headersMs,
+        upstreamFirstChunkMs: upstreamRead.firstChunkMs,
+        upstreamReadMs: upstreamRead.readMs,
+        upstreamCompleteMs: upstreamRead.completeMs,
+        upstreamChunkCount: upstreamRead.chunkCount,
+        upstreamChunkBytes: upstreamRead.chunkBytes,
+        upstreamChunkIntervalsMs: upstreamRead.chunkIntervalsMs,
+        upstreamTrueStreamingEvidence: upstreamRead.trueStreamingEvidence,
+        audioBytes: upstreamRead.buffer.byteLength,
+        base64Ms
+      }
+    }
   });
 }
 
@@ -106,4 +128,72 @@ function createTimeoutResponse() {
     headers: new Map(),
     text: async () => 'TTS provider timed out.'
   };
+}
+
+async function readProviderAudioBuffer(response, {
+  requestStartedAt = null,
+  responseReceivedAt = nowMs()
+} = {}) {
+  const readStartedAt = nowMs();
+  const origin = Number.isFinite(requestStartedAt) ? requestStartedAt : readStartedAt;
+  const headersMs = roundMs(responseReceivedAt - origin);
+  if (!response.body?.getReader) {
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const completedAt = nowMs();
+    const completeMs = roundMs(completedAt - origin);
+    return {
+      buffer,
+      headersMs,
+      firstChunkMs: completeMs,
+      readMs: roundMs(completedAt - readStartedAt),
+      completeMs,
+      chunkCount: buffer.byteLength > 0 ? 1 : 0,
+      chunkBytes: buffer.byteLength > 0 ? [buffer.byteLength] : [],
+      chunkIntervalsMs: [],
+      trueStreamingEvidence: false
+    };
+  }
+
+  const reader = response.body.getReader();
+  const chunks = [];
+  const chunkBytes = [];
+  const chunkIntervalsMs = [];
+  let firstChunkMs = null;
+  let lastChunkAt = null;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const chunkAt = nowMs();
+    const chunk = Buffer.from(value);
+    if (firstChunkMs === null) firstChunkMs = roundMs(chunkAt - origin);
+    if (lastChunkAt !== null) chunkIntervalsMs.push(roundMs(chunkAt - lastChunkAt));
+    lastChunkAt = chunkAt;
+    chunks.push(chunk);
+    chunkBytes.push(chunk.byteLength);
+  }
+  const completedAt = nowMs();
+  const completeMs = roundMs(completedAt - origin);
+  return {
+    buffer: Buffer.concat(chunks),
+    headersMs,
+    firstChunkMs,
+    readMs: roundMs(completedAt - readStartedAt),
+    completeMs,
+    chunkCount: chunks.length,
+    chunkBytes,
+    chunkIntervalsMs,
+    trueStreamingEvidence: chunks.length > 1
+      && firstChunkMs !== null
+      && completeMs - firstChunkMs > 100
+  };
+}
+
+function nowMs() {
+  return globalThis.performance?.now?.() ?? Date.now();
+}
+
+function roundMs(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return null;
+  return Math.max(0, Math.round(number));
 }

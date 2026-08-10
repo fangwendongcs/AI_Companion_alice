@@ -8,7 +8,7 @@ import {
 import { createTTSProviderRegistry } from './tts/TTSProviderRegistry.js';
 
 const realProviders = ['openai', 'qwen', 'deepseek', 'custom'];
-const publicTTSProviders = new Set(['mock', 'cosyvoice']);
+const publicTTSProviders = new Set(['mock', 'cosyvoice', 'qwen3_tts', 'fish_audio']);
 
 export class ProviderStatusService {
   constructor({
@@ -62,15 +62,17 @@ function toPublicTTSStatus(item, health = null) {
     : item.configured === true && publicHealth.healthy === true;
   return {
     provider: item.provider,
-    label: item.provider === 'cosyvoice' ? 'CosyVoice2' : 'Mock',
+    label: getTTSProviderLabel(item.provider),
     configured: item.configured === true,
     available: isLiveReady,
     status: resolvePublicTTSStatus(item, publicHealth),
-    mode: item.provider === 'mock' ? 'demo' : 'local',
-    requiresKey: false,
+    mode: getPublicTTSMode(item),
+    requiresKey: item.requiresKey === true,
+    defaultModel: item.defaultModel || null,
     defaultVoice: item.defaultVoice || null,
     sampleRate: item.sampleRate || null,
     capabilities: item.capabilities || {},
+    metadata: createPublicTTSMetadata(item),
     health: {
       healthy: isLiveReady,
       live: Boolean(publicHealth.live),
@@ -78,6 +80,34 @@ function toPublicTTSStatus(item, health = null) {
       reason: sanitizeHealthReason(publicHealth.reason || item.status)
     }
   };
+}
+
+function createPublicTTSMetadata(item = {}) {
+  const capabilities = item.capabilities || {};
+  return {
+    provider: item.provider || 'unknown',
+    model: item.defaultModel || null,
+    voice: item.defaultVoice || null,
+    supportsStreaming: capabilities.supportsStreaming === true,
+    supportsVoiceClone: capabilities.supportsVoiceClone === true,
+    supportsEmotion: capabilities.supportsEmotion === true,
+    sampleRate: item.sampleRate || null,
+    latency: null
+  };
+}
+
+function getTTSProviderLabel(provider) {
+  if (provider === 'cosyvoice') return 'CosyVoice2 Local';
+  if (provider === 'qwen3_tts') return 'Qwen3-TTS Remote';
+  if (provider === 'fish_audio') return 'Fish Audio Remote';
+  return 'Mock';
+}
+
+function getPublicTTSMode(item = {}) {
+  if (item.provider === 'mock') return 'demo';
+  if (item.provider === 'cosyvoice') return 'local';
+  if (item.provider === 'qwen3_tts' || item.provider === 'fish_audio') return 'remote';
+  return item.mode || 'real';
 }
 
 function resolvePublicTTSStatus(item, health = {}) {

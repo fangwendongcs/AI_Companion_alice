@@ -1,7 +1,7 @@
 import { DEFAULT_LLM_CONFIG, DEFAULT_TTS_CONFIG } from '../config/providers.js';
 
 const supportedProviders = new Set(['stub', 'openai', 'qwen', 'deepseek', 'custom']);
-const supportedTTSEngines = new Set(['mock', 'cosyvoice']);
+const supportedTTSEngines = new Set(['mock', 'cosyvoice', 'qwen3_tts', 'fish_audio']);
 const freeDefaultMigrationKey = 'tts_free_default_migration_v1';
 const ttsProviderBoundaryMigrationKey = 'tts_mock_cosyvoice_boundary_v1';
 const llmStubDefaultMigrationKey = 'llm_stub_default_migration_v1';

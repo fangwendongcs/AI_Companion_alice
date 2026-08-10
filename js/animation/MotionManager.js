@@ -181,7 +181,8 @@ export class MotionManager {
     return [
       MotionSlot.IDLE,
       MotionSlot.SPEAKING,
-      MotionSlot.LISTENING
+      MotionSlot.LISTENING,
+      MotionSlot.THINKING
     ].includes(slot);
   }
 
@@ -255,11 +256,22 @@ export class MotionManager {
     const technicalStatus = entry.technicalStatus || asset?.technicalStatus || 'playable';
     const productStatus = entry.productStatus || asset?.productStatus || 'approved';
     const licenseStatus = entry.licenseStatus || asset?.licenseStatus || 'verified';
+    const trackGroups = entry.trackFilter?.groups || [];
+    const calibratedLocalUse = entry.localUseApproved === true
+      && entry.releaseScope === 'local-only'
+      && entry.calibrationProfile === 'mixamo-vrm-upper-body-v1'
+      && entry.rootMotionPolicy === 'strip-by-track-filter'
+      && entry.trackFilter?.enabled !== false
+      && entry.trackFilter?.mode === 'include'
+      && trackGroups.includes('upperlimb')
+      && trackGroups.includes('torso')
+      && !trackGroups.includes('hips')
+      && !trackGroups.includes('legs');
     return entryStatus === 'approved'
-      && assetStatus === 'approved'
+      && (assetStatus === 'approved' || calibratedLocalUse)
       && technicalStatus === 'playable'
       && productStatus === 'approved'
-      && licenseStatus === 'verified';
+      && (licenseStatus === 'verified' || (calibratedLocalUse && licenseStatus === 'pending verification'));
   }
 
   getMotionFallbackReason(motionId) {

@@ -1,4 +1,5 @@
 import { AudioManager } from '../js/audio/AudioManager.js';
+import { readFile } from 'node:fs/promises';
 import { DialogueManager } from '../js/dialogue/DialogueManager.js';
 import { EventBus } from '../js/core/EventBus.js';
 import { EVENT_NAMES } from '../js/core/events/eventNames.js';
@@ -8,6 +9,9 @@ import { getSegmentedPlaybackProfile, segmentTextForTTS } from '../js/voice/TTST
 import { TTSService } from '../js/voice/TTSService.js';
 
 const failures = [];
+
+await checkMuteButtonStopsActivePlayback();
+await checkBackendRequestCancellation();
 
 await checkDialogueSuccessFlow();
 await checkDialogueErrorFlow();
@@ -29,6 +33,65 @@ if (failures.length) {
   console.error('[check-mvp-flow] MVP 主链路验收失败:');
   failures.forEach((failure) => console.error(`- ${failure}`));
   process.exit(1);
+}
+
+async function checkMuteButtonStopsActivePlayback() {
+  const source = await readFile('js/app/AppController.js', 'utf8');
+  const toggleMuteStart = source.lastIndexOf('  toggleMute() {');
+  const toggleMute = source.slice(toggleMuteStart, source.indexOf('  setMood(', toggleMuteStart));
+  assert(toggleMute.includes('this.audioManager.stop({'), '播放中点击静音必须复用 AudioManager.stop()。');
+  assert(toggleMute.includes('emitEnd: true'), '播放中静音必须发出统一 audio:end 以清理 lip-sync 和 idle。');
+}
+
+async function checkBackendRequestCancellation() {
+  const events = [];
+  let requestSignal = null;
+  const previousWindow = globalThis.window;
+  globalThis.window = {
+    speechSynthesis: {
+      cancel() {},
+      getVoices() { return []; }
+    }
+  };
+  const ttsService = new TTSService('/api/tts', {
+    apiClient: {
+      response: async (_path, options = {}) => {
+        requestSignal = options.signal;
+        await new Promise((_resolve, reject) => {
+          options.signal?.addEventListener('abort', () => {
+            const error = new Error('aborted');
+            error.name = 'AbortError';
+            reject(error);
+          }, { once: true });
+        });
+      }
+    }
+  });
+  const audio = new AudioManager({
+    ttsService,
+    eventBus: {
+      emit(type, detail) {
+        events.push({ type, detail });
+      }
+    },
+    getConfig: () => ({ engine: 'mock', rate: 1, pitch: 1 })
+  });
+
+  try {
+    const pending = audio.speak('远程音频返回前取消');
+    const stopped = audio.stop({ emitEnd: true, engine: 'mock' });
+    await pending;
+
+    assert(stopped === true, '单段后端 TTS 请求期必须登记可取消 session。');
+    assert(requestSignal?.aborted === true, '取消单段后端 TTS 必须 abort 现有请求。');
+    assert(events.some((event) => event.type === EVENT_NAMES.AUDIO_REQUEST), '请求期取消前必须已发出 audio:request。');
+    assert(events.some((event) => event.type === EVENT_NAMES.AUDIO_END && event.detail?.cancelled === true), '请求期取消必须复用 cancelled audio:end。');
+    assert(!events.some((event) => event.type === EVENT_NAMES.AUDIO_START), '已取消的后端请求不得晚到并开始播放。');
+    assert(!events.some((event) => event.type === EVENT_NAMES.AUDIO_FALLBACK), '用户主动取消不得触发浏览器 fallback。');
+  } finally {
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+  }
 }
 
 console.log('[check-mvp-flow] ok');

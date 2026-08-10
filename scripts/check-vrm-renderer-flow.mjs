@@ -36,7 +36,7 @@ await checkTTSController();
 await checkDefaultAliceGirlVrm();
 await checkVrmManifestCapabilities();
 await checkLocalTestManifests();
-await checkLocalGirlWaveMotionConfig();
+await checkLocalGirlFileMotionConfig();
 await checkLocalTestModelsIfPresent();
 await checkDirectiveApplication();
 await checkBusinessLayerIsolation();
@@ -128,6 +128,7 @@ async function checkRendererModules() {
   assert(motionController.includes('getMotionSlotForDirective'), 'MotionController 应集中处理 directive -> motion 映射。');
   assert(motionController.includes('getMotionSlotForAffect'), 'MotionController 应集中处理 affect -> motion 映射。');
   assert(motionController.includes("gesture === 'wave'") && motionController.includes('PresentationMotionSlot.WAVE'), 'MotionController 应把 wave 指令映射到独立 wave slot。');
+  assert(motionController.includes("gesture === 'thinking'") && motionController.includes('PresentationMotionSlot.THINKING'), 'MotionController 应把 thinking 指令映射到独立 thinking slot。');
   assert(ttsController.includes('TTSLifecycleStatus'), 'TTSController 应集中记录 TTS / audio lifecycle 状态。');
   assert(ttsController.includes('onRequest') && ttsController.includes('onError'), 'TTSController 应覆盖 request/start/end/error 生命周期。');
   assert(audioSampler.includes('createAudioAmplitudeSampler'), '应存在可选 audio amplitude sampler 供 lip-sync 使用。');
@@ -281,8 +282,8 @@ async function checkMotionController() {
   const idle = controller.onAudioEnd({ currentState: 'speaking' });
   assert(idle.slot === 'idle', 'MotionController audio:end 应能在 speaking 后请求 idle。');
 
-  const listening = controller.applyDirective({ state: 'thinking', gesture: 'thinking' });
-  assert(listening.slot === 'listening', 'MotionController 应把 thinking 映射到 listening slot。');
+  const thinking = controller.applyDirective({ state: 'thinking', gesture: 'thinking' });
+  assert(thinking.slot === 'thinking', 'MotionController 应把 thinking 映射到独立 thinking slot。');
 
   const safeNoop = new MotionController().requestAffectMotion(
     { motion: { slot: 'apologize' } },
@@ -489,22 +490,38 @@ async function checkLocalTestManifests() {
   }
 }
 
-async function checkLocalGirlWaveMotionConfig() {
+async function checkLocalGirlFileMotionConfig() {
   const motions = await readJson('assets/avatars/test-vrm/motions.json');
+  const expected = {
+    idle: ['fbxStandingIdle', 'assets/motions/fbx/Standing Idle.fbx', 'repeat', 'base'],
+    speaking: ['fbxTalking1', 'assets/motions/fbx/Talking (1).fbx', 'repeat', 'base'],
+    listening: ['fbxStandingIdle', 'assets/motions/fbx/Standing Idle.fbx', 'repeat', 'base'],
+    thinking: ['fbxThinking', 'assets/motions/fbx/Thinking.fbx', 'repeat', 'base'],
+    chat: ['fbxTalking', 'assets/motions/fbx/Talking.fbx', 'once', 'gesture'],
+    wave: ['fbxWaving', 'assets/motions/fbx/Waving.fbx', 'once', 'gesture']
+  };
+
+  for (const [slot, [assetId, path, loop, layer]] of Object.entries(expected)) {
+    const entry = motions.slots?.[slot] || {};
+    assert(entry.assetId === assetId, `${slot} 应绑定 ${assetId}。`);
+    assert(entry.path === path, `${slot} 应加载 ${path}。`);
+    assert(entry.mode === 'retargeted' && entry.format === 'fbx', `${slot} 应走 retargeted FBX 路径。`);
+    assert(entry.loop === loop && entry.layer === layer, `${slot} 应使用 ${layer}/${loop} 播放策略。`);
+    assert(entry.qualityStatus === 'approved' && entry.technicalStatus === 'playable', `${slot} 校准槽位应可播放。`);
+    assert(entry.localUseApproved === true && entry.releaseScope === 'local-only', `${slot} 必须限制为本地 Demo 使用。`);
+    assert(entry.licenseStatus === 'pending verification', `${slot} 不得伪造分发许可。`);
+    assert(entry.calibrationProfile === 'mixamo-vrm-upper-body-v1', `${slot} 必须声明上半身校准 profile。`);
+    assert(entry.trackFilter?.groups?.includes('upperlimb') && entry.trackFilter?.groups?.includes('torso'), `${slot} 必须保留上半身动作轨道。`);
+    assert(!entry.trackFilter?.groups?.includes('hips') && !entry.trackFilter?.groups?.includes('legs'), `${slot} 必须剔除 hips/legs。`);
+    assert(motions.proceduralFallbacks?.[slot] === true, `${slot} 缺文件时应保留 procedural fallback。`);
+  }
+
   const wave = motions.slots?.wave || {};
-  assert(wave.id === 'wave', 'local_girl_vrm_test motions.json 应提供 wave 测试 slot。');
-  assert(wave.renderer === 'vrm', 'wave 测试动作应声明 renderer=vrm。');
-  assert(wave.mode === 'vrma', 'wave 测试动作应声明 mode=vrma。');
-  assert(wave.source === 'file', 'wave 测试动作应声明 source=file。');
-  assert(wave.format === 'vrma', 'wave 测试动作应声明 format=vrma。');
-  assert(wave.path === 'assets/motions/vrm/test/VRMA_02Greeting.vrma', 'wave 测试动作应使用人工放置的授权 VRMA 测试路径。');
-  assert(wave.layer === 'fullBody', '原始 VRMA greeting 应运行在 fullBody layer，而不是 gesture overlay。');
-  assert(wave.secondaryMotion === 'suppress', 'wave 应显式声明 secondaryMotion=suppress，避免按格式/层级自动猜测。');
-  assert(wave.secondaryMotionRestoreDelayMs === 450, 'wave 应等待 idle transition 完成后再恢复 secondary motion。');
-  assert(wave.fallback === 'procedural', 'wave 测试动作缺文件时应回退 procedural。');
-  assert(!wave.trackFilter, '原始 VRMA greeting 不应被 trackFilter 截成局部动作。');
-  assert(wave.baseWeightWhileActive === 0, 'fullBody VRMA 播放时应让 procedural base idle 让出权重。');
-  assert(motions.proceduralFallbacks?.wave === true, 'wave 缺外部文件时应保留 procedural fallback。');
+  assert(wave.baseWeightWhileActive < 0.1, 'wave 播放时 base idle 权重应让出给文件动作。');
+  assert(wave.secondaryMotion === 'keep', '上半身 wave 不应关闭 VRM secondary motion。');
+
+  const greeting = motions.interactionIntents?.['interaction.greeting'] || {};
+  assert(greeting.motionId === 'wave' && greeting.fallbackSlot === 'armTap', '手臂点击应优先请求文件 wave，并保留 armTap fallback。');
 }
 
 async function checkLocalTestModelsIfPresent() {

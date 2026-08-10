@@ -535,6 +535,19 @@ Workflow 成功时：
     "upstreamStreaming": false,
     "contentType": "audio/wav",
     "metadata": {
+      "provider": "mock",
+      "model": "mock-silence",
+      "voice": "mock-silence",
+      "supportsStreaming": false,
+      "supportsVoiceClone": false,
+      "supportsEmotion": true,
+      "sampleRate": 16000,
+      "latency": {
+        "synthesisMs": 0,
+        "upstreamFirstChunkMs": null,
+        "fullGenerationMs": 0,
+        "audioResultReadyMs": 0
+      },
       "timings": {
         "upstreamFirstChunkMs": 0,
         "upstreamReadMs": 0,
@@ -552,7 +565,9 @@ Workflow 成功时：
 
 `streaming` 表示客户端是否能按当前响应边收边播。若后端返回 `audioBase64`，即使上游 provider 使用 HTTP streaming，客户端也应看到 `streaming=false`。`upstreamStreaming=true` 仅表示后端 adapter 从上游收到的是流式响应，例如 CosyVoice 官方 FastAPI raw PCM。
 
-`metadata.timings` 是可选诊断字段，只能包含非敏感耗时和字节数。CosyVoice2 当前会记录上游首个 PCM chunk、raw PCM 总读取、chunk 数量/字节、WAV 包装和 Base64 编码耗时；Web 端分段播放会把这些 timing 合并到 `TTSService.getLastMetrics()`，用于定位首音延迟、`segmentConfiguredInitialPrefetchMode`、`segmentInitialPrefetchMode`、`segmentGapMs`、`playbackAwarePrefetchDelayMs`、`shortInitialBufferWaitMs` 和每段 provider timing。`upstreamTrueStreamingEvidence=true` 才表示后端在完整音频完成前观测到有效的多 chunk 间隔；不能仅凭 `upstreamStreaming=true` 或 HTTP `StreamingResponse` 判定为真实可消费流式。
+`metadata` 在所有已注册 provider 的成功/不可用/失败结果上统一包含实际 `provider / model / voice / supportsStreaming / supportsVoiceClone / supportsEmotion / sampleRate / latency`。`latency` 至少区分 adapter 总合成、上游首 chunk、完整生成和 Audio Result ready；失败时没有意义的字段为 `null`。
+
+`metadata.timings` 是可选诊断字段，只能包含非敏感耗时和字节数。CosyVoice2 当前会记录上游首个 PCM chunk、raw PCM 总读取、chunk 数量/字节、WAV 包装和 Base64 编码耗时；远程二进制 provider 会记录 headers、首 chunk、完整读取、chunk evidence、音频字节和 Base64 耗时。Qwen3-TTS 还记录生成响应返回临时音频 URL 的耗时，但不返回该 URL。Web 端分段播放会把 metadata 合并到 `TTSService.getLastMetrics()`，用于定位首音延迟和每段 provider timing。`upstreamTrueStreamingEvidence=true` 才表示后端在完整音频完成前观测到有效的多 chunk 间隔；不能仅凭 capability 或 HTTP `StreamingResponse` 判定为当前客户端可消费流式。
 
 不可用 / 失败响应仍保持 HTTP 200 + 可观测状态，便于客户端保留文本回复并降级到本机语音：
 
@@ -578,12 +593,15 @@ Provider：
 
 - `mock`：默认本地演示，不需要外部服务。
 - `cosyvoice`：CosyVoice2 adapter，默认通过官方 FastAPI runtime 配置；OpenAI-compatible proxy 必须显式设置 `COSYVOICE_API_STYLE=openai_compatible`。
+- `qwen3_tts`：使用 Alibaba Cloud Model Studio / DashScope 官方原生 multimodal-generation HTTP API；非流式签名 URL 由后端下载为 Base64，不下发客户端。
+- `fish_audio`：使用 Fish Audio 官方原生 `/v1/tts`，在 adapter 内生成 `model` header 与 `reference_id` voice。
 
-当前 Web Settings 与公开 `/api/providers` TTS readiness 只暴露 `mock` / `cosyvoice`。其他实验 provider 不进入当前前端切换面板，也不作为公开状态返回。
+当前 Web Settings 与公开 `/api/providers` TTS readiness 只暴露 `mock` / `cosyvoice` / `qwen3_tts` / `fish_audio`。Higgs / OpenAI / MiniMax 历史实验 provider 不进入当前前端切换面板，也不作为公开状态返回。
 
 合约要求：
 
 - 前端和 iOS 不接触 TTS service URL、模型部署地址或 API Key。
+- 客户端传入的远程 model / voice 不能覆盖后端配置；前端只选择公开 provider id。
 - `emotion / tone / prosody` 是 Alice 统一语义，provider-specific prompt、instruction 或 inline token 只在后端 adapter 内生成。
 - `GET /api/providers` 只返回 provider readiness 和 capability，不返回 base URL、secret、token 或 Bearer。
 
@@ -622,7 +640,9 @@ Provider：
         "mode": "demo",
         "requiresKey": false,
         "status": "ready",
+        "defaultModel": "mock-silence",
         "defaultVoice": "mock-silence",
+        "sampleRate": 16000,
         "health": {
           "healthy": true,
           "status": "ready",
@@ -633,16 +653,27 @@ Provider：
           "supportsStreaming": false,
           "supportsVoiceClone": false,
           "supportsEmotion": true
+        },
+        "metadata": {
+          "provider": "mock",
+          "model": "mock-silence",
+          "voice": "mock-silence",
+          "supportsStreaming": false,
+          "supportsVoiceClone": false,
+          "supportsEmotion": true,
+          "sampleRate": 16000,
+          "latency": null
         }
       },
       {
         "provider": "cosyvoice",
-        "label": "CosyVoice2",
+        "label": "CosyVoice2 Local",
         "configured": false,
         "available": false,
         "mode": "local",
         "requiresKey": false,
         "status": "local_service_not_running",
+        "defaultModel": "iic/CosyVoice2-0.5B",
         "defaultVoice": "中文女",
         "sampleRate": 24000,
         "health": {
@@ -652,9 +683,75 @@ Provider：
           "reason": "missing_base_url"
         },
         "capabilities": {
-          "supportsStreaming": false,
-          "supportsVoiceClone": true,
+          "supportsStreaming": true,
+          "supportsVoiceClone": false,
           "supportsEmotion": true
+        }
+      },
+      {
+        "provider": "qwen3_tts",
+        "label": "Qwen3-TTS Remote",
+        "configured": false,
+        "available": false,
+        "mode": "remote",
+        "requiresKey": true,
+        "status": "missing_base_url_and_key_and_model_and_voice",
+        "defaultModel": null,
+        "defaultVoice": null,
+        "sampleRate": 24000,
+        "health": {
+          "healthy": false,
+          "status": "missing_base_url_and_key_and_model_and_voice",
+          "live": false,
+          "reason": "missing_base_url_and_key_and_model_and_voice"
+        },
+        "capabilities": {
+          "supportsStreaming": true,
+          "supportsVoiceClone": false,
+          "supportsEmotion": false
+        },
+        "metadata": {
+          "provider": "qwen3_tts",
+          "model": null,
+          "voice": null,
+          "supportsStreaming": true,
+          "supportsVoiceClone": false,
+          "supportsEmotion": false,
+          "sampleRate": 24000,
+          "latency": null
+        }
+      },
+      {
+        "provider": "fish_audio",
+        "label": "Fish Audio Remote",
+        "configured": false,
+        "available": false,
+        "mode": "remote",
+        "requiresKey": true,
+        "status": "missing_base_url_and_key_and_model_and_voice",
+        "defaultModel": null,
+        "defaultVoice": null,
+        "sampleRate": 44100,
+        "health": {
+          "healthy": false,
+          "status": "missing_base_url_and_key_and_model_and_voice",
+          "live": false,
+          "reason": "missing_base_url_and_key_and_model_and_voice"
+        },
+        "capabilities": {
+          "supportsStreaming": true,
+          "supportsVoiceClone": true,
+          "supportsEmotion": false
+        },
+        "metadata": {
+          "provider": "fish_audio",
+          "model": null,
+          "voice": null,
+          "supportsStreaming": true,
+          "supportsVoiceClone": true,
+          "supportsEmotion": false,
+          "sampleRate": 44100,
+          "latency": null
         }
       }
     ]
@@ -668,6 +765,7 @@ Provider：
 - 不返回 provider base URL 的真实值。
 - `stub.configured` 必须为 `true`。
 - 真实 provider 未配置时只返回稳定状态，不触发外部网络请求。
+- 远程 provider 的 `available=true` 只表示配置足够发起请求，不代表已经执行计费 live probe；真实可用性以显式 live check 为准。
 
 ## 目标返回格式
 

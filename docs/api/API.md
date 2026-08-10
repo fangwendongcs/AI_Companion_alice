@@ -25,11 +25,13 @@ For detailed request and response shapes, see [API_CONTRACT.md](./API_CONTRACT.m
 POST /api/tts
   -> TTSOrchestrator
   -> TTSProviderRegistry
-  -> Mock / CosyVoice2 provider
+  -> Mock / CosyVoice2 Local / Qwen3-TTS Remote / Fish Audio Remote / future self-hosted adapter
   -> unified Audio Result
 ```
 
-Current Web Settings and public TTS readiness expose only `mock` and `cosyvoice`. Clients send `provider`, `text`, `locale`, `emotion`, `tone`, `prosody`, and `stream`; provider-specific prompt, instruction, model name, endpoint, speaker, and secret handling stays inside the backend adapter. CosyVoice2 defaults to the official FastAPI runtime contract (`/inference_sft` by default); `/v1/audio/speech` is only for an explicitly configured OpenAI-compatible proxy.
+Current Web Settings and public TTS readiness expose `mock`, `cosyvoice`, `qwen3_tts`, and `fish_audio`. Clients send only a public provider id plus `text`, `locale`, `emotion`, `tone`, `prosody`, and `stream`; provider-specific prompt, instruction, model, voice, endpoint, and secret handling stays inside the backend adapter. CosyVoice2 defaults to the official FastAPI runtime contract (`/inference_sft` by default). Qwen3-TTS uses Alibaba Cloud Model Studio / DashScope's native multimodal-generation API, while Fish Audio uses its native `/v1/tts` contract. Both remote adapters still require live acceptance.
+
+Every registered provider result exposes safe normalized metadata for provider/model/voice/capabilities/sample rate/latency. An upstream streaming capability does not change the current client contract: Web still consumes a complete Audio Result and reuses the existing TTSService, AudioManager, LipSync, and Presentation lifecycle.
 
 For long CosyVoice2 replies, Web `TTSService` may split the text into ordered segments and request the first short segment first. This lowers first-audio wait while keeping the same `/api/tts` Audio Result contract. It is not client PCM streaming; `streaming=false` still means the client receives each segment as a complete WAV/Base64 payload.
 

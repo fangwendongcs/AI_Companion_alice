@@ -198,7 +198,8 @@ any -> error -> idle
 ```text
 entering / boot      -> intro
 idle                 -> idle
-listening / thinking -> listening
+listening             -> listening
+thinking              -> thinking
 speaking             -> speaking
 reacting/interacting -> bodyTap
 head_action          -> headTap
@@ -263,6 +264,8 @@ gesture layer  主要播放一次性点击/反应动作
 
 来自角色的 `motions.json`：
 
+当 FBX 只有上半身部分适合当前 VRM 时，在 retarget 后用 `trackFilter` 保留 `upperlimb / torso / head`，并显式排除 `hips / legs`。这不会改写原始文件；原始资产状态与经过校准的 slot 状态必须分开记录。
+
 ```json
 {
   "slots": {
@@ -296,6 +299,7 @@ MotionManager.loadForCharacter()
 来自 `AnimationFactory.js`。
 
 如果某个 slot 没有可用 FBX，且 `proceduralFallbacks[slot] = true`，就注册程序化动作。
+当文件动作成功注册时，同名程序化动作不会覆盖它；程序化版仅是文件缺失或 retarget 失败时的安全回退。
 
 示例：
 

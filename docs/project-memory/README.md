@@ -1,6 +1,6 @@
 # Project Memory
 
-最后更新：2026-08-03
+最后更新：2026-08-10
 
 这是 Alice 项目的长期记忆导航页。它不是又一份长 README，而是“单一事实来源”的入口：新 Agent 先从这里找到当前状态、权威文档、历史决策和下一步，不再依赖聊天记录。
 
@@ -74,11 +74,11 @@ Alice 是一个工程闭环完整的本地可测试 AI digital companion MVP：W
 | `docs/product/PHASE5_COMPANION_EXPERIENCE.md` | 记忆、人格、连续性体验方向 | 当前权威 | 做陪伴体验、persona、affect 前 | 中；偏产品方向，不能替代 API/源码 |
 | `docs/guides/KNOWLEDGE_GUIDE.md` | 本地知识源格式和当前 RAG 能力 | 当前权威 | 加知识文件、调 RAG flow 前 | 低 |
 
-### TTS 与本地语音运行时
+### TTS、本地与远程语音运行时
 
 | 文件路径 | 文档用途 | 状态 | 推荐阅读场景 | 时间差风险 |
 | --- | --- | --- | --- | --- |
-| `docs/guides/LOCAL_TTS.md` | Mock / CosyVoice2 provider 策略、Audio Result、验证方式 | 当前权威 | 改 `/api/tts`、Web Settings、TTS provider 前 | 低；实现以 `backend/services/tts/*` 为准 |
+| `docs/guides/LOCAL_TTS.md` | Mock / CosyVoice2 Local / Qwen3-TTS / Fish Audio 策略、Audio Result、capability/metadata 与验证方式 | 当前权威 | 改 `/api/tts`、Web Settings、TTS provider 前 | 低；实现以 `backend/services/tts/*` 为准 |
 | `docs/guides/COSYVOICE_RUNTIME.md` | CosyVoice2 官方 FastAPI 本地运行、模型、speaker、live 验证 | 当前权威 | 启动真实本地 TTS、排查 CosyVoice2 前 | 中；外部 runtime 和模型状态因机器而异 |
 | `docs/assets/licenses/MOTION_ASSET_LICENSES.md` | 动作素材授权证据与许可记录 | 当前权威 | 把 motion 资产产品化或公开分发前 | 中；新增素材必须补证据 |
 
@@ -115,6 +115,7 @@ Alice 是一个工程闭环完整的本地可测试 AI digital companion MVP：W
 | `docs/reports/DIALOGUE_BEHAVIOR_TUNING_20260727.md` | 12 轮即时指令服从、连续性和建议恢复的真实 DeepSeek 验收 | 当前权威 | 修改 Persona、Prompt、行为策略或回归集前 | 当前模型固定集；不代表所有中文变体或公开用户留存 |
 | `docs/reports/P5_CONTINUOUS_TTS_DECISION_20260728.md` | CosyVoice2 真实 stream 探针、连续播放选型和短/中/长浏览器验收 | 当前权威 | 修改 TTS 分段、预取、缓冲或重新评估 PCM streaming 前 | 当前机器 CPU / speaker 实测；其他硬件需复测 |
 | `docs/reports/TTS_FOLLOWUP_AUDIT_20260731.md` | P5 后首音、CPU 调度、冷启动和其他 TTS provider 进入门槛复核 | 当前权威 | 继续优化 CosyVoice2 或考虑开放新 TTS provider 前 | 当前 provider 凭据无效/不完整；未做成功付费合成 |
+| `docs/reports/REMOTE_TTS_PROVIDER_AUDIT_20260810.md` | Qwen3/Fish 目标纠偏、本地/云/自建审计、实际 Provider 矩阵与 remote live 缺口 | 当前权威 | 配置 Qwen3/Fish live 或评估后续候选前 | 当前机器无两个目标 Provider 的有效凭据；Cosy 基线已重采，远程 latency/音质仍未验证 |
 | `docs/reports/ALICE_PROJECT_AUDIT_20260803.md` | 当前产品阶段、价值假设、投入取舍、一个月路线和继续/转向/停止门槛 | 当前权威 | 决定下一阶段方向或评估是否新增功能前 | 基于当前代码和已有验收；产品判断仍需陌生用户与复访数据验证 |
 | `docs/product/PHASE3_ACCEPTANCE.md` | Phase 3 智能能力验收标准 | 历史参考 | 回查 Provider/Memory/RAG/n8n/Agent 验收 | 后续接口和 TTS 已变化；当前看 `API_CONTRACT.md` |
 | `docs/product/PHASE3_BASELINE.md` | Phase 3.9 智能能力基线封版 | 历史参考 | 理解智能编排为何集中到后端 | 不含后续长期 Memory、dialogue.v1、TTS provider 重构 |
@@ -148,7 +149,7 @@ Alice 是一个工程闭环完整的本地可测试 AI digital companion MVP：W
 | --- | --- | --- |
 | 改 `/api/dialogue` | `docs/contracts/DIALOGUE_CONTRACT.md`、`docs/api/API_CONTRACT.md` | `docs/product/PHASE3_BASELINE.md`、`docs/architecture/PHASE3_INTELLIGENCE_ARCHITECTURE.md` |
 | 改 Memory / Persona / Affect | `docs/architecture/PHASE5_MEMORY_ARCHITECTURE.md`、`docs/product/PHASE5_COMPANION_EXPERIENCE.md` | `docs/process/NEXT_PHASE_PLAN.md` Phase 5 部分 |
-| 改 TTS / CosyVoice2 | `docs/guides/LOCAL_TTS.md`、`docs/guides/COSYVOICE_RUNTIME.md` | `docs/refactor/REFACTOR_NOTES.md` 中 TTS 相关记录 |
+| 改 TTS / CosyVoice2 / 远程 Provider | `docs/guides/LOCAL_TTS.md`、`docs/guides/COSYVOICE_RUNTIME.md`、`docs/reports/REMOTE_TTS_PROVIDER_AUDIT_20260810.md` | `docs/refactor/REFACTOR_NOTES.md` 中 TTS 相关记录 |
 | 改 Avatar / VRM / motion | `docs/architecture/VRM_RENDERER_MVP.md`、`docs/avatar/AVATAR_PRESENTATION_CONTRACT.md`、`docs/architecture/VRM_MOTION_READINESS.md` | `docs/refactor/AVATAR_META_DEPRECATION_PLAN.md`、`docs/architecture/ANIMATION_ARCHITECTURE.md` |
 | 改部署 / 安全 | `docs/security/PHASE4_DEPLOYMENT_SECURITY_BASELINE.md`、`docs/deployment/ENVIRONMENT_MODES.md` | `docs/product/PHASE3_BASELINE.md` 当前未包含安全项 |
 | 做浏览器验收 | `docs/process/BROWSER_ACCEPTANCE_CHECKLIST.md` | `docs/product/MVP_BASELINE.md` |
@@ -160,7 +161,7 @@ Alice 是一个工程闭环完整的本地可测试 AI digital companion MVP：W
 | --- | --- | --- |
 | Web App | UI、Avatar 展示、用户交互、调试面板、调用后端 | provider secret、Memory/RAG/n8n 编排、后端 provider 决策 |
 | Backend | Dialogue、Memory、RAG、TTS provider、provider readiness、上传/安全边界 | DOM、Three.js 渲染、Web UI 事件 |
-| TTS | 统一 Audio Result，当前公开 `mock` / `cosyvoice` | 前端暴露服务地址/密钥、把 provider 私有字段传到业务层 |
+| TTS | 统一 Audio Result 与 capability/metadata，当前公开 `mock` / `cosyvoice` / `qwen3_tts` / `fish_audio` | 前端暴露服务地址/密钥/model/voice、把 provider 私有字段传到业务层、建立第二套播放器 |
 | Avatar Renderer | 把 `AvatarDirective` 映射为 Default / VRM 表现 | 决定 persona、memory、emotion、LLM provider |
 | MotionManager | Web body motion slot、队列、状态机、fallback | Dialogue policy、TTS provider、renderer-specific expression |
 | Docs | 记录当前事实、契约、边界、风险和历史决策 | 替代自动化测试或伪造未验证事实 |
@@ -171,10 +172,13 @@ Alice 是一个工程闭环完整的本地可测试 AI digital companion MVP：W
 - 本地默认 LLM：`stub`，无 Key 可跑主对话链路。
 - 本地默认 TTS：`mock`，无外部服务可跑 Audio Result 合约。
 - CosyVoice2：可选真实本地 TTS runtime，默认官方 FastAPI 端口 `50000`。
+- Qwen3-TTS / Fish Audio：目标远程 adapters；当前需要用户在本地 `.env` 配置并完成各自 remote live，adapter 存在不等于可用。
 - SQLite：`data/sqlite/alice.db` 是本地 runtime 数据，不应提交。
 - Web：通过浏览器打开 `http://localhost:3000`，debug 可用 `?debug=1`。
 
 ## 项目记忆更新规则
+
+项目记忆与代码修改必须同轮完成。凡是会改变当前能力、配置方式、架构/模块边界、API 契约、运行命令、验证结论、已知故障或下一步排障路径的改动，都不能只留在聊天、终端输出、Git diff 或提交信息里；必须写入对应权威文档，并在 `project-memory` 中留下可检索的当前状态、决策或风险。文档记录必须区分“代码已接入”“自动化/Mock 通过”“具备凭据”和“真实 API/live 已验收”，不得互相替代。
 
 每个有实际影响的阶段完成后，至少更新：
 
@@ -182,8 +186,9 @@ Alice 是一个工程闭环完整的本地可测试 AI digital companion MVP：W
 2. 对应权威文档：API、TTS、VRM、Memory、Web 表现层等发生变化时同步更新对应文档。
 3. `DECISION_LOG.md`：新增重大技术决策时记录日期、内容、原因、影响范围。
 4. `RISKS_AND_TODO.md`：新增未验证、外部依赖、兼容风险时记录。
+5. 专题报告或历史记录：较大的审计、性能基线和验收应保留日期、环境、命令、真实结果与未完成项，便于后续复现和 debug。
 
-不要求每个小修复都写长文档，但不能让核心契约和运行方式落后于代码。
+不要求每个小修复都写长文档，但只要会影响后续复现或故障判断，就必须留下简洁记录；核心契约、配置、运行方式和验收状态不能落后于代码。
 
 ## 最近变更记录
 
@@ -195,3 +200,6 @@ Alice 是一个工程闭环完整的本地可测试 AI digital companion MVP：W
 | 2026-07-28 | 完成 P5 CosyVoice2 连续播放决策：拒绝当前吞吐不足的 PCM streaming，采用平衡分段、2 路预取和 5 秒有界缓冲；真实浏览器最大 gap 降至 `236ms`。 |
 | 2026-08-03 | 完成 Alice 产品与技术全面审核：确认当前为本地可测试 MVP、尚非成立产品；下一主线调整为单一测试入口、10 人体验和 7 天复访验证。 |
 | 2026-08-03 | 完成普通用户单一 Alice 入口：一次点击开始、记忆默认关闭且可随时管理，普通入口隐藏开发与占位控件；桌面/手机浏览器及显式 Debug 入口通过验收。 |
+| 2026-08-10 | 建立可插拔本地/云/自建 TTS 边界，并纠正远程目标为官方 DashScope Qwen3-TTS + Fish Audio 原生 API；保留统一 Audio Result/播放链路。CosyVoice2 当前两轮基线已重采，remote live 因 Qwen placeholder Key 与 Fish 缺 Key 明确未完成。 |
+| 2026-08-10 | 将“有实际影响的项目修改必须同步写入权威文档与 project-memory”固化为仓库级协作规则；验收记录必须区分代码接入、凭据、自动化/Mock 与真实 live，避免后续调试依赖聊天上下文。 |
+| 2026-08-10 | 用户决定远程 TTS 本阶段按架构/adapter 代码收口，真实 Qwen3/Fish 对照后置；交接仍明确标记两个云 Provider 未完成 live，不新增其他候选。 |

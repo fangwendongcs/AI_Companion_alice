@@ -1,6 +1,6 @@
 # Agent Handoff Checklist
 
-最后更新：2026-07-03
+最后更新：2026-08-10
 
 这份清单给后续 Codex、Claude Code、Cursor 或其他 Coding Agent 使用。
 
@@ -97,6 +97,10 @@ npm run check:cosyvoice-runtime
 | Memory | `npm run check:memory-flow`、`npm run check:sqlite-flow` |
 | 安全 / env | `npm run check:security-boundaries`、`npm run check:deployment-readiness` |
 | 大范围修改 | `npm run check` |
+
+## 文档记忆门槛
+
+交接前必须确认本轮有实际影响的代码、配置、契约、运行方式、验收结果和待验证风险已经同步写入对应权威文档与 `docs/project-memory/`。不能只依赖聊天记录、终端日志、Git diff 或提交信息。真实外部服务未调用成功时，必须分别标明代码接入、凭据状态、自动化/Mock 状态和 live 状态，禁止笼统写成“已支持”或“已验收”。
 
 ## 交接输出必须包含
 

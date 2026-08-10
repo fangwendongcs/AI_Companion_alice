@@ -18,6 +18,26 @@ export const TTSProviders = {
         provider: 'cosyvoice'
       });
     }
+  },
+  qwen3_tts: {
+    id: 'qwen3_tts',
+    label: 'Qwen3-TTS Remote',
+    transport: 'backend',
+    createPayload(text, config) {
+      return createBackendPayload(text, config, {
+        provider: 'qwen3_tts'
+      });
+    }
+  },
+  fish_audio: {
+    id: 'fish_audio',
+    label: 'Fish Audio Remote',
+    transport: 'backend',
+    createPayload(text, config) {
+      return createBackendPayload(text, config, {
+        provider: 'fish_audio'
+      });
+    }
   }
 };
 

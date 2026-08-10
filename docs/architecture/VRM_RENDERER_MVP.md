@@ -173,7 +173,7 @@ Missing local test files do not fail the check because these assets are intentio
 - `angry`: mapped to angry expressions.
 - `surprised`: mapped to surprised expressions.
 - `concerned / apologetic`: low-intensity fallback to sorrow.
-- missing states such as `thinking` remain safe no-op or use the existing motion slot system.
+- `thinking` uses its independent motion slot; a missing file remains a safe procedural fallback or no-op according to the motion manifest.
 
 Tone remains a presentation hint. `VRMRenderer` can use it to scale expression / mouth intensity, but tone does not make business decisions and is not written back into Dialogue, Memory, Persona, or backend orchestration.
 

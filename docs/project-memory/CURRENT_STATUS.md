@@ -21,12 +21,15 @@ Alice 当前处在“工程闭环完整的本地可测试 MVP + 消费级产品�
 - P1D 已收口波浪号与记忆确认措辞，并提供默认关闭、production 强制关闭的五字段安全评测诊断；4 轮 DeepSeek 抽样全部 `llm_only`、无截断、无 fallback，P1 对话质量阶段可以正式结束。
 - 2026-07-27 对话行为微调已收口：后端明确“当前轮要求 > 会话偏好 > Persona 默认主动性 > 建议/追问”，新增即时策略解析、最终草稿行为检查和最多两次受控重写；12 轮真实 DeepSeek 固定集全部 `llm_only`、无 fallback、无最终违规。
 - P3 已收口 Dialogue 可观测链路：`meta.trace` 贯通 `X-Request-ID`、编排耗时和 LLM 耗时；成功、fallback、未降级失败都有固定字段脱敏日志，Web Debug 面板显示 provider/model/mode/requestId/耗时/fallback/errorCode。
-- TTS 当前公开主线是 `mock` 和 `cosyvoice`；其他 provider adapter 可留在后端实验层，但不进入 Web Settings 公开选择。
+- TTS 公开集合已纠正为 `mock` / `cosyvoice` / `qwen3_tts` / `fish_audio`：本地与远程 provider 共用统一 Audio Result 和既有 TTSService / AudioManager / LipSync / Presentation。Qwen3-TTS 使用官方 DashScope API，Fish 使用原生 `/v1/tts`；两者代码、Settings、capability/metadata 与故障归一已接入。当前 `QWEN_BASE_URL` 指向官方 host，但 `QWEN_API_KEY` 是 placeholder，Qwen3 live 预检为 `missing_key`；Fish 也无有效凭据，真实中文音频和远程延迟仍未通过。上一版 SiliconFlow/CosyVoice2 远程目标属于范围偏差，已移除。
+- 2026-08-10 对 Open-LLM-VTuber 当前主分支复核确认其 TTS factory 同时容纳本地与云端：CosyVoice2 使用本地 `client_url`，Fish API 使用云 Key；当前没有 Qwen3-TTS adapter。Alice 当前 `qwen3_tts` / `fish_audio` 也分别代表 DashScope/Fish 云服务，不代表开源模型的本地部署。未来 Qwen3/Fish self-hosted 服务不需要厂商 Key，应作为独立 provider identity 接本地 URL，继续复用统一 Audio Result。
+- 2026-08-10 用户决定本阶段不再执行真实远程 TTS 对照，当前 changeset 按架构/adapter 代码收口：CosyVoice2 本地 live 已通过，Qwen3/Fish remote live、连续两轮、听感和本地延迟差值明确后置。该范围决定不改变两者“待真实验收”状态，也不授权新增第三个候选。
 - P5 CosyVoice2 连续播放已收口：继续复用 `/api/tts` 完整 WAV/Base64 Audio Result，不引入 PCM streaming。`24` 字以内保持单段；`25–84` 字使用 balanced、`85` 字以上使用 extended 分段档；所有分段回复立即 2 路预取，`25` 字以上在首段 ready 后等待第二段 ready 或最多 `5000ms`。Node 真实 `/api/tts` 探针在 16 / 26 / 54 / 95 字中最大 gap 为 `0 / 3 / 5 / 4ms`；真实浏览器 16 / 54 / 95 字为 `0 / 24 / 236ms`，相对正式 Demo `6271ms` 基线下降约 `96.2%`。代价是 54 字 Node 首次播放 p50 约 `12.5s`。官方 FastAPI 不提供模型级 true streaming；Direct Python 虽能提前首 PCM，但当前 CPU chunk 最大 gap 仍超过 `2s`，因此不采用新流式协议。
 - 2026-07-31 TTS 复核确认首音而非连续性仍是主要瓶颈：54 字三次首播 p50 / p90 `12.010 / 15.337s`，最大 gap `6ms`。延后第二段、ready 预测和 CPU 线程限制均因 gap 回归或长文本长尾被拒绝，不改 P5 播放策略。确定性修复是将单服务与完整 Demo 冷启动默认等待统一提升到约 5 分钟，覆盖首次 wetext 缓存补齐。OpenAI / MiniMax / Higgs 因无有效 live 凭据或必需 URL，仍留在实验层。
 - 2026-08-03 项目全面审核确认：Alice 已是可重复验收的本地 MVP 和有价值的作品集工程，但尚无陌生用户、相对基线或 7 天复访证据，不能称为已成立的消费级产品。完整判断和一个月门槛见 `docs/reports/ALICE_PROJECT_AUDIT_20260803.md`。
 - 2026-08-03 普通用户单一入口已收口：首次进入只显示 Alice 欢迎卡、默认关闭的记忆同意、声音和文字对话；开发设置、Debug、上传及进阶按钮只在显式 `?debug=1` / QA 入口出现。系统/机甲文案已改为日常 Persona，用户可从普通入口随时开关或清除本次会话记忆。
 - VRMRenderer 已进入 Web MVP：业务层输出 `AvatarDirective`，Renderer 负责表达、眨眼、基础 lip-sync；P2 已完成真实 CosyVoice2 浏览器验收，含 99.48 秒真实音频、连续两轮、快速替换、静音取消与上游中断恢复。口型按近景反馈收敛为 U/O 轻量开合，硬上限 `0.22`，常见 warm/curious 不再叠加露齿 happy 表情。
+- 2026-08-10 VRM 文件动作已从“原始 FBX 全身播放变形 / 常规状态落到僵硬程序化动作”收口为本地校准链路：`intro / idle / listening / thinking / speaking / chat / wave` 均由现有 FBX 文件驱动，retarget 后只保留上半身轨道，hips/root/腿/脚保持稳定基准。原始资产仍为 `debugOnly / pending verification`，正式分发前不能跳过授权。
 - 普通 Demo、debug 与刷新入口的默认 `alice` 已统一指向 `assets/avatars/test-vrm/girl.vrm` 并强制使用 `VRMRenderer`；历史 `avatar_id` 不再改变正式默认，显式 `?avatar=` 仍可用于 QA 覆盖。
 
 ## 已完成能力
@@ -49,7 +52,9 @@ Alice 当前处在“工程闭环完整的本地可测试 MVP + 消费级产品�
 | TTS Audio Result | 可用 | `docs/guides/LOCAL_TTS.md` |
 | Mock TTS | 可用 | `backend/services/tts/providers/MockTTSProvider.js` |
 | CosyVoice2 adapter | 已接入，真实服务需本地 runtime | `docs/guides/COSYVOICE_RUNTIME.md` |
+| Qwen3-TTS / Fish Audio remote adapters | 已接入公开 Settings 和统一 Audio Result；当前无各自 Key/config，remote live 未通过 | `docs/reports/REMOTE_TTS_PROVIDER_AUDIT_20260810.md` |
 | VRMRenderer MVP | 可用；TTS 振幅接线、保守口型与 99.48 秒真实 CosyVoice2 视觉 QA 已完成 | `docs/architecture/VRM_RENDERER_MVP.md` |
+| VRM 文件动作 | 本地可用；7 个正式 slot 均使用经上半身轨道过滤的 FBX，程序化版仅做加载失败 fallback | `docs/architecture/VRM_MOTION_QUALITY_V1.md` |
 | Avatar Presentation 分层 | MVP 接线已收口 | `docs/avatar/AVATAR_PRESENTATION_CONTRACT.md` |
 | 部署安全基线 | baseline | `docs/security/PHASE4_DEPLOYMENT_SECURITY_BASELINE.md` |
 
@@ -61,8 +66,8 @@ Alice 当前处在“工程闭环完整的本地可测试 MVP + 消费级产品�
 | 角色感真实评测 | “先陪伴、别建议”固定集已收口；记录人格一致性、相对文本/通用语音入口的差异感和自然承接，只修真实测试中最高频的问题。 |
 | Project Memory | 后续每次阶段性变更维护 `docs/project-memory/*`，避免聊天记录成为唯一上下文。 |
 | Demo Runtime | macOS 本机完整启停已验收；后续仅在需要跨平台时补 Windows 进程管理。 |
-| TTS | P5 连续播放已达到最大 gap `<1s` 门槛，冷启动窗口已收口；继续监测 `10–13s` 中长回复首音。新 provider 先以后端对照实验完成中文音质、p50/p90 延迟和 fallback 验收，不直接进入正式 Settings。 |
-| VRM | 默认 Alice 已完成 99.48 秒真实音频、连续两轮、替换/取消/恢复和保守口型近景 QA；Shiro / Wambo 及未来模型替换仍需单独视觉验收。 |
+| TTS | 可插拔本地/远程骨架与目标 Qwen3-TTS / Fish Audio adapter 已完成代码收口；真实远程对照由用户后置。恢复验收时只补目标 provider 的真实中文连续两轮、首 chunk/完整耗时、听感和实际账单；未完成前不得把 adapter readiness 当作可用性，也不继续扩展第三个候选。 |
+| VRM | 默认 Alice 的音频/口型与本地文件动作均已收口；下一步只在 Shiro / Wambo、新模型或新动作资产进入时重做模型专用视觉验收，公开分发前完成 motion 授权复核。 |
 | Memory / Persona | 基础阶段和即时行为微调已完成；下一步只围绕陌生用户真实会话暴露的人格一致性和会话内关系感做产品体验验证。 |
 | Observability | P3 已完成当前单实例闭环；后续真实部署时再评估集中式日志、指标存储与跨服务 tracing。 |
 | Security | 公网前仍需正式鉴权、域名、HTTPS、secret manager 和部署平台策略。 |
@@ -73,8 +78,10 @@ Alice 当前处在“工程闭环完整的本地可测试 MVP + 消费级产品�
 - 当前没有陌生目标用户、相对基线或实际复访证据；本地真实链路验收不能替代产品价值验证。
 - 普通入口的开发者文案、机甲台词和占位控件已隐藏或收口；远程测试前仍需解决 `girl.vrm` 授权/分发，以及后端单 token 鉴权与最终用户入口之间的闭环。
 - CosyVoice2 live 依赖外部模型/运行时，不能被普通 `npm run check` 完全覆盖。
+- Qwen3-TTS 与 Fish Audio 当前仅通过 adapter contract 和故障归一；Qwen3 现有兼容 Key 是 placeholder，Fish 无 Key，专用 model/voice 配置也未完成。remote live、连续两轮和本地对照延迟都未完成。
 - 默认 Alice 的真实 CosyVoice2 长音频和视觉同步已通过 99.48 秒浏览器验收；其他 Avatar 仍不能只靠自动化证明口型观感。
 - VRM motion / FBX retarget 质量不能只靠自动脚本证明，需要视觉 QA。
+- 当前 FBX 文件动作只批准用于本机 Demo；浏览器 QA 通过不代表授权或原文件再分发权已确认。
 - `docs/mobile-handoff/` 是已有移动端交接资料，本轮不是重点；Web 项目当前权威以 `docs/project-memory/`、`docs/contracts/`、`docs/architecture/` 为准。
 - 单 token API auth 是部署前 baseline，不是完整公开产品鉴权方案。
 - Alice 自有模型/素材的商业授权仍需在正式分发前复核。
@@ -89,6 +96,28 @@ Alice 当前处在“工程闭环完整的本地可测试 MVP + 消费级产品�
 - DeepSeek 明确边界轮次可能因复杂规则消耗内部生成预算并触发 2～3 次生成；最终 12 轮虽无 fallback，但最慢一轮为 `17.08s`，服从度提升存在可感知延迟代价。
 
 ## 最近验证
+
+2026-08-10 可插拔远程 TTS 第一阶段已执行：
+
+- 审计确认现有 `TTSOrchestrator -> TTSProviderRegistry -> provider adapter -> Audio Result -> TTSService -> AudioManager -> Presentation/LipSync` 可直接扩展，没有新增第二套播放器或表现链路。
+- `mock / cosyvoice / qwen3_tts / fish_audio` Settings 切换与 `/api/providers` 安全 metadata 已贯通；fake endpoints 覆盖 DashScope Qwen3 原生请求/签名音频下载、Fish 原生 model header/reference_id、后端 model/voice 优先、完整音频、capability/latency、故障归一和 secret 不泄漏。
+- 2026-08-10 使用当前官方 FastAPI runtime 重新完成 CosyVoice2 两轮真实短中文：均为有效 24kHz WAV；第 1 轮 `174764 bytes`，首 chunk/完整/Audio Result ready `4653/4658/4658ms`；第 2 轮 `228524 bytes`，对应 `6018/6020/6020ms`；p50 `5336/5339/5339ms`。历史浏览器链路首 chunk `3367ms`、完整 `3384ms`、ready `3393ms` 仅保留作旧基线。
+- 浏览器播放中点击静音得到 `audio:end(cancelled=true)`，最终 `idle / speaking=false / lipSync.active=false / mouthAmount=0`；静音状态再次触发语音没有 `audio:request`。
+- 单段 backend TTS 在音频返回前也会登记现有可取消 session；延迟请求回归确认静音/替换会 abort fetch、发出同一 cancelled `audio:end`，且不会触发晚到播放或 browser fallback。
+- 未配置远程 provider 时，既有通用链路会得到 `audio:request -> audio:fallback -> browser audio:start`；后续切回 CosyVoice 仍成功。Qwen3/Fish provider-specific fallback 由失败 contract 覆盖，但本轮未伪造真实浏览器成功语音。
+- Qwen3 两轮 live 以北京 region 官方 endpoint/model/voice 发起前，预检识别兼容 `QWEN_API_KEY` 为 placeholder 并返回 `missing_key`；没有发出计费请求。Fish 固定 live 返回 `TTS_NOT_CONFIGURED / missing_base_url_and_key_and_model_and_voice`。远程真实中文、连续两轮和延迟对比未完成，详见 `docs/reports/REMOTE_TTS_PROVIDER_AUDIT_20260810.md`。
+- 严格 `check:tts-compare-live` 现在以同一中文文本交替运行 CosyVoice2 / Qwen3-TTS / Fish Audio 各两轮，输出安全 `alice.tts-live-comparison.v2`、三类 latency p50 与各 `remote - local` 差值；任一端未配置时预检失败且不产生半边调用。本地两轮已单独重采，两个 remote 因无有效 Key 未执行，因此没有可报告差值。
+- 额外只按非敏感状态检查了已有 MiniMax / OpenAI 配置并各发起一条短中文探测：MiniMax 官方 T2A 端点返回鉴权拒绝，OpenAI 官方 endpoint 在当前环境 TLS 连接失败；两者均无音频，不能作为 remote live，也不因此扩大公开 provider 集合。
+- `npm run check` 全量通过；独立 `127.0.0.1:3105` stub/mock 服务上的 `npm run smoke` 通过。浏览器 Console 为 0 error、1 个既有 VRM warning。
+
+2026-08-10 VRM 文件动作修复已执行：
+
+- `scripts/qa/vrm-file-motion-product-runner.js`：通过；`intro / idle / listening / thinking / speaking / chat / wave` 均为 `source=file / format=fbx / mode=retargeted`，无程序化替身、无 Console/Page/Request 错误。
+- 浏览器骨骼采样：原始 retarget 匹配 `21/53` 轨道、20 根目标骨；正式片段保留 11 条轨道，`thinking` 保留 13 条。所有状态的 hips、双腿和双脚位移/旋转与 idle 基准一致。
+- 视觉 QA：`output/playwright/vrm-file-motion-product/` 中的截图确认腿部直立稳定，speaking/chat/wave 上半身手势可见，未再出现原始全身 FBX 的交叉脚和 root 漂移。
+- `scripts/qa/vrm-motion-lifecycle-runner.js`：通过；greeting 意图、raw QA 动作打断、快速点击队列、模型切换、缺失动作安全失败均能回到文件版 idle。
+- `npm run check`：通过。
+- `SMOKE_BASE_URL=http://127.0.0.1:3002 npm run smoke`：在清空本地 n8n 示例配置的隔离服务上通过。
 
 2026-07-03 本轮文档整理后已执行：
 

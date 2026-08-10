@@ -1,6 +1,6 @@
 # Decision Log
 
-最后更新：2026-07-31
+最后更新：2026-08-10
 
 本文件只记录会影响后续开发方向的关键决策。小修复、局部命名、纯样式调整不需要写入。
 
@@ -26,7 +26,11 @@
 | 2026-07-22 | CosyVoice2 首音优化先采用中文语义分段、同一 utterance session 和受控预取，不引入 WebSocket / AudioWorklet / PCM streaming。 | 官方 FastAPI 当前返回完整 raw PCM，Node 包装和浏览器解码只占毫秒级；主要瓶颈是本机 CosyVoice2 生成。分段能让长回复不再等待完整音频，同时保留现有取消、静音、fallback 和 lip-sync 生命周期。 | `TTSService`、`TTSTextSegmenter`、`AudioManager`、Presentation lifecycle、TTS 文档 | `docs/guides/LOCAL_TTS.md`、`js/voice/TTSService.js`、`js/voice/TTSTextSegmenter.js` |
 | 2026-07-28 | P5 保留完整 WAV/Base64，采用长度分档、2 路即时预取和 5 秒有界首段连续性缓冲；当前不实现 PCM streaming。 | 官方 FastAPI 无模型级 true streaming；Direct Python 虽能提前首 PCM，但 CPU chunk 最大 gap 仍超过 2 秒。最终真实浏览器最大 gap `236ms`，相对 `6271ms` 基线下降约 96.2%，且不改变既有取消/fallback/表现层契约。 | `TTSService`、`TTSTextSegmenter`、CosyVoice probes、浏览器 TTS/lip-sync lifecycle | `docs/reports/P5_CONTINUOUS_TTS_DECISION_20260728.md`、`docs/guides/LOCAL_TTS.md` |
 | 2026-07-31 | 保持 TTS 公开主线为 `mock + cosyvoice`，未完成中文 live 的 OpenAI / MiniMax / Higgs 不进入正式 Demo；CosyVoice 冷启动默认等待提升到约 5 分钟。 | 新 provider 当前分别存在凭据无效或必需 URL 缺失，无法证明中文声线、延迟和 fallback 优于现有主线；首次 wetext 缓存补齐又可超过原 120/180 秒启动窗口。 | CosyVoice 启动、Demo supervisor、TTS provider 公开边界、回归与文档 | `docs/reports/TTS_FOLLOWUP_AUDIT_20260731.md`、`docs/guides/COSYVOICE_RUNTIME.md` |
+| 2026-08-10 | 纠正上一版远程 TTS 范围偏差：移除把 CosyVoice2 当远程目标的 SiliconFlow adapter，公开集合改为 `mock + cosyvoice + qwen3_tts + fish_audio`；Qwen3 走官方 DashScope，Fish 走原生 API。保留通用 Remote TTS、Audio Result、capability/metadata、取消/fallback 补强，不改 AudioManager / LipSync / Presentation。 | 原目标明确是 Qwen3-TTS + Fish；SiliconFlow 实现既未调用 Qwen3，也替换了目标 Provider。两个目标 adapter 均须完成真实 live 后才能称为可用；当前仅代码/fake contract 通过。 | 后端 Registry/Orchestrator/目标 adapters、Settings、provider readiness、TTS metrics/文档；历史隐藏 adapter 不扩展 | `docs/reports/REMOTE_TTS_PROVIDER_AUDIT_20260810.md`、`docs/guides/LOCAL_TTS.md` |
+| 2026-08-10 | TTS provider identity 必须区分开源模型与实际运行服务：当前 `qwen3_tts` 指 DashScope Cloud，`fish_audio` 指 Fish Audio Cloud；未来 Qwen3/Fish 本地或自建 GPU 服务使用独立 self-hosted identity，不复用云端 readiness。 | 开源模型本地推理不需要厂商 Key，而同模型的托管 API 需要服务商 Key；混用名称会导致配置、成本、延迟和验收状态被误读。Open-LLM-VTuber 当前也是本地 CosyVoice2 URL 与 Fish API Key 并列，且没有现成 Qwen3 adapter。 | TTS 命名、Settings/readiness、后续 local/self-hosted adapter、文档与验收矩阵 | `docs/reports/REMOTE_TTS_PROVIDER_AUDIT_20260810.md`、`docs/guides/LOCAL_TTS.md` |
+| 2026-08-10 | 当前远程 TTS changeset 按架构与 adapter 代码收口，真实 Qwen3/Fish 对照后置；停止新增 metadata 字段和其他 Provider。 | 用户明确要求先不做真实 TTS 对照并收口上一目标。现有统一链路和目标 adapters 已通过非 live 验证，继续扩面只会增加未验收范围；后置不等于 remote live 已通过。 | 本次交接口径、项目状态、风险与后续验收，不改变 Audio Result 或运行时代码 | `docs/reports/REMOTE_TTS_PROVIDER_AUDIT_20260810.md`、`docs/project-memory/CURRENT_STATUS.md` |
 | 2026-07-14 | 完整本地 Demo 使用 detached Node supervisor 统一托管 Alice 与 CosyVoice2，状态以进程所有权、endpoint、真实 DeepSeek 回复和有效 WAV 四层证据为准。 | 单独 `npm run dev` 与 `cosyvoice:start` 无法解决受控环境子进程存活、空 CosyVoice URL、幂等启停和真实 readiness；停服又必须避免按端口误杀未知进程。 | 本地 Demo 启停、PID/state/log、安全边界、真实 provider 验收 | `scripts/demo/demo-manager.mjs`、`docs/guides/DEMO_RUNTIME.md` |
+| 2026-08-10 | 原始 Mixamo FBX 继续保持 `debugOnly / pending verification`；本地 Demo 可通过 `mixamo-vrm-upper-body-v1` 校准 slot 使用其上半身轨道，严格限制 `releaseScope=local-only` 并保留程序化 fallback。 | 原始全身播放的交叉腿、hips/root 漂移和僵硬站姿不能直接产品化；但上半身手势在剔除 hips/legs 后已通过本地浏览器 QA。技术可用不能被误写成授权可分发。 | `motions.json`、MotionManager 资产 gate、动作状态机、浏览器 QA、许可登记 | `docs/architecture/VRM_MOTION_QUALITY_V1.md`、`docs/assets/licenses/MOTION_ASSET_LICENSES.md` |
 
 ## 新增决策模板
 

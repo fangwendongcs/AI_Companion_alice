@@ -12,6 +12,7 @@ const LICENSE_EVIDENCE_FILES = [
   'docs/assets/licenses/evidence/vroid-vrma/vrm动作2.png'
 ];
 const QA_RUNNER_FILES = [
+  'scripts/qa/vrm-file-motion-product-runner.js',
   'scripts/qa/vrm-motion-lifecycle-runner.js',
   'scripts/qa/vrm-fbx-retarget-qa-runner.js'
 ];
@@ -31,6 +32,15 @@ const CURRENT_DEBUG_ONLY_FBX_ASSETS = new Set([
   'fbxThinking',
   'fbxWaving'
 ]);
+const CALIBRATED_LOCAL_SLOTS = {
+  intro: { assetId: 'fbxWaving', path: 'assets/motions/fbx/Waving.fbx', loop: 'once', layer: 'gesture' },
+  idle: { assetId: 'fbxStandingIdle', path: 'assets/motions/fbx/Standing Idle.fbx', loop: 'repeat', layer: 'base' },
+  speaking: { assetId: 'fbxTalking1', path: 'assets/motions/fbx/Talking (1).fbx', loop: 'repeat', layer: 'base' },
+  listening: { assetId: 'fbxStandingIdle', path: 'assets/motions/fbx/Standing Idle.fbx', loop: 'repeat', layer: 'base' },
+  thinking: { assetId: 'fbxThinking', path: 'assets/motions/fbx/Thinking.fbx', loop: 'repeat', layer: 'base' },
+  chat: { assetId: 'fbxTalking', path: 'assets/motions/fbx/Talking.fbx', loop: 'once', layer: 'gesture' },
+  wave: { assetId: 'fbxWaving', path: 'assets/motions/fbx/Waving.fbx', loop: 'once', layer: 'gesture' }
+};
 const VALID_BINDING_PROFILES = new Set([
   'raw-vrm-nodes-with-secondary-channels',
   'normalized-humanoid-nodes'
@@ -135,15 +145,22 @@ async function checkFbxAsset(assetId, asset) {
 }
 
 async function checkFormalSlots() {
-  const wave = slots.wave || {};
-  assert(wave.id === 'wave', 'slots.wave 必须保留 wave id。');
-  assert(wave.assetId === 'vrmaGreeting', 'wave 必须指向 vrmaGreeting 资产。');
-  assert(wave.path === 'assets/motions/vrm/test/VRMA_02Greeting.vrma', 'wave 必须继续指向 VRMA_02Greeting.vrma。');
-  assert(wave.layer === 'fullBody', 'wave 必须保持 fullBody layer。');
-  assert(wave.baseWeightWhileActive === 0, 'wave 播放时 base idle 权重必须让出。');
-  assert(wave.secondaryMotion === 'suppress', 'wave 必须保持 secondaryMotion=suppress。');
-  assert(wave.secondaryMotionRestoreDelayMs === 450, 'wave 必须在 idle 淡入后延迟 450ms 恢复 secondary motion。');
-  assert(!wave.trackFilter, 'wave 不应使用 trackFilter 截断原始 fullBody VRMA。');
+  for (const [slot, expected] of Object.entries(CALIBRATED_LOCAL_SLOTS)) {
+    const entry = slots[slot] || {};
+    assert(entry.id === slot, `slots.${slot} 必须保留稳定 id。`);
+    assert(entry.assetId === expected.assetId, `slots.${slot} 必须指向 ${expected.assetId}。`);
+    assert(entry.path === expected.path, `slots.${slot} 路径必须为 ${expected.path}。`);
+    assert(entry.loop === expected.loop, `slots.${slot}.loop 必须为 ${expected.loop}。`);
+    assert(entry.layer === expected.layer, `slots.${slot}.layer 必须为 ${expected.layer}。`);
+    assert(isCalibratedLocalUse(entry), `slots.${slot} 必须声明本地上半身校准与 local-only 范围。`);
+    assert(entry.trackFilter?.mode === 'include', `slots.${slot} 必须使用 include trackFilter。`);
+    assert(entry.trackFilter?.groups?.includes('upperlimb'), `slots.${slot} 必须保留 upperlimb 轨道。`);
+    assert(entry.trackFilter?.groups?.includes('torso'), `slots.${slot} 必须保留 torso 轨道。`);
+    assert(!entry.trackFilter?.groups?.includes('hips'), `slots.${slot} 不得保留 hips 轨道。`);
+    assert(!entry.trackFilter?.groups?.includes('legs'), `slots.${slot} 不得保留 legs 轨道。`);
+    assert(entry.rootMotionPolicy === 'strip-by-track-filter', `slots.${slot} 必须显式剔除 root motion。`);
+    assert(proceduralFallbacks[slot] === true, `slots.${slot} 必须保留 procedural fallback。`);
+  }
 
   for (const [slot, entry] of Object.entries(slots)) {
     assert(VALID_STATUSES.has(entry.qualityStatus), `${slot} qualityStatus 非法：${entry.qualityStatus}`);
@@ -189,14 +206,19 @@ async function checkQaSlots() {
 }
 
 function checkRejectedAssetBoundaries() {
-  const formalAssetIds = new Set(Object.values(slots).map((entry) => entry.assetId).filter(Boolean));
+  const formalEntries = Object.values(slots);
+  const formalAssetIds = new Set(formalEntries.map((entry) => entry.assetId).filter(Boolean));
   ['vrmaShoot', 'vrmaSpin', 'vrmaSquat'].forEach((assetId) => {
     assert(assets[assetId]?.qualityStatus === 'rejected', `${assetId} 必须标记为 rejected。`);
     assert(!formalAssetIds.has(assetId), `${assetId} 不得进入正式 slots。`);
   });
   Object.values(assets).forEach((asset) => {
     if (asset.qualityStatus !== 'approved') {
-      assert(!formalAssetIds.has(asset.id), `${asset.id} 尚未 approved，不得进入正式 slots。`);
+      const uses = formalEntries.filter((entry) => entry.assetId === asset.id);
+      assert(
+        !uses.length || uses.every((entry) => isCalibratedLocalUse(entry)),
+        `${asset.id} 尚未全局 approved，只能通过校准后的 local-only slot 使用。`
+      );
     }
   });
 }
@@ -213,10 +235,13 @@ function checkInteractionIntents() {
   });
 
   const greeting = interactionIntents['interaction.greeting'] || {};
-  assert(greeting.candidateMotionId === 'qaFbxWaving', 'interaction.greeting 当前只能把 qaFbxWaving 作为 QA 候选。');
-  assert(greeting.candidateMotionId !== 'wave', 'interaction.greeting 不得把 VRMA Greeting/wave 强行作为正式点击动作。');
+  assert(greeting.motionId === 'wave', 'interaction.greeting 必须请求校准后的正式 wave slot。');
   assert(greeting.fallbackSlot === 'armTap', 'interaction.greeting 必须 fallback 到 armTap procedural。');
-  assert(greeting.fallbackReason === 'candidate_debugOnly_qa_only', 'interaction.greeting 必须记录 debugOnly fallback 原因。');
+  assert(greeting.fallbackReason === 'file_motion_unavailable', 'interaction.greeting 必须记录文件动作不可用 fallback。');
+
+  const chat = interactionIntents['interaction.chat'] || {};
+  assert(chat.motionId === 'chat', 'interaction.chat 必须请求校准后的正式 chat slot。');
+  assert(chat.fallbackReason === 'file_motion_unavailable', 'interaction.chat 必须记录文件动作不可用 fallback。');
 
   for (const [intentId, intent] of Object.entries(interactionIntents)) {
     assert(intent.id === intentId, `${intentId} 的 id 必须与 key 一致。`);
@@ -253,10 +278,18 @@ function isProductUsable(entry = {}, asset = null) {
   const productStatus = entry.productStatus || asset?.productStatus || 'approved';
   const licenseStatus = entry.licenseStatus || asset?.licenseStatus || 'verified';
   return entryStatus === 'approved'
-    && assetStatus === 'approved'
+    && (assetStatus === 'approved' || isCalibratedLocalUse(entry))
     && technicalStatus === 'playable'
     && productStatus === 'approved'
-    && licenseStatus === 'verified';
+    && (licenseStatus === 'verified' || (isCalibratedLocalUse(entry) && licenseStatus === 'pending verification'));
+}
+
+function isCalibratedLocalUse(entry = {}) {
+  return entry.localUseApproved === true
+    && entry.releaseScope === 'local-only'
+    && entry.calibrationProfile === 'mixamo-vrm-upper-body-v1'
+    && Boolean(entry.trackFilter)
+    && entry.trackFilter?.enabled !== false;
 }
 
 function checkMotionEntry(entry, label) {
@@ -273,6 +306,12 @@ function checkMotionEntry(entry, label) {
     `${label}.secondaryMotionRestoreDelayMs 必须为非负数。`
   );
   assert(['fullBody', 'gesture', 'base', 'upperBody', 'face'].includes(entry.layer), `${label}.layer 非法：${entry.layer}`);
+  if (entry.localUseApproved === true) {
+    assert(entry.releaseScope === 'local-only', `${label} 本地批准动作必须限制 releaseScope=local-only。`);
+    assert(entry.licenseStatus === 'pending verification', `${label} 不得把未核实许可标成 verified。`);
+    assert(Boolean(entry.calibrationProfile), `${label} 本地批准动作必须声明 calibrationProfile。`);
+    assert(entry.trackFilter?.enabled !== false, `${label} 本地批准动作必须启用 trackFilter。`);
+  }
 }
 
 async function checkLicenseRegister() {

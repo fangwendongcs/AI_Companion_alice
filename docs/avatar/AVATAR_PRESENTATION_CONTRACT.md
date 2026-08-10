@@ -181,7 +181,7 @@ Responsibilities:
 Example mapping:
 
 ```text
-thinking -> listening
+thinking -> thinking
 speaking -> speaking
 soft_nod -> chat
 wave -> wave
@@ -214,6 +214,7 @@ Current rule:
 
 - The first implementation is lifecycle-only. It does not connect Higgs Audio, OpenAI TTS, Azure, ElevenLabs, or any new provider.
 - Real provider work should happen behind `TTSService` / backend `/api/tts` and continue to send only non-secret style hints to the frontend.
+- Local CosyVoice2, remote Qwen3-TTS/Fish Audio, and future self-hosted adapters all enter this same lifecycle through the unified Audio Result; Presentation must never branch on provider id.
 - When backend audio playback exposes an `HTMLAudioElement`, the presentation layer may use a local amplitude sampler for lip-sync. Browser `speechSynthesis` does not expose a safe audio element, so it remains on the fallback speaking loop.
 
 ### Renderer Boundary
@@ -342,6 +343,8 @@ Acceptance:
 - `LipSyncController` samples amplitude through `AudioAmplitudeSampler` and smooths mouth intensity to avoid high-frequency jitter.
 - Browser fallback speech keeps using the fixed speaking loop because it does not expose an analysable audio element.
 - `audio:end` and `audio:error` stop sampling, reset mouth influence, and return to idle/listening through the existing presentation path.
+- Turning mute on during active playback calls the existing `AudioManager.stop({ emitEnd: true })`; the resulting cancelled `audio:end` must use the same mouth reset and idle path. While already muted, no new `audio:request` is emitted.
+- A single backend TTS request is also represented by the existing cancellable playback session before audio arrives, so muting during remote synthesis aborts the request and emits the same cancelled `audio:end` without a late start or fallback.
 - `check:vrm-renderer-flow` verifies audio-driven intensity and fallback behavior.
 - Automated checks simulate 120 seconds of amplitude updates and verify active mouth values remain finite, then reset to idle / zero at end.
 - `TTSService` invalidates stale playback sessions and settles cancelled audio playback so an interrupted long response cannot emit a delayed end event into the next response.

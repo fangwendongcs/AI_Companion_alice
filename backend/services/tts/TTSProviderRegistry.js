@@ -23,13 +23,33 @@ import {
   ttsOutputFormat,
   ttsProviderBaseUrls,
   ttsProviderKeyEnv,
+  ttsFishAudioApiKey,
+  ttsFishAudioApiKeyEnv,
+  ttsFishAudioBaseUrl,
+  ttsFishAudioLatencyMode,
+  ttsFishAudioModel,
+  ttsFishAudioOutputFormat,
+  ttsFishAudioPath,
+  ttsFishAudioSampleRate,
+  ttsFishAudioVoiceId,
+  ttsQwen3ApiKey,
+  ttsQwen3ApiKeyEnv,
+  ttsQwen3BaseUrl,
+  ttsQwen3LanguageType,
+  ttsQwen3Model,
+  ttsQwen3OutputFormat,
+  ttsQwen3Path,
+  ttsQwen3SampleRate,
+  ttsQwen3VoiceId,
   ttsUpstreamTimeoutMs
 } from '../../config/serverConfig.js';
 import { CosyVoiceTTSProvider } from './providers/CosyVoiceTTSProvider.js';
+import { FishAudioTTSProvider } from './providers/FishAudioTTSProvider.js';
 import { HiggsTTSProvider } from './providers/HiggsTTSProvider.js';
 import { MiniMaxTTSProvider } from './providers/MiniMaxTTSProvider.js';
 import { MockTTSProvider } from './providers/MockTTSProvider.js';
 import { OpenAITTSProvider } from './providers/OpenAITTSProvider.js';
+import { Qwen3TTSProvider } from './providers/Qwen3TTSProvider.js';
 
 export class TTSProviderRegistry {
   constructor({ fetchImpl = fetch } = {}) {
@@ -94,6 +114,32 @@ export class TTSProviderRegistry {
       promptText: ttsCosyVoicePromptText,
       promptWavPath: ttsCosyVoicePromptWavPath,
       instructText: ttsCosyVoiceInstructText,
+      timeoutMs: ttsUpstreamTimeoutMs,
+      fetchImpl: this.fetchImpl
+    }));
+    this.register(new Qwen3TTSProvider({
+      baseUrl: ttsQwen3BaseUrl,
+      apiKey: ttsQwen3ApiKey,
+      apiKeyEnv: ttsQwen3ApiKeyEnv,
+      path: ttsQwen3Path,
+      model: ttsQwen3Model,
+      defaultVoice: ttsQwen3VoiceId,
+      languageType: ttsQwen3LanguageType,
+      outputFormat: ttsQwen3OutputFormat,
+      sampleRate: ttsQwen3SampleRate,
+      timeoutMs: ttsUpstreamTimeoutMs,
+      fetchImpl: this.fetchImpl
+    }));
+    this.register(new FishAudioTTSProvider({
+      baseUrl: ttsFishAudioBaseUrl,
+      apiKey: ttsFishAudioApiKey,
+      apiKeyEnv: ttsFishAudioApiKeyEnv,
+      path: ttsFishAudioPath,
+      model: ttsFishAudioModel,
+      defaultVoice: ttsFishAudioVoiceId,
+      outputFormat: ttsFishAudioOutputFormat,
+      sampleRate: ttsFishAudioSampleRate,
+      latencyMode: ttsFishAudioLatencyMode,
       timeoutMs: ttsUpstreamTimeoutMs,
       fetchImpl: this.fetchImpl
     }));

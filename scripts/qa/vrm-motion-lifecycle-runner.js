@@ -12,6 +12,12 @@ async (page) => {
     document.querySelector('.debug-panel')?.classList.add('collapsed');
   });
 
+  await page.waitForFunction(() => {
+    const app = window.__aliceApp;
+    app?.syncMotionDebugState?.({ force: true });
+    return app?.state?.motion?.current === 'idle';
+  }, { timeout: 30000 });
+
   const clickPoint = await page.evaluate(() => {
     const canvas = document.querySelector('canvas');
     const rect = canvas.getBoundingClientRect();
@@ -105,10 +111,16 @@ async (page) => {
   const records = [];
   records.push(await read('initial'));
 
-  await page.mouse.click(clickPoint.x, clickPoint.y);
+  await page.evaluate(() => {
+    window.__aliceApp?.motionManager?.requestIntent?.('interaction.greeting', {
+      part: 'arm',
+      replacePending: true
+    });
+    window.__aliceApp?.syncMotionDebugState?.({ force: true });
+  });
   await wait(160);
-  records.push(await read('single-click-active'));
-  records.push(await waitForIdleClean('single-click-settled'));
+  records.push(await read('greeting-intent-active'));
+  records.push(await waitForIdleClean('greeting-intent-settled'));
 
   for (let index = 0; index < 3; index += 1) {
     await page.mouse.click(clickPoint.x, clickPoint.y);
@@ -118,28 +130,34 @@ async (page) => {
   records.push(await waitForIdleClean('triple-click-settled'));
 
   await page.evaluate(() => {
-    window.__aliceApp?.motionManager?.requestSlot?.('wave', {
+    window.__aliceApp?.motionManager?.requestSlot?.('qaGreeting', {
       replacePending: true,
       transitionState: false
     });
     window.__aliceApp?.syncMotionDebugState?.({ force: true });
   });
   await wait(500);
-  records.push(await read('wave-active-before-click'));
-  await page.mouse.click(clickPoint.x, clickPoint.y);
+  records.push(await read('qa-greeting-active-before-click'));
+  await page.evaluate(() => {
+    window.__aliceApp?.motionManager?.requestIntent?.('interaction.greeting', {
+      part: 'arm',
+      replacePending: true
+    });
+    window.__aliceApp?.syncMotionDebugState?.({ force: true });
+  });
   await wait(450);
-  records.push(await read('wave-active-after-click'));
-  records.push(await waitForIdleClean('wave-click-settled', 10000));
+  records.push(await read('qa-greeting-active-after-click'));
+  records.push(await waitForIdleClean('qa-greeting-click-settled', 10000));
 
   await page.evaluate(() => {
-    window.__aliceApp?.motionManager?.requestSlot?.('wave', {
+    window.__aliceApp?.motionManager?.requestSlot?.('qaGreeting', {
       replacePending: true,
       transitionState: false
     });
     window.__aliceApp?.syncMotionDebugState?.({ force: true });
   });
   await wait(500);
-  records.push(await read('wave-active-before-intent'));
+  records.push(await read('qa-greeting-active-before-intent'));
   await page.evaluate(() => {
     window.__aliceApp?.motionManager?.requestIntent?.('interaction.greeting', {
       part: 'arm',
@@ -149,8 +167,8 @@ async (page) => {
     window.__aliceApp?.syncMotionDebugState?.({ force: true });
   });
   await wait(320);
-  records.push(await read('wave-intent-after-interrupt'));
-  records.push(await waitForIdleClean('wave-intent-settled', 10000));
+  records.push(await read('qa-greeting-intent-after-interrupt'));
+  records.push(await waitForIdleClean('qa-greeting-intent-settled', 10000));
 
   await page.evaluate(() => {
     window.__aliceApp?.motionManager?.requestSlot?.('qaFbxStandingIdle', {
@@ -193,39 +211,54 @@ async (page) => {
   records.push({ ...missingState, missingAccepted });
 
   const byLabel = Object.fromEntries(records.map((record) => [record.label, record]));
-  assert('initial idle is clean', isIdleClean(byLabel.initial), JSON.stringify(byLabel.initial));
   assert(
-    'single click routes through interaction.greeting fallback',
-    byLabel['single-click-active'].intent === 'interaction.greeting'
-      && byLabel['single-click-active'].resolved === 'armTap'
-      && byLabel['single-click-active'].fallbackFrom === 'qaFbxWaving',
-    JSON.stringify(byLabel['single-click-active'])
+    'initial idle is clean and file-backed',
+    isIdleClean(byLabel.initial)
+      && byLabel.initial.source === 'file'
+      && byLabel.initial.format === 'fbx'
+      && byLabel.initial.mode === 'retargeted'
+      && byLabel.initial.qaOnly === false
+      && byLabel.initial.proceduralActive === false,
+    JSON.stringify(byLabel.initial)
   );
-  assert('single click settles cleanly', isIdleClean(byLabel['single-click-settled']), JSON.stringify(byLabel['single-click-settled']));
+  assert(
+    'greeting intent resolves to calibrated file wave',
+    byLabel['greeting-intent-active'].intent === 'interaction.greeting'
+      && byLabel['greeting-intent-active'].resolved === 'wave'
+      && byLabel['greeting-intent-active'].source === 'file'
+      && byLabel['greeting-intent-active'].format === 'fbx'
+      && !byLabel['greeting-intent-active'].fallback
+      && !byLabel['greeting-intent-active'].fallbackFrom,
+    JSON.stringify(byLabel['greeting-intent-active'])
+  );
+  assert('greeting intent settles cleanly', isIdleClean(byLabel['greeting-intent-settled']), JSON.stringify(byLabel['greeting-intent-settled']));
   assert('triple click settles cleanly', isIdleClean(byLabel['triple-click-settled']), JSON.stringify(byLabel['triple-click-settled']));
   assert(
-    'wave starts as fullBody vrma with secondary suppress',
-    byLabel['wave-active-before-click'].current === 'wave'
-      && byLabel['wave-active-before-click'].mode === 'vrma'
-      && byLabel['wave-active-before-click'].secondary === 'suppress'
-      && byLabel['wave-active-before-click'].secondaryEnabled === false,
-    JSON.stringify(byLabel['wave-active-before-click'])
+    'raw qa greeting starts as fullBody vrma with secondary suppress',
+    byLabel['qa-greeting-active-before-click'].current === 'qaGreeting'
+      && byLabel['qa-greeting-active-before-click'].mode === 'vrma'
+      && byLabel['qa-greeting-active-before-click'].secondary === 'suppress'
+      && byLabel['qa-greeting-active-before-click'].secondaryEnabled === false,
+    JSON.stringify(byLabel['qa-greeting-active-before-click'])
   );
   assert(
-    'click during wave does not leave fullBody and gesture overlap',
-    !hasFullBodyAndGestureOverlap(byLabel['wave-active-after-click']),
-    JSON.stringify(byLabel['wave-active-after-click'])
+    'click during raw qa greeting does not leave fullBody and gesture overlap',
+    byLabel['qa-greeting-active-after-click'].current === 'wave'
+      && byLabel['qa-greeting-active-after-click'].resolved === 'wave'
+      && !hasFullBodyAndGestureOverlap(byLabel['qa-greeting-active-after-click']),
+    JSON.stringify(byLabel['qa-greeting-active-after-click'])
   );
-  assert('wave interruption settles cleanly', isIdleClean(byLabel['wave-click-settled']), JSON.stringify(byLabel['wave-click-settled']));
+  assert('raw qa greeting interruption settles cleanly', isIdleClean(byLabel['qa-greeting-click-settled']), JSON.stringify(byLabel['qa-greeting-click-settled']));
   assert(
     'programmatic interaction intent interrupts fullBody without overlap',
-    byLabel['wave-intent-after-interrupt'].current === 'armTap'
-      && byLabel['wave-intent-after-interrupt'].intent === 'interaction.greeting'
-      && byLabel['wave-intent-after-interrupt'].resolved === 'armTap'
-      && !hasFullBodyAndGestureOverlap(byLabel['wave-intent-after-interrupt']),
-    JSON.stringify(byLabel['wave-intent-after-interrupt'])
+    byLabel['qa-greeting-intent-after-interrupt'].current === 'wave'
+      && byLabel['qa-greeting-intent-after-interrupt'].intent === 'interaction.greeting'
+      && byLabel['qa-greeting-intent-after-interrupt'].resolved === 'wave'
+      && byLabel['qa-greeting-intent-after-interrupt'].source === 'file'
+      && !hasFullBodyAndGestureOverlap(byLabel['qa-greeting-intent-after-interrupt']),
+    JSON.stringify(byLabel['qa-greeting-intent-after-interrupt'])
   );
-  assert('programmatic wave interrupt settles cleanly', isIdleClean(byLabel['wave-intent-settled']), JSON.stringify(byLabel['wave-intent-settled']));
+  assert('programmatic greeting interrupt settles cleanly', isIdleClean(byLabel['qa-greeting-intent-settled']), JSON.stringify(byLabel['qa-greeting-intent-settled']));
   assert(
     'fbx enters retargeted debug-only path',
     byLabel['fbx-active-before-idle'].current === 'qaFbxStandingIdle'

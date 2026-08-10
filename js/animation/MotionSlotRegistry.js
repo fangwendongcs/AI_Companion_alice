@@ -10,7 +10,8 @@ export const MotionSlot = {
   BODY_TAP: 'bodyTap',
   CHAT: 'chat',
   SPEAKING: 'speaking',
-  LISTENING: 'listening'
+  LISTENING: 'listening',
+  THINKING: 'thinking'
 };
 
 export const MOTION_SLOT_DEFAULTS = {
@@ -23,7 +24,8 @@ export const MOTION_SLOT_DEFAULTS = {
   [MotionSlot.BODY_TAP]: { loop: 'once', priority: 8, layer: 'gesture', interrupt: true, fadeIn: 0.12, fadeOut: 0.18 },
   [MotionSlot.CHAT]: { loop: 'once', priority: 8, layer: 'gesture', interrupt: true, fadeIn: 0.12, fadeOut: 0.18 },
   [MotionSlot.SPEAKING]: { loop: 'repeat', priority: 1, layer: 'base', interrupt: false, fadeIn: 0.2, fadeOut: 0.2 },
-  [MotionSlot.LISTENING]: { loop: 'repeat', priority: 1, layer: 'base', interrupt: false, fadeIn: 0.2, fadeOut: 0.2 }
+  [MotionSlot.LISTENING]: { loop: 'repeat', priority: 1, layer: 'base', interrupt: false, fadeIn: 0.2, fadeOut: 0.2 },
+  [MotionSlot.THINKING]: { loop: 'repeat', priority: 1, layer: 'base', interrupt: false, fadeIn: 0.2, fadeOut: 0.2 }
 };
 
 export const MOTION_SLOT_STATES = {
@@ -36,7 +38,8 @@ export const MOTION_SLOT_STATES = {
   [MotionSlot.BODY_TAP]: AvatarState.REACTING,
   [MotionSlot.CHAT]: AvatarState.REACTING,
   [MotionSlot.SPEAKING]: AvatarState.SPEAKING,
-  [MotionSlot.LISTENING]: AvatarState.LISTENING
+  [MotionSlot.LISTENING]: AvatarState.LISTENING,
+  [MotionSlot.THINKING]: AvatarState.THINKING
 };
 
 const DEFAULT_PROCEDURAL_FALLBACKS = {
@@ -49,7 +52,8 @@ const DEFAULT_PROCEDURAL_FALLBACKS = {
   bodyTap: true,
   chat: true,
   speaking: true,
-  listening: true
+  listening: true,
+  thinking: true
 };
 
 export class MotionSlotRegistry {

@@ -5,6 +5,7 @@ export const PROCEDURAL_ACTION_DEFS = {
   idle: { loop: AnimationLoop.REPEAT, priority: 0, layer: AnimationLayer.BASE, fadeIn: 0.35, fadeOut: 0.25 },
   speaking: { loop: AnimationLoop.REPEAT, priority: 1, layer: AnimationLayer.BASE, fadeIn: 0.25, fadeOut: 0.2 },
   listening: { loop: AnimationLoop.REPEAT, priority: 1, layer: AnimationLayer.BASE, fadeIn: 0.25, fadeOut: 0.2 },
+  thinking: { loop: AnimationLoop.REPEAT, priority: 1, layer: AnimationLayer.BASE, fadeIn: 0.25, fadeOut: 0.2 },
   intro: { loop: AnimationLoop.ONCE, priority: 20, layer: AnimationLayer.GESTURE, interrupt: true, fadeIn: 0.2, fadeOut: 0.2, baseWeightWhileActive: 0.2, returnToIdle: true },
   headTap: { loop: AnimationLoop.ONCE, priority: 10, layer: AnimationLayer.GESTURE, interrupt: true, fadeIn: 0.12, fadeOut: 0.18, baseWeightWhileActive: 0.18, returnToIdle: true, cooldown: 240 },
   legTap: { loop: AnimationLoop.ONCE, priority: 10, layer: AnimationLayer.GESTURE, interrupt: true, fadeIn: 0.12, fadeOut: 0.18, baseWeightWhileActive: 0.12, returnToIdle: true, cooldown: 240 },
@@ -48,6 +49,7 @@ export class AnimationFactory {
       idle: this.createIdleClip,
       speaking: this.createSpeakingClip,
       listening: this.createListeningClip,
+      thinking: this.createThinkingClip,
       intro: this.createIntroClip,
       headTap: this.createHeadTapClip,
       legTap: this.createLegTapClip,
@@ -85,6 +87,16 @@ export class AnimationFactory {
       { boneName: 'mixamorigHead', rotation: { z: 0.055 }, wave: { axis: 'y', amp: 0.018 } }
     ];
     return this.createProceduralClip('listening', 3.0, [0, 0.75, 1.5, 2.25, 3.0], defs);
+  }
+
+  createThinkingClip() {
+    const defs = [
+      { boneName: 'mixamorigSpine2', rotation: { z: 0.035 }, wave: { axis: 'x', amp: 0.015 } },
+      { boneName: 'mixamorigNeck', rotation: { z: 0.06 }, wave: { axis: 'y', amp: 0.012 } },
+      { boneName: 'mixamorigHead', rotation: { z: 0.075 }, wave: { axis: 'x', amp: 0.014 } },
+      { boneName: 'mixamorigRightForeArm', rotation: { z: -0.2 } }
+    ];
+    return this.createProceduralClip('thinking', 3.2, [0, 0.8, 1.6, 2.4, 3.2], defs);
   }
 
   createIntroClip() {

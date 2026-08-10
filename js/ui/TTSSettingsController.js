@@ -1,6 +1,13 @@
 import { APP_MODE } from '../config/appConfig.js';
 
-const DISPLAYED_TTS_PROVIDERS = ['mock', 'cosyvoice'];
+const TTS_PROVIDER_OPTIONS = [
+  { id: 'mock', label: 'Mock（本地演示）' },
+  { id: 'cosyvoice', label: 'CosyVoice2（本地服务）' },
+  { id: 'qwen3_tts', label: 'Qwen3-TTS（DashScope）' },
+  { id: 'fish_audio', label: 'Fish Audio（远程 API）' }
+];
+const DISPLAYED_TTS_PROVIDERS = TTS_PROVIDER_OPTIONS.map((item) => item.id);
+const REMOTE_TTS_PROVIDERS = new Set(['qwen3_tts', 'fish_audio']);
 
 export class TTSSettingsController {
   constructor({ refs, registry, store, apiClient, ttsService, getConfig, setConfig, speakText, statusView }) {
@@ -69,10 +76,7 @@ export class TTSSettingsController {
 
   populateProviderOptions() {
     this.refs.ttsEngine.innerHTML = '';
-    [
-      { id: 'mock', label: 'Mock（本地演示）' },
-      { id: 'cosyvoice', label: 'CosyVoice2（本地服务）' }
-    ].forEach((provider) => {
+    TTS_PROVIDER_OPTIONS.forEach((provider) => {
       const option = document.createElement('option');
       option.value = provider.id;
       option.textContent = provider.label;
@@ -126,32 +130,45 @@ export class TTSSettingsController {
       return;
     }
 
+    const label = this.getProviderLabel(normalized);
     if (!status) {
-      this.statusView.showTTS('loading', '正在读取 CosyVoice2 状态。');
+      this.statusView.showTTS('loading', `正在读取 ${label} 状态。`);
+      return;
+    }
+
+    if (REMOTE_TTS_PROVIDERS.has(normalized) && status.configured && status.health?.live !== true) {
+      this.statusView.showTTS('loading', `${label} 后端配置完整、尚未实测；点击测试语音发起真实调用。`);
       return;
     }
 
     if (status.available) {
-      this.statusView.showTTS('success', `CosyVoice2 可用，当前 voiceId：${status.defaultVoice || '默认'}`);
+      this.statusView.showTTS('success', `${label} 可用，当前 voiceId：${status.defaultVoice || '默认'}`);
       return;
     }
 
-    this.statusView.showTTS('error', '本地语音服务未启动，文字对话仍可用。');
+    const message = REMOTE_TTS_PROVIDERS.has(normalized)
+      ? '远程语音配置不完整，文字对话仍可用。'
+      : '本地语音服务未启动，文字对话仍可用。';
+    this.statusView.showTTS('error', message);
   }
 
   renderStatusSummary(status, reason = '') {
     if (!this.refs.ttsProviderStatusSummary) return;
     const provider = status?.provider || this.normalizeEngine(this.refs.ttsEngine.value);
-    const label = status?.label || (provider === 'cosyvoice' ? 'CosyVoice2' : 'Mock');
+    const label = status?.label || this.getProviderLabel(provider);
     const availableText = status
-      ? (status.available ? '可用' : '不可用')
+      ? (REMOTE_TTS_PROVIDERS.has(provider) && status.configured && status.health?.live !== true
+        ? '已配置（未实测）'
+        : (status.available ? '可用' : '不可用'))
       : '读取中';
     const voice = status?.defaultVoice || (provider === 'mock' ? 'mock-silence' : '-');
+    const model = status?.defaultModel || status?.metadata?.model || (provider === 'mock' ? 'mock' : '-');
     const capabilities = this.formatCapabilities(status?.capabilities);
 
     this.refs.ttsCurrentProvider.textContent = label;
     this.refs.ttsProviderAvailability.textContent = availableText;
     this.refs.ttsProviderVoice.textContent = voice;
+    if (this.refs.ttsProviderModel) this.refs.ttsProviderModel.textContent = model;
     this.refs.ttsProviderCapabilities.textContent = capabilities;
     this.refs.ttsProviderReason.textContent = reason || '-';
   }
@@ -166,8 +183,16 @@ export class TTSSettingsController {
   }
 
   formatReason(status, provider) {
-    if (!status) return provider === 'cosyvoice' ? '等待后端 readiness' : '本地 mock 可直接使用';
+    if (!status) {
+      if (provider === 'cosyvoice') return '等待本地服务 readiness';
+      if (REMOTE_TTS_PROVIDERS.has(provider)) return '等待远程 provider readiness';
+      return '本地 mock 可直接使用';
+    }
     if (status.provider === 'mock') return '本地演示 provider';
+    if (REMOTE_TTS_PROVIDERS.has(status.provider)) {
+      if (status.available) return '后端配置完整；未主动调用计费接口探活';
+      return status.health?.reason || status.status || '远程配置不完整';
+    }
     if (status.available) return '服务已连接';
     if (status.status === 'local_service_not_running') return '本地语音服务未启动';
     if (status.status === 'missing_base_url') return '后端未配置 COSYVOICE_BASE_URL';
@@ -176,5 +201,10 @@ export class TTSSettingsController {
 
   normalizeEngine(engine) {
     return DISPLAYED_TTS_PROVIDERS.includes(engine) ? engine : 'mock';
+  }
+
+  getProviderLabel(provider) {
+    return TTS_PROVIDER_OPTIONS.find((item) => item.id === provider)?.label
+      ?.replace(/（.*）$/, '') || 'TTS Provider';
   }
 }

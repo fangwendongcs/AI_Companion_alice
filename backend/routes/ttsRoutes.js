@@ -5,7 +5,7 @@ import { readJsonBody } from '../utils/request.js';
 import { sendJson, sendOk, writeCors } from '../utils/response.js';
 
 const ttsOrchestrator = new TTSOrchestrator();
-const publicTTSProviders = new Set(['mock', 'cosyvoice']);
+const publicTTSProviders = new Set(['mock', 'cosyvoice', 'qwen3_tts', 'fish_audio']);
 
 export async function handleTTS(req, res) {
   const body = await readJsonBody(req, maxJsonBodyBytes);

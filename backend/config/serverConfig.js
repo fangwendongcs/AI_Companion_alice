@@ -99,6 +99,29 @@ export const ttsHiggsModel = String(process.env.HIGGS_MODEL || 'higgs-audio-v3')
 export const ttsHiggsVoiceId = String(process.env.HIGGS_VOICE_ID || 'alice').trim();
 export const ttsHiggsApiKeyEnv = 'HIGGS_API_KEY';
 export const ttsHiggsApiKey = String(process.env[ttsHiggsApiKeyEnv] || '').trim();
+export const ttsQwen3BaseUrl = String(process.env.QWEN3_TTS_BASE_URL || '').trim();
+export const ttsQwen3Path = String(process.env.QWEN3_TTS_PATH || '/services/aigc/multimodal-generation/generation').trim();
+export const ttsQwen3Model = String(process.env.QWEN3_TTS_MODEL || '').trim();
+export const ttsQwen3VoiceId = String(process.env.QWEN3_TTS_VOICE || '').trim();
+export const ttsQwen3LanguageType = String(process.env.QWEN3_TTS_LANGUAGE_TYPE || 'Chinese').trim();
+export const ttsQwen3OutputFormat = String(process.env.QWEN3_TTS_OUTPUT_FORMAT || 'wav').trim().toLowerCase();
+export const ttsQwen3SampleRate = Number(process.env.QWEN3_TTS_SAMPLE_RATE || 24000);
+export const ttsQwen3ApiKeyEnv = 'QWEN3_TTS_API_KEY';
+export const ttsQwen3ApiKey = String(
+  process.env[ttsQwen3ApiKeyEnv]
+  || process.env.DASHSCOPE_API_KEY
+  || process.env.QWEN_API_KEY
+  || ''
+).trim();
+export const ttsFishAudioBaseUrl = String(process.env.FISH_AUDIO_TTS_BASE_URL || '').trim();
+export const ttsFishAudioPath = String(process.env.FISH_AUDIO_TTS_PATH || '/v1/tts').trim();
+export const ttsFishAudioModel = String(process.env.FISH_AUDIO_TTS_MODEL || '').trim();
+export const ttsFishAudioVoiceId = String(process.env.FISH_AUDIO_TTS_VOICE || '').trim();
+export const ttsFishAudioOutputFormat = String(process.env.FISH_AUDIO_TTS_OUTPUT_FORMAT || 'mp3').trim().toLowerCase();
+export const ttsFishAudioSampleRate = Number(process.env.FISH_AUDIO_TTS_SAMPLE_RATE || 44100);
+export const ttsFishAudioLatencyMode = String(process.env.FISH_AUDIO_TTS_LATENCY || 'balanced').trim().toLowerCase();
+export const ttsFishAudioApiKeyEnv = 'FISH_AUDIO_API_KEY';
+export const ttsFishAudioApiKey = String(process.env[ttsFishAudioApiKeyEnv] || '').trim();
 
 export const ttsProviderBaseUrls = {
   openai: String(process.env.OPENAI_BASE_URL || providerBaseUrls.openai).trim(),

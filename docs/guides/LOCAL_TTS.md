@@ -1,15 +1,19 @@
 # 本地与可替换 TTS Provider
 
-当前 Web Settings 只展示 `Mock` 和 `CosyVoice2`，用于本地开发阶段在“稳定演示”和“真实本地语音服务”之间切换测试。浏览器/系统内置声线仍作为播放失败后的最后兜底，但不再作为 Settings 中的可选 Provider。
+当前 Web Settings 展示 `Mock`、本地 `CosyVoice2`、官方 DashScope 托管的 `Qwen3-TTS` 和 `Fish Audio`，用于在同一条 AudioManager / LipSync / Presentation 链路上切换“稳定演示”“真实本地语音”和“第三方云语音”。浏览器/系统内置声线仍作为播放失败后的最后兜底，但不再作为 Settings 中的可选 Provider。
 
 ## 当前策略
 
 1. **Mock**：默认开发 provider，无外部服务时返回统一 Audio Result，适合 smoke、Web Settings 和 iOS contract 验证。
 2. **CosyVoice2**：当前真实本地 TTS 主线，默认通过后端 `COSYVOICE_BASE_URL` 调用官方 FastAPI runtime。
-3. **浏览器兜底**：仅在后端语音不可用时由 Web 端自动 fallback，保证文字对话和状态链路不被 TTS 阻断。
-4. **其他 provider**：旧 adapter 可以保留在后端实验层，但当前 Web Settings 和 `GET /api/providers` 只暴露 Mock / CosyVoice2。
+3. **Qwen3-TTS**：通过阿里云 Model Studio / DashScope 官方原生 HTTP API 调用 `qwen3-tts-*` 模型；非流式结果的临时签名 URL 由后端下载并转换为统一 Audio Result，不下发到 Web。
+4. **Fish Audio**：通过 Fish Audio 原生 `POST /v1/tts` 调用；`model` header 和 `reference_id` voice 都只在 adapter 内生成。
+5. **浏览器兜底**：仅在后端语音不可用时由 Web 端自动 fallback，保证文字对话和状态链路不被 TTS 阻断。
+6. **其他 provider**：Higgs / OpenAI / MiniMax 历史 adapter 保留在后端实验层，但 Web Settings 和 `GET /api/providers` 不公开它们。
 
-2026-07-31 复核后继续保持该公开集合：OpenAI 本地值未通过 secret 格式检查，MiniMax 上游返回 Authorization 失败，Higgs 缺必需 base URL，三者都未完成中文 live 音质、延迟和 fallback 验收。详见 `docs/reports/TTS_FOLLOWUP_AUDIT_20260731.md`。
+2026-08-10 复核发现上一版把公开远程目标误写并实现为 SiliconFlow，且其默认模型实际是 CosyVoice2，并非 Qwen3-TTS。当前已纠正为 Qwen3-TTS 官方 DashScope adapter 与 Fish Audio 原生 adapter；通用 Remote TTS、统一 Audio Result、capability/metadata、单段 utterance session/cancel 补强均保留。没有修改现有分段、AudioManager、LipSync 或 Presentation 链路。代码级映射、故障 fallback、安全边界和静态回归已通过。当前机器的 `QWEN_API_KEY` 只是 `replace_with_*` placeholder，Qwen3 live 预检正确拒绝为 `missing_key`；Fish 也没有有效凭据/配置。因此两者真实中文音频、连续两轮和远程延迟对比仍未完成，不得把“adapter 已接入”写成“remote live 已通过”。详见 `docs/reports/REMOTE_TTS_PROVIDER_AUDIT_20260810.md`。
+
+名称必须按“运行位置/服务商”理解，而不能只看模型名：当前 `qwen3_tts` 是 **DashScope 托管 API**，当前 `fish_audio` 是 **Fish Audio 云 API**，所以需要各自的云 Key。Qwen3-TTS 官方开源模型或 Fish Speech 本地 API server 是另外的 self-hosted 路线，本地推理不需要厂商云 Key；若以后接入，应使用独立 provider identity 和本地 URL/模型配置，不能把本地与云端的 readiness、成本和延迟混在同一个 provider 状态中。Open-LLM-VTuber 当前也是让本地 `cosyvoice2_tts` 与云端 `fish_api_tts` 并列注册，其当前主分支没有 Qwen3-TTS adapter。
 
 ## 后端边界
 
@@ -19,8 +23,9 @@
 POST /api/tts
   -> TTSOrchestrator
   -> TTSProviderRegistry
-  -> Mock / CosyVoice2 provider
+  -> Mock / CosyVoice2 Local / Qwen3-TTS Remote / Fish Audio Remote / future self-hosted adapter
   -> unified Audio Result
+  -> existing TTSService / AudioManager / LipSync / Presentation
 ```
 
 统一输入语义：
@@ -46,9 +51,17 @@ durationMs
 sampleRate
 streaming
 upstreamStreaming
+metadata.provider
+metadata.model
+metadata.voice
+metadata.supportsStreaming
+metadata.supportsVoiceClone
+metadata.supportsEmotion
+metadata.sampleRate
+metadata.latency
 ```
 
-CosyVoice2 的 prompt、instruction、speaker、runtime endpoint 只在后端 adapter 内处理。Dialogue、Memory、Persona、Emotion、Web 和 iOS 都不依赖 provider 私有字段。
+Provider 的 prompt、instruction、speaker/voice、runtime endpoint 和鉴权只在后端 adapter 内处理。Dialogue、Memory、Persona、Emotion、Web 和 iOS 都不依赖 provider 私有字段。`supportsStreaming=true` 记录的是 provider 能力；本轮 Web 仍接收完整 Audio Result，`streaming=false`，不会因此建立第二套播放器。
 
 ## CosyVoice2 配置
 
@@ -75,6 +88,49 @@ COSYVOICE_API_KEY=replace_with_optional_key
 
 详见 [COSYVOICE_RUNTIME.md](./COSYVOICE_RUNTIME.md)。
 
+## Qwen3-TTS 远程配置
+
+把真实值只写入本地忽略的 `.env` 或部署平台 Secret Manager：
+
+```bash
+QWEN3_TTS_API_KEY=replace_with_your_key
+QWEN3_TTS_BASE_URL=https://dashscope-intl.aliyuncs.com/api/v1
+QWEN3_TTS_PATH=/services/aigc/multimodal-generation/generation
+QWEN3_TTS_MODEL=qwen3-tts-flash
+QWEN3_TTS_VOICE=Cherry
+QWEN3_TTS_LANGUAGE_TYPE=Chinese
+QWEN3_TTS_OUTPUT_FORMAT=wav
+QWEN3_TTS_SAMPLE_RATE=24000
+```
+
+说明：
+
+- `QWEN3_TTS_API_KEY` 优先；也接受后端已有的 `DASHSCOPE_API_KEY` 或 `QWEN_API_KEY`，前提是它确实是与该 endpoint 同 region 的 Model Studio Key。国际与北京 region 的 Key/endpoint 必须匹配，具体 base URL 由部署环境配置。
+- 前端只发送 `provider=qwen3_tts` 和 Alice 的统一语义，不能覆盖 model、voice、URL 或 Key。
+- `qwen3-tts-flash` 非流式接口返回 24 小时有效的签名音频 URL；adapter 校验其为 `aliyuncs.com` 资源并在后端下载为 Base64，临时 URL 不进入前端或日志。
+- `supportsEmotion` 仅对 `qwen3-tts-instruct-*` 为真；`supportsVoiceClone` 仅对 `qwen3-tts-vc-*` 为真。streaming capability 先记录，本轮播放器仍消费完整 Audio Result。
+- 官方文档：[Qwen3-TTS 非实时语音](https://www.alibabacloud.com/help/en/model-studio/non-realtime-tts-user-guide)、[Qwen-TTS API](https://www.alibabacloud.com/help/en/model-studio/qwen-tts-api)。
+
+## Fish Audio 远程配置
+
+```bash
+FISH_AUDIO_API_KEY=replace_with_your_key
+FISH_AUDIO_TTS_BASE_URL=https://api.fish.audio
+FISH_AUDIO_TTS_PATH=/v1/tts
+FISH_AUDIO_TTS_MODEL=s2.1-pro-free
+FISH_AUDIO_TTS_VOICE=replace_with_voice_model_id
+FISH_AUDIO_TTS_OUTPUT_FORMAT=mp3
+FISH_AUDIO_TTS_SAMPLE_RATE=44100
+FISH_AUDIO_TTS_LATENCY=balanced
+```
+
+说明：
+
+- Fish Audio 官方接口不是 OpenAI-compatible；adapter 使用原生 `model` header 和 JSON `reference_id`。
+- `FISH_AUDIO_TTS_VOICE` 是 Fish Audio voice model id。当前 JSON 路径不接收前端上传 reference 音频，也不会把 clone 逻辑散落到 AppController。
+- Fish 支持 HTTP/WebSocket streaming、voice clone 和 `low / balanced / normal` 延迟档位；本轮只记录 capability 并读取完整音频，不新增播放器。
+- 官方文档：[Fish Audio Text to Speech](https://docs.fish.audio/api-reference/endpoint/openapi-v1/text-to-speech)。
+
 ## 客户端调用
 
 推荐 Web / iOS 请求统一 JSON：
@@ -96,7 +152,7 @@ COSYVOICE_API_KEY=replace_with_optional_key
 }
 ```
 
-当前 Web Settings 只传 `provider=mock|cosyvoice` 和统一语义参数，不传模型路径、服务端口、API Key、内部请求参数或错误堆栈。旧二进制播放路径仍保留，但新客户端优先消费 `{ ok, data }` Audio Result。
+当前 Web Settings 只传 `provider=mock|cosyvoice|qwen3_tts|fish_audio` 和统一语义参数，不传模型路径、服务端口、API Key、内部请求参数或错误堆栈。旧二进制播放路径仍保留，但新客户端优先消费 `{ ok, data }` Audio Result。
 
 Web 播放生命周期约束：
 
@@ -185,13 +241,28 @@ window.__aliceApp.audioManager.ttsService.getLastMetrics()
 npm run check:tts-provider-flow
 npm run check:tts-live
 npm run check:cosyvoice-live
+npm run check:qwen3-tts-live
+npm run check:fish-audio-live
+npm run check:tts-compare-live
 npm run cosyvoice:probe-web-tts
 npm run smoke
 ```
 
-`check:tts-provider-flow` 使用 fake endpoint 覆盖 provider selection、CosyVoice2 请求映射、缺配置、超时、统一 Audio Result 和 secret 不泄漏。真实 CosyVoice2 服务的视觉 / 听感验收需要在本地服务启动后单独执行。
+`check:tts-provider-flow` 使用 fake endpoint 覆盖 provider selection、CosyVoice2 / Qwen3-TTS / Fish Audio 原生请求映射、后端 model/voice 优先级、缺配置、上游故障、超时、统一 Audio Result、capability/latency metadata 和 secret 不泄漏。fake endpoint 只证明 adapter contract，不证明第三方服务真实可调用。
 
-`check:tts-live` 是可选真实服务检查：未设置 `COSYVOICE_BASE_URL` 时会跳过；设置后会直接调用后端 provider adapter，并只输出状态、格式和音频长度，不打印音频内容、服务地址密钥或请求正文。
+`check:tts-live` 是可选真实服务检查；`check:cosyvoice-live`、`check:qwen3-tts-live` 和 `check:fish-audio-live` 分别固定 provider。它们直接调用后端 adapter，按 WAV / MP3 / OGG / PCM 做最小音频签名与长度验证，只输出 provider、model、voice、格式、采样率、音频长度以及首 chunk / 完整生成 / Audio Result ready 耗时，不打印音频内容、服务地址、密钥或请求正文。
+
+2026-08-10 当前环境重新采集的 CosyVoice2 两轮短中文基线均通过有效 WAV 检查：第 1 轮首 chunk/完整/Audio Result ready `4653/4658/4658ms`，第 2 轮 `6018/6020/6020ms`，p50 `5336/5339/5339ms`。Qwen3/Fish 因没有有效 Key 尚无同条件远程数据，不得计算或填写远程差值。
+
+`check:tts-compare-live` 会先严格检查 CosyVoice2、Qwen3-TTS 和 Fish Audio 配置，然后以同一中文文本交替执行三个 provider、每个两轮。也可使用 `check:tts-compare-qwen3-live` 或 `check:tts-compare-fish-live` 做单个远程候选与本地对照。成功后汇总各自首 chunk、完整生成、Audio Result ready 的 p50，以及每个 remote 与 local 的差值。需要保留机器可读证据时使用：
+
+```bash
+COSYVOICE_BASE_URL=http://127.0.0.1:50000 \
+TTS_LIVE_JSON_OUT=runtime/tts/live-comparison.json \
+npm run check:tts-compare-live
+```
+
+报告 schema 为 `alice.tts-live-comparison.v2`，只包含 provider/model/voice/capability、文本长度、音频字节、非敏感 latency 和错误码，不保存 Key、URL、请求正文或音频 Base64。任一 provider 未配置时严格失败且不会先产生另一端的无效对照调用。
 
 `cosyvoice:probe-web-tts` 复用真实 Web `TTSService` 和本地 `/api/tts`，用 WAV 时长模拟 `HTMLAudioElement` 播放，输出 single / segmented 的首音、段间 gap、完整生成和 provider timing。它不等同于浏览器视觉验收，但可稳定复查分段调度是否退化。
 
@@ -200,4 +271,5 @@ npm run smoke
 - Mock：始终可用，用于无本地 TTS 服务的开发演示。
 - CosyVoice2：后端配置 `COSYVOICE_BASE_URL` 且本地 FastAPI runtime 可达时显示可用。
 - CosyVoice2 未启动：Settings 显示“本地语音服务未启动”，文字对话继续可用，TTS 播放走现有 fallback。
+- Qwen3-TTS / Fish Audio：配置完整时显示 model / voice / capability；Settings 不展示 Key 或 URL。未配置或真实调用失败时仍走现有浏览器 fallback。
 - 非开发模式：前端不允许切换 provider。
