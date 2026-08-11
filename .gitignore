@@ -63,6 +63,9 @@ runtime/cosyvoice/*.pid
 runtime/cosyvoice/*.wav
 runtime/cosyvoice/*.mp3
 
+# Local VoxCPM2 runtime: official source, Python env, model weights and evidence
+runtime/voxcpm2/
+
 # Local Alice Demo supervisor state and logs
 runtime/demo/
 

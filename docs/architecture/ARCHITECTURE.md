@@ -35,7 +35,7 @@ backend/server.js
   -> routes/*
   -> services/* (Avatar / StaticAsset / DialogueOrchestration / Memory / Rag / N8nWorkflow)
      -> TTSOrchestrator -> TTSProviderRegistry
-        -> CosyVoice2 Local / Qwen3-TTS Remote / Fish Audio Remote / Self-hosted TTS
+        -> CosyVoice2 Local / VoxCPM2 Local / Qwen3-TTS Remote / Fish Audio Remote / Self-hosted TTS
         -> unified Audio Result
   -> utils/*
   -> static files
@@ -48,7 +48,8 @@ backend/server.js
 - 模块间优先通过 EventBus、StateStore 或明确 Manager 接口协作。
 - API Key 只允许进入后端环境变量、部署平台 Secret Manager 或后端加密 runtime store；不得进入仓库、普通前端持久化或日志。
 - TTS Registry 通过统一 descriptor 暴露 `id / displayName / type / fields / capabilities / models / voices`。本地、云端与自建 adapter 都必须返回统一 Audio Result，再复用同一个 Web TTSService / AudioManager / LipSync / Presentation 链路。
-- TTS 默认使用本地 `cosyvoice`。remote / selfHosted 失败时由 `TTSOrchestrator` 先尝试本地 CosyVoice2，本地仍不可用时浏览器本机语音才作为最终兜底。
+- TTS 默认使用本地 `cosyvoice`；`voxcpm2` 是同一 local 抽象下的实验候选。任何非默认 Provider（VoxCPM2、remote 或 selfHosted）失败时由 `TTSOrchestrator` 先尝试 CosyVoice2，CosyVoice2 仍不可用时浏览器本机语音才作为最终兜底。
+- VoxCPM2 的官方 Python/MPS 运行时位于 Git-ignored `runtime/voxcpm2/`，只通过薄 HTTP adapter 返回完整 WAV；它不改变 `TTSService` 的 utterance session、取消、静音、分段或 AudioManager/Presentation 生命周期。代码接入不等于本机 live 已完成。
 - Debug Settings 对 remote / selfHosted 使用 Test → Save → Switch：Test 不启用 fallback，Save 加密写入后端 runtime store，前端永不读取已保存 Key 明文。
 - RAG、Memory、n8n 和 Agent 编排只允许进入后端边界，当前统一对话入口为 `POST /api/dialogue`。
 - 默认 LLM provider 为本地 `stub`，保证无 API Key 的开发环境也能跑通对话演示链路。

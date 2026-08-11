@@ -48,6 +48,22 @@ const descriptors = [
     voices: ['中文女']
   },
   {
+    id: 'voxcpm2',
+    displayName: '本地语音 · VoxCPM2（实验）',
+    technicalName: 'VoxCPM2 Local MPS',
+    type: 'local',
+    selectable: true,
+    requiredFields: [],
+    optionalFields: [],
+    capabilities: {
+      supportsStreaming: true,
+      supportsVoiceClone: true,
+      supportsEmotion: true
+    },
+    models: ['openbmb/VoxCPM2'],
+    voices: ['default']
+  },
+  {
     id: 'qwen3_tts',
     displayName: '云端语音 · Qwen3-TTS',
     technicalName: 'Qwen3-TTS via DashScope',

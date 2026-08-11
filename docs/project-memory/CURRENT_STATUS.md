@@ -21,11 +21,12 @@ Alice 当前处在“工程闭环完整的本地可测试 MVP + 消费级产品�
 - P1D 已收口波浪号与记忆确认措辞，并提供默认关闭、production 强制关闭的五字段安全评测诊断；4 轮 DeepSeek 抽样全部 `llm_only`、无截断、无 fallback，P1 对话质量阶段可以正式结束。
 - 2026-07-27 对话行为微调已收口：后端明确“当前轮要求 > 会话偏好 > Persona 默认主动性 > 建议/追问”，新增即时策略解析、最终草稿行为检查和最多两次受控重写；12 轮真实 DeepSeek 固定集全部 `llm_only`、无 fallback、无最终违规。
 - P3 已收口 Dialogue 可观测链路：`meta.trace` 贯通 `X-Request-ID`、编排耗时和 LLM 耗时；成功、fallback、未降级失败都有固定字段脱敏日志，Web Debug 面板显示 provider/model/mode/requestId/耗时/fallback/errorCode。
-- TTS 已正式按 `local / remote / selfHosted` descriptor/adapter 收口：Settings 可选默认 `cosyvoice`、云端 `qwen3_tts` / `fish_audio`、通用 `self_hosted`，`mock` 仅作隐藏测试。remote / selfHosted 使用 Test → Save → Switch，配置由后端 AES-256-GCM runtime store 保存，Key 不进入 localStorage，也不会由配置 GET 回传。它们与本地 provider 共用统一 Audio Result 和既有 TTSService / AudioManager / LipSync / Presentation。
+- TTS 已正式按 `local / remote / selfHosted` descriptor/adapter 收口：Settings 可选默认 `cosyvoice`、实验本地 `voxcpm2`、云端 `qwen3_tts` / `fish_audio`、通用 `self_hosted`，`mock` 仅作隐藏测试。remote / selfHosted 使用 Test → Save → Switch，配置由后端 AES-256-GCM runtime store 保存，Key 不进入 localStorage，也不会由配置 GET 回传。所有 Provider 共用统一 Audio Result 和既有 TTSService / AudioManager / LipSync / Presentation。
+- VoxCPM2 已完成 adapter、descriptor、Settings、官方 Python/MPS 运行脚本、readiness、runtime metadata 和后续顺序对照工具；它不需要云 Key，默认端口 `55000`，失败时回退 CosyVoice2。当前没有安装完成的官方依赖/模型，也没有 MPS live、真实中文、连续两轮或延迟数据，状态只能写“代码/自动化已接入”。
 - Qwen3-TTS 使用官方 DashScope API，Fish 使用原生 `/v1/tts`；两者代码、Settings、capability/metadata 与故障归一已接入。当前没有可证明有效的两个云 Provider 凭据，真实中文音频和远程延迟仍未通过。上一版 SiliconFlow/CosyVoice2 远程目标属于范围偏差，已移除。
-- remote / selfHosted 合成失败时，后端先回退默认本地 `cosyvoice` 并在 `metadata.fallback` 记录原因；本地仍失败才进入 Web 既有系统语音 fallback。配置 Test 明确禁用该 fallback，避免假阳性。
+- 任何非默认 Provider（VoxCPM2、remote、selfHosted）合成失败时，后端先回退默认本地 `cosyvoice` 并在 `metadata.fallback` 记录原因；CosyVoice2 仍失败才进入 Web 既有系统语音 fallback。配置 Test 明确禁用该 fallback，避免假阳性。
 - 2026-08-10 对 Open-LLM-VTuber 当前主分支复核确认其 TTS factory 同时容纳本地与云端：CosyVoice2 使用本地 `client_url`，Fish API 使用云 Key；当前没有 Qwen3-TTS adapter。Alice 当前 `qwen3_tts` / `fish_audio` 也分别代表 DashScope/Fish 云服务，不代表开源模型的本地部署。未来 Qwen3/Fish self-hosted 服务不需要厂商 Key，应作为独立 provider identity 接本地 URL，继续复用统一 Audio Result。
-- 2026-08-10 用户决定本阶段不再执行真实远程 TTS 对照，当前 changeset 按架构/adapter 代码收口：CosyVoice2 本地 live 已通过，Qwen3/Fish remote live、连续两轮、听感和本地延迟差值明确后置。该范围决定不改变两者“待真实验收”状态，也不授权新增第三个候选。
+- 2026-08-10 用户决定本阶段不再执行真实远程 TTS 对照，Qwen3/Fish 按代码收口且继续待验收，不新增其他云候选。后续单独的本地候选任务只增加 VoxCPM2；2026-08-11 用户又明确暂缓 CosyVoice2 vs VoxCPM2 真实对照，因此本地增量也按代码/脚本/文档收口，不能填写 Vox live 或 latency。
 - P5 CosyVoice2 连续播放已收口：继续复用 `/api/tts` 完整 WAV/Base64 Audio Result，不引入 PCM streaming。`24` 字以内保持单段；`25–84` 字使用 balanced、`85` 字以上使用 extended 分段档；所有分段回复立即 2 路预取，`25` 字以上在首段 ready 后等待第二段 ready 或最多 `5000ms`。Node 真实 `/api/tts` 探针在 16 / 26 / 54 / 95 字中最大 gap 为 `0 / 3 / 5 / 4ms`；真实浏览器 16 / 54 / 95 字为 `0 / 24 / 236ms`，相对正式 Demo `6271ms` 基线下降约 `96.2%`。代价是 54 字 Node 首次播放 p50 约 `12.5s`。官方 FastAPI 不提供模型级 true streaming；Direct Python 虽能提前首 PCM，但当前 CPU chunk 最大 gap 仍超过 `2s`，因此不采用新流式协议。
 - 2026-07-31 TTS 复核确认首音而非连续性仍是主要瓶颈：54 字三次首播 p50 / p90 `12.010 / 15.337s`，最大 gap `6ms`。延后第二段、ready 预测和 CPU 线程限制均因 gap 回归或长文本长尾被拒绝，不改 P5 播放策略。确定性修复是将单服务与完整 Demo 冷启动默认等待统一提升到约 5 分钟，覆盖首次 wetext 缓存补齐。OpenAI / MiniMax / Higgs 因无有效 live 凭据或必需 URL，仍留在实验层。
 - 2026-08-03 项目全面审核确认：Alice 已是可重复验收的本地 MVP 和有价值的作品集工程，但尚无陌生用户、相对基线或 7 天复访证据，不能称为已成立的消费级产品。完整判断和一个月门槛见 `docs/reports/ALICE_PROJECT_AUDIT_20260803.md`。
@@ -54,6 +55,7 @@ Alice 当前处在“工程闭环完整的本地可测试 MVP + 消费级产品�
 | TTS Audio Result | 可用 | `docs/guides/LOCAL_TTS.md` |
 | Mock TTS | 可用；隐藏测试 provider，不是产品默认 | `backend/services/tts/providers/MockTTSProvider.js` |
 | CosyVoice2 adapter | 默认本地 provider；已接入，真实服务需本地 runtime | `docs/guides/COSYVOICE_RUNTIME.md` |
+| VoxCPM2 local adapter | 实验本地 provider；adapter/Settings/MPS 脚本与自动化已接入，依赖/模型和真实 MPS live 未完成 | `docs/guides/VOXCPM2_RUNTIME.md` |
 | Qwen3-TTS / Fish Audio remote adapters | 已接入公开 Settings 和统一 Audio Result；当前无可证明有效凭据，remote live 未通过 | `docs/reports/REMOTE_TTS_PROVIDER_AUDIT_20260810.md` |
 | Self-hosted TTS adapter | 已接入通用 OpenAI-compatible adapter、descriptor 与 Settings；未配置真实服务，live 未通过 | `docs/reports/TTS_PROVIDER_MODEL_CLOSURE_20260810.md` |
 | TTS 配置闭环 | Test → encrypted Save → Switch 已接入；secret 不进前端持久化，remote/selfHosted 失败先回退本地 | `docs/reports/TTS_PROVIDER_MODEL_CLOSURE_20260810.md` |
@@ -70,7 +72,7 @@ Alice 当前处在“工程闭环完整的本地可测试 MVP + 消费级产品�
 | 角色感真实评测 | “先陪伴、别建议”固定集已收口；记录人格一致性、相对文本/通用语音入口的差异感和自然承接，只修真实测试中最高频的问题。 |
 | Project Memory | 后续每次阶段性变更维护 `docs/project-memory/*`，避免聊天记录成为唯一上下文。 |
 | Demo Runtime | macOS 本机完整启停已验收；后续仅在需要跨平台时补 Windows 进程管理。 |
-| TTS | local / remote / selfHosted descriptor、默认本地策略、Test→Save→Switch、加密存储和 remote→local fallback 已完成代码收口；真实远程对照由用户后置。恢复验收时只补 Qwen3/Fish 的真实中文连续两轮、首 chunk/完整耗时、听感和实际账单；未完成前不得把 adapter/readiness 当作可用性，也不继续扩展其他云候选。 |
+| TTS | local / remote / selfHosted descriptor、默认本地策略、Test→Save→Switch、加密存储和非默认→CosyVoice fallback 已完成代码收口；真实对照由用户后置。恢复本地验收时先完成 VoxCPM2 安装/MPS live、两轮、取消/静音/fallback/idle，再决定是否跑 CosyVoice2 对照；恢复云验收时只补 Qwen3/Fish 的真实中文、耗时、听感和账单。未完成前不得把 adapter/readiness 当作可用性，也不继续扩展候选。 |
 | VRM | 默认 Alice 的音频/口型与本地文件动作均已收口；下一步只在 Shiro / Wambo、新模型或新动作资产进入时重做模型专用视觉验收，公开分发前完成 motion 授权复核。 |
 | Memory / Persona | 基础阶段和即时行为微调已完成；下一步只围绕陌生用户真实会话暴露的人格一致性和会话内关系感做产品体验验证。 |
 | Observability | P3 已完成当前单实例闭环；后续真实部署时再评估集中式日志、指标存储与跨服务 tracing。 |
@@ -82,6 +84,7 @@ Alice 当前处在“工程闭环完整的本地可测试 MVP + 消费级产品�
 - 当前没有陌生目标用户、相对基线或实际复访证据；本地真实链路验收不能替代产品价值验证。
 - 普通入口的开发者文案、机甲台词和占位控件已隐藏或收口；远程测试前仍需解决 `girl.vrm` 授权/分发，以及后端单 token 鉴权与最终用户入口之间的闭环。
 - CosyVoice2 live 依赖外部模型/运行时，不能被普通 `npm run check` 完全覆盖。
+- VoxCPM2 当前没有完成官方依赖/约 5 GB 模型安装；16 GB Apple Silicon 上的 MPS 速度、峰值内存、稳定性、中文听感和 voice clone 均未验证。其 `supportsStreaming` 只记录模型能力，当前 Alice 仍消费完整 WAV。
 - Qwen3-TTS 与 Fish Audio 当前仅通过 adapter contract、配置流程和故障归一；没有可证明有效的凭据，remote live、连续两轮和本地对照延迟都未完成。
 - 加密 runtime store 解决了 Key 不进入仓库/前端明文存储的问题，但本地自动生成的加密 key 文件不等于生产 Secret Manager；公网部署前还需正式管理员访问控制和外部密钥注入。
 - 默认 Alice 的真实 CosyVoice2 长音频和视觉同步已通过 99.48 秒浏览器验收；其他 Avatar 仍不能只靠自动化证明口型观感。
@@ -101,6 +104,13 @@ Alice 当前处在“工程闭环完整的本地可测试 MVP + 消费级产品�
 - DeepSeek 明确边界轮次可能因复杂规则消耗内部生成预算并触发 2～3 次生成；最终 12 轮虽无 fallback，但最慢一轮为 `17.08s`，服从度提升存在可感知延迟代价。
 
 ## 最近验证
+
+2026-08-11 VoxCPM2 本地 Provider 代码收口已执行：
+
+- `VoxCPM2TTSProvider`、Registry/descriptor、Settings/status、Vox→Cosy fallback 和安全 runtime metadata 已接入；默认 provider/fallback 仍为 `cosyvoice`，没有修改 TTSService、AudioManager、LipSync、分段或 Presentation。
+- Node syntax、Python `py_compile`、Bash `bash -n` 通过；系统 Python 首次写全局 bytecode cache 被权限拒绝，改用 `/tmp` 缓存后通过，属于检查环境问题。
+- `npm run check:tts-provider-flow`、`npm run check:provider-config`、`npm run check:js` 和全量 `npm run check` 通过，`git diff --check` 通过；这些是 fake HTTP/静态/配置验证，不构成真实 VoxCPM2 语音。
+- 本轮未执行 `voxcpm2:setup/start/live`，未下载模型，未做真实浏览器切换或 CosyVoice2 vs VoxCPM2 对照；所有 live、延迟、听感、资源占用和最终 idle 结论继续标记未验证。详见 `docs/reports/LOCAL_TTS_VOXCPM2_CLOSURE_20260811.md`。
 
 2026-08-11 TTS 三类产品模型最终收口已执行：
 
@@ -349,3 +359,4 @@ Alice 当前处在“工程闭环完整的本地可测试 MVP + 消费级产品�
 | 2026-08-03 | 完成产品与技术全面审核：项目阶段调整为“本地可测试 MVP、产品价值验证前”；下一优先级收敛单一入口、完成 10 人测试和 7 天实际复访，不再扩张 Provider、Agent、RAG、动作或移动端。 |
 | 2026-08-03 | 完成普通用户单一 Alice 入口：首次记忆同意默认关闭，一次点击进入对话，普通入口隐藏开发设置和进阶控件，保留显式 Debug/QA 入口；点击、加载、错误和状态文案统一为日常 Persona。 |
 | 2026-08-10 | 收口普通入口无法打开问题：修复 ES Module 内 `file://` 提示永远不可达的设计缺陷，并定位/清除 macOS DeepSeek 旧 DNS 缓存；完整 Demo 重新通过 girl.vrm、真实 DeepSeek 和真实 CosyVoice2 readiness。 |
+| 2026-08-11 | 增加实验本地 VoxCPM2 adapter、Settings、MPS 运行/验收脚本和安全 runtime metrics；默认/fallback 仍为 CosyVoice2。用户暂缓真实安装与对照，因此明确保留为代码/自动化通过、live/延迟/听感未验证。 |

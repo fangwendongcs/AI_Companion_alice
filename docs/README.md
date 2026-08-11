@@ -47,7 +47,8 @@
 
 - [DEVELOPMENT_GUIDE.md](./guides/DEVELOPMENT_GUIDE.md): 本地开发与排查
 - [CONFIG_GUIDE.md](./guides/CONFIG_GUIDE.md): 配置说明
-- [LOCAL_TTS.md](./guides/LOCAL_TTS.md): Mock / CosyVoice2 Local / Qwen3-TTS / Fish Audio 可插拔 TTS 与验证
+- [LOCAL_TTS.md](./guides/LOCAL_TTS.md): CosyVoice2 / VoxCPM2 Local、Qwen3-TTS / Fish Audio Remote、Self-hosted 与 Mock 可插拔 TTS
+- [VOXCPM2_RUNTIME.md](./guides/VOXCPM2_RUNTIME.md): 实验本地 VoxCPM2 官方 Python/MPS 运行、配置和待验收边界
 - [COSYVOICE_RUNTIME.md](./guides/COSYVOICE_RUNTIME.md): CosyVoice2 官方 FastAPI runtime 与 Alice 端到端验证
 - [REMOTE_TTS_PROVIDER_AUDIT_20260810.md](./reports/REMOTE_TTS_PROVIDER_AUDIT_20260810.md): Qwen3/Fish 目标纠偏、架构审计、Provider 实际清单与 live 缺口
 - [KNOWLEDGE_GUIDE.md](./guides/KNOWLEDGE_GUIDE.md): Phase 3 本地知识源与简单检索边界

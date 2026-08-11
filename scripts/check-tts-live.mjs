@@ -13,7 +13,7 @@ const requireAll = process.argv.includes('--require-all');
 const providers = resolveProviders(explicitProvider, explicitProviders);
 
 if (!providers.length) {
-  console.log('[check-tts-live] skipped: configure CosyVoice, Qwen3-TTS, Fish Audio, or Higgs; or pass --provider=cosyvoice|qwen3_tts|fish_audio|higgs.');
+  console.log('[check-tts-live] skipped: configure a target provider or pass --provider=cosyvoice|voxcpm2|qwen3_tts|fish_audio|higgs.');
   process.exit(0);
 }
 
@@ -24,7 +24,7 @@ const preflight = await getPreflight(orchestrator, providers);
 
 if (requireAll) {
   preflight.forEach((item) => {
-    const requiresLiveHealth = item.provider === 'cosyvoice';
+    const requiresLiveHealth = item.provider === 'cosyvoice' || item.provider === 'voxcpm2';
     if (!item.configured || (requiresLiveHealth && !item.healthy)) {
       failures.push(`${item.provider}: preflight ${item.status} ${item.reason}`.trim());
     }
@@ -103,6 +103,7 @@ function resolveProviders(provider, providerList = '') {
 
   const detected = [];
   if (process.env.COSYVOICE_BASE_URL) detected.push('cosyvoice');
+  if (process.env.VOXCPM2_BASE_URL) detected.push('voxcpm2');
   if ((process.env.QWEN3_TTS_API_KEY || process.env.DASHSCOPE_API_KEY) && process.env.QWEN3_TTS_BASE_URL) detected.push('qwen3_tts');
   if (process.env.FISH_AUDIO_API_KEY && process.env.FISH_AUDIO_TTS_BASE_URL) detected.push('fish_audio');
   if (process.env.HIGGS_BASE_URL) detected.push('higgs');
@@ -201,6 +202,7 @@ function createAttempt({ provider, round, result = {}, audioInfo = null, validat
       fullGenerationMs: finiteOrNull(latency.fullGenerationMs),
       audioResultReadyMs: finiteOrNull(latency.audioResultReadyMs)
     },
+    runtime: normalizeRuntimeMetrics(metadata.runtime),
     audio: audioInfo ? {
       bytes: audioInfo.bytes,
       sampleRate: audioInfo.sampleRate,
@@ -209,6 +211,18 @@ function createAttempt({ provider, round, result = {}, audioInfo = null, validat
       durationSec: audioInfo.durationSec
     } : null,
     error: validationError || result.error?.code || null
+  };
+}
+
+function normalizeRuntimeMetrics(value = {}) {
+  return {
+    device: typeof value.device === 'string' ? value.device : null,
+    modelLoadMs: finiteOrNull(value.modelLoadMs),
+    modelFirstChunkMs: finiteOrNull(value.modelFirstChunkMs),
+    modelGenerationMs: finiteOrNull(value.modelGenerationMs),
+    audioDurationMs: finiteOrNull(value.audioDurationMs),
+    rtf: finiteOrNull(value.rtf),
+    peakRssBytes: finiteOrNull(value.peakRssBytes)
   };
 }
 

@@ -16,6 +16,8 @@ selfHosted  可选自建 GPU / 本地服务，由用户填写 Server URL 后 Tes
 
 用户明确要求本轮不做真实本地/远程语音对照。因此本文只记录架构、自动化假上游、浏览器 UI 和既有本地证据；Qwen3-TTS / Fish Audio 的真实中文、连续两轮、听感、成本和延迟对比仍是未完成项。
 
+2026-08-11 增量：在同一 `local` 抽象下加入实验性 `voxcpm2`，默认与 fallback 仍为 `cosyvoice`。VoxCPM2 只完成 adapter/Settings/运行脚本/自动化，本轮没有安装模型或执行 MPS live/本地对照；详见 `LOCAL_TTS_VOXCPM2_CLOSURE_20260811.md`。本文原有远程范围与待验收结论不变。
+
 ## 改动前审计
 
 | 模块 | 已有能力 | 缺口 |
@@ -37,11 +39,11 @@ Alice dialogue text
     -> POST /api/tts
       -> TTSOrchestrator
         -> TTSProviderRegistry + descriptor
-          -> local: cosyvoice
+          -> local: cosyvoice / voxcpm2 (experimental)
           -> remote: qwen3_tts / fish_audio
           -> selfHosted: self_hosted
         -> unified Audio Result
-      -> remote/selfHosted failed?
+      -> any non-default provider failed?
         -> retry default local cosyvoice in the same Orchestrator
       -> local runtime also failed?
         -> existing browser/system speech fallback
@@ -110,8 +112,8 @@ Qwen3-TTS 的 Key 来自阿里云 Model Studio / DashScope；Fish Audio 的 Key 
 
 ## Fallback 规则
 
-1. `local` 请求失败：返回原失败，由现有 Web 系统语音兜底。
-2. `remote` / `selfHosted` 请求失败：`TTSOrchestrator` 先调用 `TTS_LOCAL_FALLBACK_PROVIDER`，默认 `cosyvoice`。
+1. 默认 local fallback（当前 `cosyvoice`）请求失败：返回原失败，由现有 Web 系统语音兜底。
+2. 其他 Provider（实验 local `voxcpm2`、remote、selfHosted）请求失败：`TTSOrchestrator` 先调用 `TTS_LOCAL_FALLBACK_PROVIDER`，默认 `cosyvoice`。
 3. Local 成功：返回实际 `provider=cosyvoice` 的统一 Audio Result，并写入安全 `metadata.fallback`。
 4. `TTSService` 识别该 metadata，继续发出现有 `audio:fallback` 事件；AudioManager、LipSync、Presentation 和最终 idle 生命周期不变。
 5. Local 也失败：保留原 remote/selfHosted 错误和 fallback attempt metadata，再进入原有浏览器/系统语音兜底。
@@ -122,6 +124,7 @@ Qwen3-TTS 的 Key 来自阿里云 Model Studio / DashScope；Fish Audio 的 Key 
 | Provider | 类型 | 代码已接入 | 可确认有效凭据 | 真实 API/live | Mock/自动化 |
 | --- | --- | --- | --- | --- | --- |
 | `cosyvoice` | local | 是 | 不需要云 Key | 既有本机 CosyVoice2 live 与两轮基线已通过；本轮未重跑 | contract 通过 |
+| `voxcpm2` | local / experimental | 是 | 不需要 Key；官方依赖/模型未完成安装 | 未通过 | fake HTTP contract、metadata 与 Vox→Cosy fallback 通过 |
 | `qwen3_tts` | remote | 是，DashScope 原生 API | 否；现有值不能证明有效 | 未通过 | fake HTTP contract + 加密 Test/Save 通过 |
 | `fish_audio` | remote | 是，Fish 原生 API | 否 | 未通过 | fake HTTP contract 通过 |
 | `self_hosted` | selfHosted | 是，OpenAI-compatible speech | 未配置 | 未通过 | fake HTTP contract + URL/model/voice 映射通过 |
@@ -143,7 +146,7 @@ Qwen3-TTS 的 Key 来自阿里云 Model Studio / DashScope；Fish Audio 的 Key 
 - `git diff --check`
 - 本地 Playwright `http://127.0.0.1:3000/?debug=1`：三类选项和动态表单可见；默认 Local 不显示配置区；选择 Fish 不立即切换且 Save disabled；临时已保存 Fish 选择刷新后正确恢复；请求列表没有 `/test` 或 `/api/tts` POST；`tts_engine` 验收后恢复 `cosyvoice`；Console 0 error、1 个既有 warning。
 
-自动化覆盖：descriptor 三类、Self-hosted request mapping、Remote 故障回退 CosyVoice、fallback 后既有 AudioManager 生命周期、未保存 Remote Test、测试后配置未变化校验、AES-GCM Save/Reload、损坏配置隔离、Key 不回显/不出现在加密文件、API auth、已保存 Remote 选择恢复、无系统 voice 列表时最终本地 fallback 不悬挂。
+自动化覆盖：descriptor 三类、VoxCPM2 与 Self-hosted request mapping、Vox/Remote 故障回退 CosyVoice、fallback 后既有 AudioManager 生命周期、未保存 Remote Test、测试后配置未变化校验、AES-GCM Save/Reload、损坏配置隔离、Key 不回显/不出现在加密文件、API auth、已保存 Remote 选择恢复、无系统 voice 列表时最终本地 fallback 不悬挂。
 
 本轮没有执行：真实 Qwen3/Fish/selfHosted 合成、本地/远程延迟对照、真实远程连续两轮、远程音质/账单验收。因此不能宣称这些 live 项已完成。
 

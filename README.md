@@ -69,7 +69,7 @@ Notes:
 | Interaction Events | MVP | Head / body / arm / leg interactions trigger configured motion slots or fallbacks. |
 | Animation System | MVP / evolving | Motion slots, queue/state-machine checks, boot/idle/gesture/speaking/listening flows. |
 | Dialogue Flow | MVP | Frontend main dialogue path uses `/api/dialogue`; `/api/chat` remains compatible. |
-| TTS / Audio | MVP / pluggable | Local-first descriptor/adapter boundary for default CosyVoice2, Qwen3-TTS and Fish Audio cloud adapters, and a generic self-hosted service. Remote/self-hosted providers use Test → Save → Switch and fall back to local; all reuse the existing AudioManager, segmented playback, LipSync, and browser fallback. Remote live validation is still pending. |
+| TTS / Audio | MVP / pluggable | Local-first descriptor/adapter boundary for default CosyVoice2, experimental local VoxCPM2, Qwen3-TTS and Fish Audio cloud adapters, and a generic self-hosted service. Non-default providers fall back to CosyVoice2; all reuse the existing AudioManager, segmented playback, LipSync, and browser fallback. VoxCPM2 and remote live validation are still pending. |
 | Backend API Boundary | MVP | Native Node HTTP backend with routes, services, provider readiness, upload validation, and security checks. |
 | LLM Provider | MVP / configurable | Default `stub` provider works without keys; real providers require backend environment variables. |
 | Memory | MVP / evolving | SQLite-backed recent context plus conservative long-term `memory_items` for explicit user-approved memories; not an automatic user-profile system. |
@@ -110,7 +110,7 @@ For debug state inspection:
 http://localhost:3000?debug=1
 ```
 
-Default LLM provider is `stub`; default TTS is local `CosyVoice2`, with system speech as the final fallback when its runtime is absent. Debug Settings groups TTS as Default Voice, Cloud Voice (Qwen3-TTS/Fish Audio), and Self-hosted Voice Service. Cloud/self-hosted entries must pass Test before encrypted backend Save and Switch; API keys never enter localStorage. Qwen3/Fish are code-integrated but still lack valid credentials and live acceptance in the current environment.
+Default LLM provider is `stub`; default TTS is local `CosyVoice2`, with system speech as the final fallback when its runtime is absent. Debug Settings groups TTS as Default Voice (CosyVoice2 plus experimental local VoxCPM2), Cloud Voice (Qwen3-TTS/Fish Audio), and Self-hosted Voice Service. Cloud/self-hosted entries must pass Test before encrypted backend Save and Switch; API keys never enter localStorage. VoxCPM2 needs no cloud key but its model/MPS live is not installed or accepted in the current closure; Qwen3/Fish are code-integrated but still lack valid credentials and live acceptance.
 
 ## Deployment Modes And Secrets
 

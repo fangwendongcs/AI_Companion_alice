@@ -28,6 +28,7 @@ export class AudioStatusController {
 
   getEngineName(engine) {
     if (engine === 'cosyvoice') return '默认语音';
+    if (engine === 'voxcpm2') return '本地语音 · VoxCPM2';
     if (engine === 'qwen3_tts' || engine === 'fish_audio') return '云端语音';
     if (engine === 'self_hosted') return '自建语音服务';
     if (engine === 'mock') return 'Mock';

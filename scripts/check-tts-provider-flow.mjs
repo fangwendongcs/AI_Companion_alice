@@ -13,6 +13,8 @@ await checkUnknownProvider();
 await checkMissingConfig();
 await checkFailureMetadataNormalization();
 await checkCosyVoiceBinaryResult();
+await checkVoxCPM2RequestMapping();
+await checkVoxCPM2LocalFallback();
 await checkQwen3RequestMapping();
 await checkQwen3Failure();
 await checkFishAudioRequestMapping();
@@ -128,6 +130,61 @@ async function checkCosyVoiceBinaryResult() {
   assert(body.get('tts_text') === '请温柔地说你好', 'CosyVoice official FastAPI 应映射 text -> tts_text。');
   assert(!String(request.body).includes('client_should_not_override'), 'CosyVoice official FastAPI 请求不应接受客户端覆盖 model。');
   assert(!JSON.stringify(result).includes('cosy_test_key'), 'CosyVoice result 不应泄露 API key。');
+}
+
+async function checkVoxCPM2RequestMapping() {
+  let request = null;
+  const orchestrator = createOrchestrator({
+    fetchImpl: async (url, options) => {
+      request = { url, body: JSON.parse(options.body), headers: options.headers };
+      return createBinaryResponse(createMockWavBuffer(48000), 'audio/wav', {
+        'x-tts-device': 'mps',
+        'x-tts-load-ms': '8123',
+        'x-tts-first-chunk-ms': '920',
+        'x-tts-generation-ms': '2400',
+        'x-tts-audio-duration-ms': '3200',
+        'x-tts-rtf': '0.75',
+        'x-tts-peak-rss-bytes': '8589934592',
+        'x-tts-voice-clone-applied': 'true'
+      });
+    }
+  });
+  const result = await orchestrator.synthesize({
+    provider: 'voxcpm2',
+    text: 'VoxCPM2 苹果芯片本地回归',
+    voiceId: 'default',
+    emotion: 'warm',
+    tone: 'gentle',
+    model: 'client_must_not_override'
+  });
+
+  assert(result.tts_status === 'ok' && result.provider === 'voxcpm2', 'VoxCPM2 fake MPS response 应返回统一 Audio Result。');
+  assert(request.url === 'http://127.0.0.1:55000/v1/audio/speech', 'VoxCPM2 Local 应调用本机 OpenAI-compatible speech endpoint。');
+  assert(request.body.model === 'openbmb/VoxCPM2', 'VoxCPM2 model 必须来自后端配置，不接受前端覆盖。');
+  assert(request.body.voice === 'default' && request.body.response_format === 'wav', 'VoxCPM2 应映射 voice 并固定完整 WAV。');
+  assert(request.body.stream === false, '现有 Alice 播放器未重写前，VoxCPM2 adapter 不应请求 HTTP streaming。');
+  assert(request.body.instructions.includes('Alice'), 'VoxCPM2 provider 特有 Voice Design 控制应封装在 adapter/runtime 边界。');
+  assert(result.sampleRate === 48000, 'VoxCPM2 Audio Result 应记录 48kHz。');
+  assert(result.metadata?.supportsStreaming === true && result.metadata?.supportsVoiceClone === true, 'VoxCPM2 capability 应记录 streaming 与 voice clone。');
+  assert(result.metadata?.runtime?.device === 'mps', 'VoxCPM2 应保留安全 runtime device metadata。');
+  assert(result.metadata?.runtime?.modelFirstChunkMs === 920, 'VoxCPM2 应记录模型首 chunk 耗时。');
+  assert(result.metadata?.runtime?.rtf === 0.75, 'VoxCPM2 应记录 runtime RTF。');
+  assert(result.metadata?.runtime?.peakRssBytes === 8589934592, 'VoxCPM2 应记录 runtime 峰值内存。');
+  assert(result.metadata?.runtime?.voiceCloneApplied === true, 'VoxCPM2 应记录本次是否实际应用 voice clone。');
+}
+
+async function checkVoxCPM2LocalFallback() {
+  const orchestrator = createOrchestrator({
+    fetchImpl: async (url) => {
+      if (String(url).includes(':55000')) return createErrorResponse(503, 'local candidate unavailable');
+      return createBinaryResponse(Buffer.from([0, 0, 0, 0]), 'application/octet-stream');
+    }
+  });
+  orchestrator.registry.get('cosyvoice').baseUrl = 'http://127.0.0.1:50000';
+  const result = await orchestrator.synthesize({ provider: 'voxcpm2', text: '本地候选故障回退默认本地' });
+  assert(result.tts_status === 'ok' && result.provider === 'cosyvoice', 'VoxCPM2 候选故障时应回退默认 CosyVoice2。');
+  assert(result.metadata?.fallback?.requestedProvider === 'voxcpm2', 'Local candidate fallback 应记录原 VoxCPM2 provider。');
+  assert(result.metadata?.fallback?.localProvider === 'cosyvoice', 'Local candidate fallback 应仍回到默认 CosyVoice2。');
 }
 
 async function checkHiggsRequestMapping() {
@@ -431,13 +488,14 @@ async function checkProviderStatusSafety() {
   const status = registry.listStatus();
   const health = await registry.checkHealth();
   const providers = new Set(status.map((item) => item.provider));
-  ['mock', 'cosyvoice', 'qwen3_tts', 'fish_audio', 'self_hosted', 'higgs', 'openai', 'minimax'].forEach((provider) => {
+  ['mock', 'cosyvoice', 'voxcpm2', 'qwen3_tts', 'fish_audio', 'self_hosted', 'higgs', 'openai', 'minimax'].forEach((provider) => {
     assert(providers.has(provider), `TTS provider status 必须包含 ${provider}。`);
   });
   assert(status.every((item) => item.capabilities), '每个 TTS provider status 必须包含 capabilities。');
   assert(status.every((item) => item.health && typeof item.health.healthy === 'boolean'), '每个 TTS provider status 必须包含 health readiness。');
   assert(health.some((item) => item.provider === 'mock' && item.healthy === true), 'TTS registry health check 必须标记 mock healthy。');
   assert(health.some((item) => item.provider === 'cosyvoice' && item.status === 'missing_base_url'), 'CosyVoice 未配置时 health 应说明 missing_base_url。');
+  assert(health.some((item) => item.provider === 'voxcpm2'), 'TTS registry health check 必须包含 VoxCPM2 Local。');
   assert(!JSON.stringify(status).match(/apiKey|secret|token|Bearer/i), 'TTS provider status 不应返回 secret 字段。');
   assert(!JSON.stringify(health).match(/apiKey|secret|token|Bearer/i), 'TTS provider health 不应返回 secret 字段。');
   const descriptors = registry.listDescriptors({ selectableOnly: true });
@@ -455,7 +513,7 @@ async function checkFrontendAudioResultSupport() {
   const route = await readFile('backend/routes/ttsRoutes.js', 'utf8');
   assert(service.includes('audioBase64') && service.includes('playAudioResult'), 'TTSService 必须支持统一 Audio Result JSON。');
   assert(service.includes('emitBackendFallback(payload, metrics, onFallback)'), 'TTSService 必须把后端已应用的 local fallback 继续映射到既有 onFallback 生命周期。');
-  assert(['mock', 'cosyvoice', 'qwen3_tts', 'fish_audio', 'self_hosted'].every((id) => registry.includes(`backendProvider('${id}'`)), '前端 TTS registry 必须识别公开 backend TTS provider。');
+  assert(['mock', 'cosyvoice', 'voxcpm2', 'qwen3_tts', 'fish_audio', 'self_hosted'].every((id) => registry.includes(`backendProvider('${id}'`)), '前端 TTS registry 必须识别公开 backend TTS provider。');
   assert(!/id:\s*['"`](higgs|openai|minimax)['"`]/i.test(registry), '前端 TTS registry 当前不应暴露 higgs/openai/minimax provider。');
   assert(route.includes('ttsProviderRegistry.getDescriptor'), '/api/tts 必须通过 descriptor registry 做集中校验。');
   assert(registry.includes("responseFormat: 'json'"), '前端 backend TTS payload 必须请求统一 JSON Audio Result。');
@@ -472,6 +530,10 @@ async function checkEnvExample() {
     'COSYVOICE_API_STYLE=official_fastapi',
     'COSYVOICE_API_MODE=sft',
     'COSYVOICE_MODEL=iic/CosyVoice2-0.5B',
+    'VOXCPM2_BASE_URL=http://127.0.0.1:55000',
+    'VOXCPM2_MODEL=openbmb/VoxCPM2',
+    'VOXCPM2_DEVICE=auto',
+    'VOXCPM2_SAMPLE_RATE=48000',
     'TTS_UPSTREAM_TIMEOUT_MS=90000',
     'QWEN3_TTS_API_KEY=replace_with_your_key',
     'QWEN3_TTS_BASE_URL=https://dashscope-intl.aliyuncs.com/api/v1',
@@ -517,21 +579,23 @@ function createOrchestrator(options = {}) {
   return new TTSOrchestrator({ registry });
 }
 
-function createBinaryResponse(value, contentType = 'audio/mpeg') {
+function createBinaryResponse(value, contentType = 'audio/mpeg', extraHeaders = {}) {
   const buffer = Buffer.isBuffer(value) ? value : Buffer.from(value);
+  const headers = new Map(Object.entries(extraHeaders).map(([name, headerValue]) => [name.toLowerCase(), String(headerValue)]));
+  headers.set('content-type', contentType);
   return {
     ok: true,
     status: 200,
     headers: {
       get(name) {
-        return String(name).toLowerCase() === 'content-type' ? contentType : '';
+        return headers.get(String(name).toLowerCase()) || '';
       }
     },
     arrayBuffer: async () => buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
   };
 }
 
-function createMockWavBuffer() {
+function createMockWavBuffer(sampleRate = 24000) {
   const buffer = Buffer.alloc(44);
   buffer.write('RIFF', 0, 'ascii');
   buffer.writeUInt32LE(36, 4);
@@ -540,8 +604,8 @@ function createMockWavBuffer() {
   buffer.writeUInt32LE(16, 16);
   buffer.writeUInt16LE(1, 20);
   buffer.writeUInt16LE(1, 22);
-  buffer.writeUInt32LE(24000, 24);
-  buffer.writeUInt32LE(48000, 28);
+  buffer.writeUInt32LE(sampleRate, 24);
+  buffer.writeUInt32LE(sampleRate * 2, 28);
   buffer.writeUInt16LE(2, 32);
   buffer.writeUInt16LE(16, 34);
   buffer.write('data', 36, 'ascii');

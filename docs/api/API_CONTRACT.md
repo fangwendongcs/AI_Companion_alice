@@ -570,7 +570,7 @@ Workflow 成功时：
 
 `metadata` 在所有已注册 provider 的成功/不可用/失败结果上统一包含实际 `provider / model / voice / supportsStreaming / supportsVoiceClone / supportsEmotion / sampleRate / latency`。`latency` 至少区分 adapter 总合成、上游首 chunk、完整生成和 Audio Result ready；失败时没有意义的字段为 `null`。
 
-`metadata.timings` 是可选诊断字段，只能包含非敏感耗时和字节数。CosyVoice2 当前会记录上游首个 PCM chunk、raw PCM 总读取、chunk 数量/字节、WAV 包装和 Base64 编码耗时；远程二进制 provider 会记录 headers、首 chunk、完整读取、chunk evidence、音频字节和 Base64 耗时。Qwen3-TTS 还记录生成响应返回临时音频 URL 的耗时，但不返回该 URL。Web 端分段播放会把 metadata 合并到 `TTSService.getLastMetrics()`，用于定位首音延迟和每段 provider timing。`upstreamTrueStreamingEvidence=true` 才表示后端在完整音频完成前观测到有效的多 chunk 间隔；不能仅凭 capability 或 HTTP `StreamingResponse` 判定为当前客户端可消费流式。
+`metadata.timings` 是可选诊断字段，只能包含非敏感耗时和字节数。CosyVoice2 当前会记录上游首个 PCM chunk、raw PCM 总读取、chunk 数量/字节、WAV 包装和 Base64 编码耗时；远程二进制 provider 会记录 headers、首 chunk、完整读取、chunk evidence、音频字节和 Base64 耗时。Qwen3-TTS 还记录生成响应返回临时音频 URL 的耗时，但不返回该 URL。VoxCPM2 可另外在 `metadata.runtime` 记录安全的 `device / modelLoadMs / modelFirstChunkMs / modelGenerationMs / audioDurationMs / rtf / peakRssBytes / voiceCloneApplied`；这些字段只有真实 runtime 返回对应 header 时才有值。Web 端分段播放会把 metadata 合并到 `TTSService.getLastMetrics()`，用于定位首音延迟和每段 provider timing。`upstreamTrueStreamingEvidence=true` 才表示后端在完整音频完成前观测到有效的多 chunk 间隔；不能仅凭 capability 或 HTTP `StreamingResponse` 判定为当前客户端可消费流式。
 
 不可用 / 失败响应仍保持 HTTP 200 + 可观测状态，便于客户端保留文本回复并降级到本机语音：
 
@@ -596,18 +596,19 @@ Provider：
 
 - `mock`：隐藏测试 provider，不需要外部服务，仅用于 smoke / contract。
 - `cosyvoice`：默认本地 provider，CosyVoice2 adapter；默认通过官方 FastAPI runtime 配置，OpenAI-compatible proxy 必须显式设置 `COSYVOICE_API_STYLE=openai_compatible`。
+- `voxcpm2`：实验性本地 provider，通过本机 `/v1/audio/speech` 薄边界调用官方 VoxCPM2，固定完整 WAV / 48 kHz Audio Result；不需要云 Key，当前代码已接入但 MPS live 未验收。
 - `qwen3_tts`：使用 Alibaba Cloud Model Studio / DashScope 官方原生 multimodal-generation HTTP API；非流式签名 URL 由后端下载为 Base64，不下发客户端。
 - `fish_audio`：使用 Fish Audio 官方原生 `/v1/tts`，在 adapter 内生成 `model` header 与 `reference_id` voice。
 - `self_hosted`：通用自建 OpenAI-compatible TTS adapter，要求 server URL / model / voice，API Key 可选。
 
-当前 Web Settings 可选择 `cosyvoice` / `qwen3_tts` / `fish_audio` / `self_hosted`；`mock` 只保留在公开诊断和自动化中，descriptor 标记为 `selectable=false`。Higgs / OpenAI / MiniMax 历史实验 provider 不进入当前前端切换面板，也不作为公开状态返回。
+当前 Web Settings 可选择 `cosyvoice` / `voxcpm2` / `qwen3_tts` / `fish_audio` / `self_hosted`；`mock` 只保留在公开诊断和自动化中，descriptor 标记为 `selectable=false`。Higgs / OpenAI / MiniMax 历史实验 provider 不进入当前前端切换面板，也不作为公开状态返回。
 
 合约要求：
 
 - 普通合成客户端不接触 TTS service URL、模型部署地址或 API Key；受保护的 Settings Test/Save 流程是唯一配置入口例外。
 - 普通 `/api/tts` 请求传入的远程 model / voice 不能覆盖后端配置；客户端只选择公开 provider id。
 - `emotion / tone / prosody` 是 Alice 统一语义，provider-specific prompt、instruction 或 inline token 只在后端 adapter 内生成。
-- remote / selfHosted 失败时后端先尝试 `TTS_LOCAL_FALLBACK_PROVIDER`（默认 `cosyvoice`）；本地仍失败时客户端继续使用既有浏览器语音 fallback。后端应用 fallback 后，Audio Result 的实际 `provider` 是本地 provider，`metadata.fallback` 记录 requested/local/reason/status。
+- 任何非 `TTS_LOCAL_FALLBACK_PROVIDER` 的 Provider 失败时，后端先尝试默认 `cosyvoice`；因此实验本地 `voxcpm2`、remote 与 selfHosted 都遵循同一 fallback。CosyVoice2 仍失败时客户端继续使用既有浏览器语音 fallback。后端应用 fallback 后，Audio Result 的实际 `provider` 是本地 provider，`metadata.fallback` 记录 requested/local/reason/status。
 - `GET /api/providers` 只返回 provider readiness、descriptor 和 capability，不返回 base URL、secret、token 或 Bearer。
 
 ### TTS Provider 配置接口
@@ -780,7 +781,7 @@ Key 不进入 LocalConfigStore / localStorage。后端 runtime store 使用 AES-
 - 不返回 provider base URL 的真实值。
 - 每个 TTS `descriptor` 至少包含 `id / displayName / type / requiredFields / optionalFields / capabilities / models / voices`；`type` 为 `local | remote | selfHosted`。
 - `ttsPolicy` 返回 `defaultProvider=cosyvoice`、`localFallbackProvider=cosyvoice`、`localFirst=true`、`remoteOptional=true`、`selfHostedReady=true`。
-- `self_hosted` 作为 `selfHosted` readiness 条目公开；`mock` 保持公开诊断但 `selectable=false`，Settings 不显示它。
+- `voxcpm2` 作为第二个 `local` readiness 条目公开；其默认本机 URL 只能说明 adapter 配置完整，`health.live=true` 才表示运行时 endpoint ready。`self_hosted` 作为 `selfHosted` readiness 条目公开；`mock` 保持公开诊断但 `selectable=false`，Settings 不显示它。
 - `stub.configured` 必须为 `true`。
 - 真实 provider 未配置时只返回稳定状态，不触发外部网络请求。
 - 远程 provider 的 `available=true` 只表示配置足够发起请求，不代表已经执行计费 live probe；真实可用性以显式 live check 为准。

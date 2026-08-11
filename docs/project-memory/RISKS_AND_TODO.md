@@ -7,6 +7,8 @@
 | 风险 | 等级 | 当前处理 | 需要检查 |
 | --- | --- | --- | --- |
 | 默认 CosyVoice2 live 依赖本地 Python、模型、speaker、端口和官方 runtime。 | 中 | `cosyvoice` 保持产品默认；runtime 不可用时最终走系统语音 fallback，`mock` 仅用于自动化。完整 Demo 可由 supervisor 托管 runtime。 | `docs/guides/COSYVOICE_RUNTIME.md`、`scripts/cosyvoice/*` |
+| VoxCPM2 adapter/脚本已接入，但本机依赖、约 5 GB 模型、MPS live 和 16 GB 统一内存表现尚未验收。 | 高 | `voxcpm2` 标记实验 local，默认仍为 CosyVoice2；fake HTTP 只验证 contract。安装前需用户确认下载/磁盘/内存开销，运行时要求 health 实际 `device=mps`。 | `docs/guides/VOXCPM2_RUNTIME.md`、`docs/reports/LOCAL_TTS_VOXCPM2_CLOSURE_20260811.md` |
+| VoxCPM2 capability 有 streaming/voice clone/emotion，但当前 Alice 仍返回完整 WAV，取消客户端后模型进程可能继续完成已开始推理。 | 中 | capability 与当前 transport 分开记录；不宣称边收边播或情绪/克隆质量。恢复 live 时实测取消后的资源释放、clone 授权音频和最终 idle。 | `scripts/voxcpm2/server.py`、`docs/guides/VOXCPM2_RUNTIME.md` |
 | Qwen3-TTS / Fish Audio adapter 已公开但当前没有真实 remote live 证据；现有 `QWEN_API_KEY` 只是 placeholder。 | 高 | Provider 显式拒绝 `replace_with_*`；Qwen 两轮 live 停在 `missing_key` 预检、Fish 固定 live 停在未配置，不把非空字符串或 readiness 当成可调用。用户已决定本阶段先完成代码收口，不执行真实对照。 | 后续恢复验收时，在忽略的 `.env` 配置有效同 region Key，再分别完成真实中文、连续两轮、延迟、听感、账单和故障恢复；见 `docs/reports/REMOTE_TTS_PROVIDER_AUDIT_20260810.md`。 |
 | 模型名可能让人误以为当前 Qwen3/Fish provider 是开源本地部署。 | 中 | 文档明确当前两个 identity 都是云 API；本地开源部署不向厂商取 Key，也不与云端共享 readiness；通用 `self_hosted` adapter 已单独提供。 | 决定本地跑 Qwen3/Fish 后，先评估机器/GPU/许可证，再配置或按实际协议补专用 adapter 并做真实本地验收；不改 AudioManager。 |
 | TTS runtime store 的本地自动加密 key 与密文位于同一机器，不能替代生产 Secret Manager；配置 API 目前只有项目单 token 基线。 | 高 | 文件权限为 `0600`、目录 Git ignore、GET 不返回 Key；生产文档要求通过 `TTS_CONFIG_ENCRYPTION_KEY` 注入独立密钥。 | 公网前增加正式管理员身份/RBAC、密钥轮换与平台 Secret Manager；不要向普通最终用户开放 TTS 配置接口。 |
@@ -87,8 +89,9 @@
 | Web 页面是否无控制台错误、Avatar 可见、Shiro/Wambo VRM 可切换。 | `npm run dev` 后浏览器手动验收 `http://localhost:3000?debug=1` |
 | `dialogue.v1` 是否仍满足 Web 表现层语义契约。 | `npm run check:dialogue-contract` |
 | Dialogue requestId、耗时、fallback/error 日志和 Web Debug 是否保持一致。 | `npm run check:dialogue-observability` |
-| TTS provider 合约是否维持 local / remote / selfHosted descriptor；Settings 只选择 CosyVoice2 / Qwen3-TTS / Fish Audio / self-hosted，Mock 仅隐藏测试，且 metadata/secret/fallback 边界稳定。 | `npm run check:tts-provider-flow`、`npm run check:provider-config`、`npm run check:security-boundaries`、`npm run check:api-auth-boundaries` |
+| TTS provider 合约是否维持 local / remote / selfHosted descriptor；Settings 只选择 CosyVoice2 / 实验 VoxCPM2 / Qwen3-TTS / Fish Audio / self-hosted，Mock 仅隐藏测试，且 metadata/secret/fallback 边界稳定。 | `npm run check:tts-provider-flow`、`npm run check:provider-config`、`npm run check:security-boundaries`、`npm run check:api-auth-boundaries` |
 | CosyVoice2 本地 runtime 是否可用。 | `npm run check:cosyvoice-runtime`、`npm run check:cosyvoice-live` |
+| VoxCPM2 本地 runtime 是否真实安装并使用 MPS。 | `npm run check:voxcpm2-runtime`、`npm run check:voxcpm2-live`；当前待执行 |
 | Qwen3-TTS / Fish Audio 是否真实生成中文、连续两轮并产生可信 latency。 | 配置本地 `.env` 后分别运行固定 live 与 compare 命令，再做浏览器两轮/取消/静音/idle 验收。 |
 | VRMRenderer 和 local test manifest 是否仍受 debug gate 保护。 | `npm run check:vrm-renderer-flow` |
 | VRM 校准文件动作是否继续保持髋/腿稳定、无程序化替身或 springBone 残留。 | 运行 `scripts/qa/vrm-file-motion-product-runner.js` 并检查 `output/playwright/vrm-file-motion-product/` |

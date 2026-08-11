@@ -10,6 +10,7 @@ const backendProvider = (id, label = id) => ({
 export const TTSProviders = {
   mock: backendProvider('mock', 'Mock'),
   cosyvoice: backendProvider('cosyvoice', '默认语音'),
+  voxcpm2: backendProvider('voxcpm2', '本地语音 · VoxCPM2（实验）'),
   qwen3_tts: backendProvider('qwen3_tts', '云端语音 · Qwen3-TTS'),
   fish_audio: backendProvider('fish_audio', '云端语音 · Fish Audio'),
   self_hosted: backendProvider('self_hosted', '自建语音服务')

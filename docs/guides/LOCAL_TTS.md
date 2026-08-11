@@ -1,15 +1,16 @@
 # 本地与可替换 TTS Provider
 
-当前 Web Settings 按运行位置展示三类能力：`默认语音`（本地 CosyVoice2）、`云端语音`（Qwen3-TTS / Fish Audio）和`自建语音服务`（通用 self-hosted adapter）。默认选择本地 CosyVoice2；云端或自建服务必须先 Test、再 Save、最后 Switch。所有 provider 继续复用同一条 AudioManager / LipSync / Presentation 链路。浏览器/系统内置声线仍是最终兜底，不是第二套 Provider 链路。
+当前 Web Settings 按运行位置展示三类能力：`默认语音`（本地 CosyVoice2 与实验性 VoxCPM2）、`云端语音`（Qwen3-TTS / Fish Audio）和`自建语音服务`（通用 self-hosted adapter）。默认选择始终是本地 CosyVoice2；云端或自建服务必须先 Test、再 Save、最后 Switch。所有 provider 继续复用同一条 AudioManager / LipSync / Presentation 链路。浏览器/系统内置声线仍是最终兜底，不是第二套 Provider 链路。
 
 ## 当前策略
 
 1. **CosyVoice2 / local**：当前默认 TTS，使用 Alice 所在机器的官方 FastAPI runtime，不需要厂商云 Key。Registry 只允许可选择的 `local` descriptor 成为产品默认；把 `TTS_PROVIDER` 误设为 remote 或隐藏 Mock 时会收敛回 CosyVoice2。
-2. **Qwen3-TTS、Fish Audio / remote**：两个既有目标云 adapter；URL、Key、model、voice 可由后端环境变量或受保护的 Settings 配置流程提供。
-3. **Self-hosted / selfHosted**：面向未来自建 GPU TTS 的通用 OpenAI-compatible adapter；配置 server URL、model、voice，可选 API Key，不绑定 Qwen、Fish 或某个开源模型。
-4. **Mock**：保留为隐藏的测试 provider，只用于 smoke / contract，不再是产品默认项，也不出现在 Settings 选择器中。
-5. **两级 fallback**：remote / selfHosted 失败时，后端先尝试默认本地 CosyVoice2；本地也不可用时，Web 再走既有浏览器语音 fallback。
-6. **其他 provider**：Higgs / OpenAI / MiniMax 历史 adapter 仍保留在后端实验层，但不进入 Settings 选择面和正式验收范围。
+2. **VoxCPM2 / local experimental**：第二个本机候选，不需要 Key；adapter、descriptor、运行脚本与自动化已接入，但本轮没有安装依赖/模型或完成 live。它失败时先回退默认 CosyVoice2。
+3. **Qwen3-TTS、Fish Audio / remote**：两个既有目标云 adapter；URL、Key、model、voice 可由后端环境变量或受保护的 Settings 配置流程提供。
+4. **Self-hosted / selfHosted**：面向未来自建 GPU TTS 的通用 OpenAI-compatible adapter；配置 server URL、model、voice，可选 API Key，不绑定 Qwen、Fish 或某个开源模型。
+5. **Mock**：保留为隐藏的测试 provider，只用于 smoke / contract，不再是产品默认项，也不出现在 Settings 选择器中。
+6. **两级 fallback**：任何非默认 Provider（含 VoxCPM2、remote、selfHosted）失败时，后端先尝试默认本地 CosyVoice2；CosyVoice2 也不可用时，Web 再走既有浏览器语音 fallback。
+7. **其他 provider**：Higgs / OpenAI / MiniMax 历史 adapter 仍保留在后端实验层，但不进入 Settings 选择面和正式验收范围。
 
 2026-08-10 复核发现上一版把公开远程目标误写并实现为 SiliconFlow，且其默认模型实际是 CosyVoice2，并非 Qwen3-TTS。当前已纠正为 Qwen3-TTS 官方 DashScope adapter 与 Fish Audio 原生 adapter；通用 Remote TTS、统一 Audio Result、capability/metadata、单段 utterance session/cancel 补强均保留。没有修改现有分段、AudioManager、LipSync 或 Presentation 链路。代码级映射、故障 fallback、安全边界和静态回归已通过。当前机器的 `QWEN_API_KEY` 只是 `replace_with_*` placeholder，Qwen3 live 预检正确拒绝为 `missing_key`；Fish 也没有有效凭据/配置。因此两者真实中文音频、连续两轮和远程延迟对比仍未完成，不得把“adapter 已接入”写成“remote live 已通过”。详见 `docs/reports/REMOTE_TTS_PROVIDER_AUDIT_20260810.md`。
 
@@ -23,7 +24,7 @@
 POST /api/tts
   -> TTSOrchestrator
   -> TTSProviderRegistry
-  -> CosyVoice2 Local / Qwen3-TTS Remote / Fish Audio Remote / Self-hosted TTS
+  -> CosyVoice2 Local / VoxCPM2 Local / Qwen3-TTS Remote / Fish Audio Remote / Self-hosted TTS
   -> unified Audio Result
   -> existing TTSService / AudioManager / LipSync / Presentation
 ```
@@ -110,9 +111,25 @@ COSYVOICE_API_KEY=replace_with_optional_key
 - 官方 runtime 返回 raw int16 PCM，Alice provider 会包装成 WAV `audioBase64`。
 - Alice 后端完整接收 raw PCM 后再返回 WAV/Base64，因此客户端 Audio Result 的 `streaming=false`；如需记录上游 HTTP 流式来源，使用 `upstreamStreaming=true`。
 - `/v1/audio/speech` 仅适用于你自己额外部署的 OpenAI-compatible proxy，不是官方默认契约。
-- 本地服务不可用时，`/api/tts` 返回 `tts_status=unavailable/failed`，Web 端继续 fallback 到浏览器语音；remote / selfHosted 失败时则先由后端尝试该本地 provider。
+- 默认 CosyVoice2 不可用时，`/api/tts` 返回 `tts_status=unavailable/failed`，Web 端继续 fallback 到浏览器语音；VoxCPM2、remote 或 selfHosted 失败时则先由后端尝试默认 CosyVoice2。
 
 详见 [COSYVOICE_RUNTIME.md](./COSYVOICE_RUNTIME.md)。
+
+## VoxCPM2 本地配置
+
+VoxCPM2 本地进程使用 Alice 提供的薄 HTTP boundary：
+
+```bash
+VOXCPM2_BASE_URL=http://127.0.0.1:55000
+VOXCPM2_SPEECH_PATH=/v1/audio/speech
+VOXCPM2_MODEL=openbmb/VoxCPM2
+VOXCPM2_VOICE_ID=default
+VOXCPM2_OUTPUT_FORMAT=wav
+VOXCPM2_SAMPLE_RATE=48000
+VOXCPM2_DEVICE=auto
+```
+
+它是开源本地模型，不需要云 Key。官方 runtime 支持 `device=auto` / MPS；Alice 当前仍读取完整 48 kHz WAV，不重写播放器。代码与 fake HTTP contract 已通过，但本轮按用户决定没有执行依赖/模型下载、MPS live、真实中文或本地对照。运行和后续验收见 [VOXCPM2_RUNTIME.md](./VOXCPM2_RUNTIME.md)，收口事实见 [LOCAL_TTS_VOXCPM2_CLOSURE_20260811.md](../reports/LOCAL_TTS_VOXCPM2_CLOSURE_20260811.md)。
 
 ## Qwen3-TTS 远程配置
 
@@ -290,7 +307,7 @@ npm run cosyvoice:probe-web-tts
 npm run smoke
 ```
 
-`check:tts-provider-flow` 使用 fake endpoint 覆盖 provider selection、CosyVoice2 / Qwen3-TTS / Fish Audio / self-hosted 请求映射、后端 model/voice 优先级、缺配置、remote → local fallback、上游故障、超时、统一 Audio Result、descriptor、capability/latency metadata 和 secret 不泄漏。`check:provider-config` 另外覆盖临时 Test、加密 Save/Reload、secret 不回传及配置后 Registry 刷新。fake endpoint 只证明 adapter contract，不证明第三方服务真实可调用。
+`check:tts-provider-flow` 使用 fake endpoint 覆盖 provider selection、CosyVoice2 / VoxCPM2 / Qwen3-TTS / Fish Audio / self-hosted 请求映射、后端 model/voice 优先级、缺配置、非默认 Provider → CosyVoice2 fallback、上游故障、超时、统一 Audio Result、descriptor、capability/latency/runtime metadata 和 secret 不泄漏。`check:provider-config` 另外覆盖临时 Test、加密 Save/Reload、secret 不回传及配置后 Registry 刷新。fake endpoint 只证明 adapter contract，不证明本地模型或第三方服务真实可调用。
 
 `check:tts-live` 是可选真实服务检查；`check:cosyvoice-live`、`check:qwen3-tts-live` 和 `check:fish-audio-live` 分别固定 provider。它们直接调用后端 adapter，按 WAV / MP3 / OGG / PCM 做最小音频签名与长度验证，只输出 provider、model、voice、格式、采样率、音频长度以及首 chunk / 完整生成 / Audio Result ready 耗时，不打印音频内容、服务地址、密钥或请求正文。
 
@@ -311,10 +328,11 @@ npm run check:tts-compare-live
 ## Web Settings 状态
 
 - 默认语音：始终是 `cosyvoice`。本地 runtime ready 时播放 CosyVoice2；未启动时明确显示“系统语音兜底”，文字对话继续可用。
+- 本地实验语音：`voxcpm2` 可直接从同一 Settings 选择并切换；当前未完成 runtime 安装/live，因此选择后应预期先回退 CosyVoice2，不能视为已可用产品声线。
 - 云端语音：Qwen3-TTS / Fish Audio 按 descriptor 展示字段。选择本身不会切换；Test 真正调用目标 adapter 成功后才允许 Save 并切换。
 - 自建语音服务：填写 server URL / model / voice，可选 Key；同样必须 Test → Save → Switch。
 - API Key 输入为 password，不进入 LocalConfigStore / localStorage；刷新页面后只显示后端返回的“已配置”状态，不回填明文。
 - Mock：仍可由自动化和显式 API 使用，但不进入产品选择器。
 - 非开发模式：当前 Settings 配置界面不展示；生产部署还必须在后端启用 API auth，并补正式管理员访问控制。
 
-本轮只完成上述架构、配置和非 live 闭环，没有执行 Qwen3-TTS / Fish Audio / self-hosted 的真实生成或延迟对照。完整收口记录见 [TTS_PROVIDER_MODEL_CLOSURE_20260810.md](../reports/TTS_PROVIDER_MODEL_CLOSURE_20260810.md)。
+2026-08-11 新增 VoxCPM2 本地候选后，本轮仍只完成架构、配置、运行脚本和非 live 闭环；没有执行 VoxCPM2 安装/真实生成、CosyVoice2 vs VoxCPM2 对照，也没有改变 Qwen3-TTS / Fish Audio / self-hosted 的待验收状态。完整三类模型收口见 [TTS_PROVIDER_MODEL_CLOSURE_20260810.md](../reports/TTS_PROVIDER_MODEL_CLOSURE_20260810.md)，VoxCPM2 增量见 [LOCAL_TTS_VOXCPM2_CLOSURE_20260811.md](../reports/LOCAL_TTS_VOXCPM2_CLOSURE_20260811.md)。

@@ -27,7 +27,7 @@ For detailed request and response shapes, see [API_CONTRACT.md](./API_CONTRACT.m
 POST /api/tts
   -> TTSOrchestrator
   -> TTSProviderRegistry
-  -> CosyVoice2 Local / Qwen3-TTS Remote / Fish Audio Remote / Self-hosted TTS
+  -> CosyVoice2 Local / VoxCPM2 Local / Qwen3-TTS Remote / Fish Audio Remote / Self-hosted TTS
   -> unified Audio Result
 ```
 

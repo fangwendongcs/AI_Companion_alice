@@ -10,7 +10,7 @@ Alice 是一个 AI digital companion / interactive avatar 项目，不是普通�
 
 - Web 端：HTML / CSS / Vanilla JS + Three.js，提供 3D/VRM Avatar、交互、调试和设置面板。
 - Backend：Node HTTP 服务，统一承接 Dialogue、Memory、RAG、TTS、provider readiness、安全边界。
-- TTS：按 `local / remote / selfHosted` 统一 descriptor/adapter；Settings 可选默认 `cosyvoice`、`qwen3_tts`、`fish_audio`、`self_hosted`，`mock` 仅作隐藏测试。CosyVoice2 已完成本地 live，两个云 provider 和通用自建 adapter 已接入代码但未完成各自真实验收。
+- TTS：按 `local / remote / selfHosted` 统一 descriptor/adapter；Settings 可选默认 `cosyvoice`、实验本地 `voxcpm2`、`qwen3_tts`、`fish_audio`、`self_hosted`，`mock` 仅作隐藏测试。CosyVoice2 已完成本地 live；VoxCPM2 已接入代码/脚本但尚未安装模型或完成 MPS live；两个云 provider 和通用自建 adapter 也未完成各自真实验收。
 - VRM：Web 已有 renderer adapter 边界，业务层只消费 `AvatarDirective` 语义，不绑定 VRM/FBX 细节。
 
 ## 仓库结构速览
@@ -42,6 +42,7 @@ archive/                    # 历史配置/脚本，不应被新代码直接引�
    - 表现层：`docs/avatar/AVATAR_PRESENTATION_CONTRACT.md`
    - TTS：`docs/guides/LOCAL_TTS.md`
    - CosyVoice2：`docs/guides/COSYVOICE_RUNTIME.md`
+   - VoxCPM2：`docs/guides/VOXCPM2_RUNTIME.md`
 6. 改代码前再读对应源码目录和 `docs/project-memory/AGENT_HANDOFF_CHECKLIST.md`。
 
 较大改动前还必须在 `docs/project-memory/README.md` 的“既有长期文档资产地图”中检查相关历史决策、阶段记录、重构说明和风险说明。历史文档只能帮助理解背景，不能覆盖当前源码、当前 API 契约和当前权威文档。
@@ -75,6 +76,18 @@ npm run cosyvoice:stop
 
 没有本地模型、Python 环境或 `COSYVOICE_BASE_URL` 时，CosyVoice live 检查可能跳过或失败；这通常是环境问题，不等于 Alice 主链路坏了。
 
+VoxCPM2 是可选实验运行时，依赖和模型默认不在仓库中：
+
+```bash
+npm run voxcpm2:setup
+npm run check:voxcpm2-runtime
+npm run voxcpm2:start
+npm run check:voxcpm2-live
+npm run voxcpm2:stop
+```
+
+`voxcpm2:setup` 会下载较大的 Python/PyTorch 依赖和约 5 GB 模型，必须在用户明确同意资源开销后执行。代码/Mock 通过不能替代真实 MPS live。
+
 ## 关键边界
 
 - 不在前端、manifest 或文档示例中提交真实 API Key、token、webhook secret、账号、证书或私有部署信息。
@@ -98,6 +111,7 @@ npm run cosyvoice:stop
 | `/api/dialogue` 字段 | `docs/contracts/DIALOGUE_CONTRACT.md`、`docs/api/API_CONTRACT.md` |
 | TTS provider / Audio Result | `docs/guides/LOCAL_TTS.md`、`docs/api/API_CONTRACT.md`、`docs/project-memory/CURRENT_STATUS.md` |
 | CosyVoice2 runtime | `docs/guides/COSYVOICE_RUNTIME.md` |
+| VoxCPM2 runtime | `docs/guides/VOXCPM2_RUNTIME.md` |
 | Avatar / VRM / motion | `docs/architecture/VRM_RENDERER_MVP.md`、`docs/avatar/AVATAR_PRESENTATION_CONTRACT.md` |
 | 重大技术选择 | `docs/project-memory/DECISION_LOG.md` |
 | 新风险、待验证项 | `docs/project-memory/RISKS_AND_TODO.md` |
@@ -114,6 +128,7 @@ npm run cosyvoice:stop
 ## 已知风险
 
 - CosyVoice2 live 验证依赖本地 Python runtime、模型权重、speaker 和端口配置。
+- VoxCPM2 live 验证依赖独立 Python 3.10–3.12 runtime、约 5 GB 模型、MPS 可用性和较高的统一内存；当前只完成代码/脚本，未完成真实安装与生成。
 - VRM 外部动作和 Mixamo/FBX retarget 不能默认认为兼容，需要视觉 QA。
 - 当前 API auth 是单 token 基线，不是完整用户登录系统。
 - 部分早期文档是阶段性历史记录，应通过 `docs/project-memory/README.md` 找最新权威来源。

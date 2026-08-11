@@ -16,9 +16,9 @@ npm run dev
 OPENAI_API_KEY=replace_with_your_key MINIMAX_API_KEY=replace_with_your_key npm run dev
 ```
 
-本地 TTS provider 默认是 `cosyvoice`，不需要厂商云 Key，但需要 Alice 机器上的 CosyVoice2 runtime。Web Settings 展示产品化的`默认语音`、`云端语音`和`自建语音服务`；remote / selfHosted 必须 Test → Save → Switch。`mock` 只保留为隐藏测试 provider。
+本地 TTS provider 默认是 `cosyvoice`，不需要厂商云 Key，但需要 Alice 机器上的 CosyVoice2 runtime。`voxcpm2` 是第二个不需要 Key 的实验本地候选，当前只有代码/脚本与自动化，尚未完成模型安装和 MPS live。Web Settings 展示产品化的`默认语音`、`云端语音`和`自建语音服务`；remote / selfHosted 必须 Test → Save → Switch。`mock` 只保留为隐藏测试 provider。
 
-Provider 配置状态可通过 `GET /api/providers` 查看。该接口只返回安全状态、descriptor、默认 model/voice、`local/remote/selfHosted` 类型和 capability metadata，不返回任何真实 Key、service URL 或 secret。TTS readiness 公开 `mock` / `cosyvoice` / `qwen3_tts` / `fish_audio` / `self_hosted`，其中 Mock `selectable=false`；Higgs / OpenAI / MiniMax 历史实验 adapter 仍不暴露。
+Provider 配置状态可通过 `GET /api/providers` 查看。该接口只返回安全状态、descriptor、默认 model/voice、`local/remote/selfHosted` 类型和 capability metadata，不返回任何真实 Key、service URL 或 secret。TTS readiness 公开 `mock` / `cosyvoice` / `voxcpm2` / `qwen3_tts` / `fish_audio` / `self_hosted`，其中 Mock `selectable=false`；Higgs / OpenAI / MiniMax 历史实验 adapter 仍不暴露。
 
 默认地址：
 
@@ -68,7 +68,7 @@ http://localhost:3000
 - `OPENAI_TTS_MODEL`：OpenAI TTS 模型，默认 `gpt-4o-mini-tts`
 - `MINIMAX_TTS_MODEL`：MiniMax TTS 模型，默认 `speech-2.8-hd`
 - `TTS_PROVIDER`：后端默认 TTS provider，默认 `cosyvoice`；只有可选择的 local descriptor 可成为产品默认，remote / 隐藏 Mock 会收敛回 CosyVoice2
-- `TTS_LOCAL_FALLBACK_PROVIDER`：remote / selfHosted 失败后的本地 fallback provider，默认 `cosyvoice`
+- `TTS_LOCAL_FALLBACK_PROVIDER`：任何非默认 Provider 失败后的本地 fallback provider，默认 `cosyvoice`
 - `TTS_CONFIG_STORE_DIR`：后端加密 TTS 配置目录，默认 Git ignore 的 `runtime/tts/provider-config`
 - `TTS_CONFIG_ENCRYPTION_KEY`：生产建议由 Secret Manager 注入的配置加密密钥；本地缺省时生成权限 `0600` 的机器 key 文件
 - `TTS_OUTPUT_FORMAT`：后端 TTS 输出格式，默认 `mp3`
@@ -90,6 +90,9 @@ http://localhost:3000
 - `COSYVOICE_VOICE_ID`：CosyVoice2 默认 voiceId/spk_id，默认 `中文女`
 - `COSYVOICE_SAMPLE_RATE`：官方 FastAPI raw PCM 采样率，默认 `24000`
 - `COSYVOICE_PROMPT_TEXT` / `COSYVOICE_PROMPT_WAV` / `COSYVOICE_INSTRUCT_TEXT`：zero-shot / instruct2 等模式需要
+- `VOXCPM2_BASE_URL` / `VOXCPM2_SPEECH_PATH`：实验本地 VoxCPM2 HTTP boundary，默认 `127.0.0.1:55000/v1/audio/speech`
+- `VOXCPM2_MODEL` / `VOXCPM2_VOICE_ID`：VoxCPM2 后端固定模型/运行时 voice；客户端不能覆盖
+- `VOXCPM2_OUTPUT_FORMAT` / `VOXCPM2_SAMPLE_RATE` / `VOXCPM2_TIMEOUT_MS`：当前只接受 WAV / 48000 Hz，长推理默认独立 600 秒超时
 - `HIGGS_BASE_URL`：Higgs Audio v3 兼容服务地址，未配置时 provider 报 `missing_base_url`
 - `HIGGS_SPEECH_PATH`：Higgs speech endpoint，默认 `/v1/audio/speech`
 - `HIGGS_MODEL`：Higgs 后端模型名，默认 `higgs-audio-v3`
@@ -155,6 +158,7 @@ API_AUTH_TOKEN=replace_with_private_token
 当前 Web Settings provider：
 
 - `cosyvoice`：`默认语音`，CosyVoice2 开源本地主线 adapter，默认按官方 FastAPI `/inference_sft` 契约调用服务。
+- `voxcpm2`：`本地语音 · VoxCPM2（实验）`，调用本机官方 Python/MPS runtime 的 `/v1/audio/speech`；完整 WAV 继续进入既有 Audio Result，当前 live 未验收。
 - `qwen3_tts`：调用 Alibaba Cloud Model Studio / DashScope 官方原生接口；签名音频 URL 由后端下载并转成统一 Audio Result。
 - `fish_audio`：调用 Fish Audio 官方原生 `/v1/tts`，使用 `model` header 与 `reference_id`；本轮仍返回完整音频。
 - `self_hosted`：`自建语音服务`，通用 OpenAI-compatible adapter；要求 URL / model / voice，Key 可选。
@@ -209,6 +213,18 @@ FISH_AUDIO_TTS_OUTPUT_FORMAT=mp3
 FISH_AUDIO_TTS_SAMPLE_RATE=44100
 FISH_AUDIO_TTS_LATENCY=balanced
 ```
+
+VoxCPM2 本地运行时：
+
+```bash
+npm run voxcpm2:setup
+npm run check:voxcpm2-runtime
+npm run voxcpm2:start
+npm run check:voxcpm2-live
+npm run voxcpm2:stop
+```
+
+setup 会下载大体积 Python/PyTorch 依赖和约 5 GB 模型，必须先得到用户对资源开销的明确同意。当前 closure 没有执行这些 live 命令；详见 `docs/guides/VOXCPM2_RUNTIME.md`。
 
 真实 provider 可用性可以用可选命令验证：
 
@@ -268,7 +284,7 @@ CosyVoice 官方 FastAPI 的上游响应是 raw PCM 流，但 Alice 后端会先
 `GET /api/providers` 会返回 TTS provider 的安全 readiness：
 
 - `configured` / `status`：说明后端配置是否足够，不返回环境变量值。
-- `health`：轻量健康摘要；Mock 始终 ready，CosyVoice2 会做短超时 live probe；Qwen3-TTS / Fish Audio / self-hosted 只做非计费配置检查，真实可用性必须执行 Test 或 live check。
+- `health`：轻量健康摘要；Mock 始终 ready，CosyVoice2 与 VoxCPM2 会做短超时本机 endpoint probe；Qwen3-TTS / Fish Audio / self-hosted 只做非计费配置检查，真实可用性必须执行 Test 或 live check。
 - `capabilities`：声明 `supportsStreaming`、`supportsVoiceClone`、`supportsEmotion` 等能力。
 - `metadata`：统一返回安全的 provider/model/voice/capability/sampleRate；readiness 阶段 `latency=null`。
 

@@ -49,6 +49,13 @@ import {
   ttsSelfHostedPath,
   ttsSelfHostedSampleRate,
   ttsSelfHostedVoiceId,
+  ttsVoxCPM2BaseUrl,
+  ttsVoxCPM2Model,
+  ttsVoxCPM2OutputFormat,
+  ttsVoxCPM2Path,
+  ttsVoxCPM2SampleRate,
+  ttsVoxCPM2TimeoutMs,
+  ttsVoxCPM2VoiceId,
   ttsUpstreamTimeoutMs
 } from '../../config/serverConfig.js';
 import {
@@ -65,6 +72,7 @@ import { MockTTSProvider } from './providers/MockTTSProvider.js';
 import { OpenAITTSProvider } from './providers/OpenAITTSProvider.js';
 import { Qwen3TTSProvider } from './providers/Qwen3TTSProvider.js';
 import { SelfHostedTTSProvider } from './providers/SelfHostedTTSProvider.js';
+import { VoxCPM2TTSProvider } from './providers/VoxCPM2TTSProvider.js';
 
 export class TTSProviderRegistry {
   constructor({ fetchImpl = fetch, configStore = null } = {}) {
@@ -167,6 +175,7 @@ export class TTSProviderRegistry {
     [
       'mock',
       'cosyvoice',
+      'voxcpm2',
       'qwen3_tts',
       'fish_audio',
       'self_hosted',
@@ -195,6 +204,18 @@ export class TTSProviderRegistry {
         promptWavPath: config.promptWavPath,
         instructText: config.instructText,
         timeoutMs: ttsUpstreamTimeoutMs,
+        fetchImpl: this.fetchImpl
+      });
+    }
+    if (providerId === 'voxcpm2') {
+      return new VoxCPM2TTSProvider({
+        baseUrl: config.baseUrl,
+        path: config.path,
+        model: config.model,
+        defaultVoice: config.voice,
+        outputFormat: config.outputFormat,
+        sampleRate: config.sampleRate,
+        timeoutMs: ttsVoxCPM2TimeoutMs,
         fetchImpl: this.fetchImpl
       });
     }
@@ -293,6 +314,16 @@ export class TTSProviderRegistry {
         promptText: ttsCosyVoicePromptText,
         promptWavPath: ttsCosyVoicePromptWavPath,
         instructText: ttsCosyVoiceInstructText
+      };
+    }
+    if (providerId === 'voxcpm2') {
+      return {
+        baseUrl: ttsVoxCPM2BaseUrl,
+        path: ttsVoxCPM2Path,
+        model: ttsVoxCPM2Model,
+        voice: ttsVoxCPM2VoiceId,
+        outputFormat: ttsVoxCPM2OutputFormat,
+        sampleRate: ttsVoxCPM2SampleRate
       };
     }
     if (providerId === 'qwen3_tts') {

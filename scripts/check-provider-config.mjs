@@ -45,6 +45,7 @@ async function checkProviderStatusContract() {
   assert(Array.isArray(status.tts), 'Provider status 必须包含 tts 列表。');
   assert(status.tts.some((item) => item.provider === 'mock' && item.configured === true), 'TTS provider status 必须包含 configured mock。');
   assert(status.tts.some((item) => item.provider === 'cosyvoice'), 'TTS provider status 必须包含 cosyvoice。');
+  assert(status.tts.some((item) => item.provider === 'voxcpm2' && item.type === 'local'), 'TTS provider status 必须包含 VoxCPM2 Local descriptor。');
   assert(status.tts.some((item) => item.provider === 'qwen3_tts'), 'TTS provider status 必须包含 qwen3_tts。');
   assert(status.tts.some((item) => item.provider === 'fish_audio'), 'TTS provider status 必须包含 fish_audio。');
   assert(status.tts.some((item) => item.provider === 'self_hosted'), 'TTS provider status 必须包含 self_hosted。');
@@ -103,7 +104,7 @@ async function checkFrontendProviderBoundary() {
   assert(ttsSettings.includes('/api/providers'), 'TTS 设置面板必须通过 /api/providers 读取安全 provider 状态。');
   assert(ttsSettings.includes('/test') && ttsSettings.includes('/config'), 'TTS Settings 必须实现 Test → Save 配置闭环。');
   assert(ttsSettings.includes('descriptor.type') && ttsSettings.includes('requiredFields'), 'TTS Settings 必须由 descriptor 动态渲染 Provider。');
-  assert(['mock', 'cosyvoice', 'qwen3_tts', 'fish_audio', 'self_hosted'].every((id) => ttsRegistry.includes(`backendProvider('${id}'`)), '前端 TTS registry 必须识别当前公开 provider id。');
+  assert(['mock', 'cosyvoice', 'voxcpm2', 'qwen3_tts', 'fish_audio', 'self_hosted'].every((id) => ttsRegistry.includes(`backendProvider('${id}'`)), '前端 TTS registry 必须识别当前公开 provider id。');
   assert(!/provider:\s*['"`](higgs|openai|minimax|siliconflow)['"`]/i.test(ttsRegistry), '前端 TTS registry 当前不应暴露 Higgs / OpenAI / MiniMax / SiliconFlow provider。');
   assert(!/Higgs Audio v3|SiliconFlow|value="higgs"|value="openai"|value="minimax"|value="siliconflow"/i.test(ttsSection), 'TTS Settings UI 当前不应展示 Higgs / OpenAI / MiniMax / SiliconFlow。');
   assert(providers.includes("engine: 'cosyvoice'"), '默认 TTS 必须是无需云端 Key 的 cosyvoice local。');

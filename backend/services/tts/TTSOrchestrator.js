@@ -57,7 +57,8 @@ export class TTSOrchestrator {
   }
 
   shouldFallback(provider) {
-    return this.registry.getDescriptor?.(provider?.id)?.type !== 'local';
+    const fallbackProviderId = this.registry.getLocalFallbackProviderId?.();
+    return Boolean(fallbackProviderId && provider?.id !== fallbackProviderId);
   }
 
   async synthesizeLocalFallback(primaryResult, requestedProvider, normalizedInput) {

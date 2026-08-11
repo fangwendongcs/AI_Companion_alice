@@ -110,6 +110,7 @@ function createPublicTTSMetadata(item = {}) {
 
 function getTTSProviderLabel(provider) {
   if (provider === 'cosyvoice') return 'CosyVoice2 Local';
+  if (provider === 'voxcpm2') return 'VoxCPM2 Local MPS';
   if (provider === 'qwen3_tts') return 'Qwen3-TTS Remote';
   if (provider === 'fish_audio') return 'Fish Audio Remote';
   if (provider === 'self_hosted') return 'Self-hosted TTS';
@@ -118,7 +119,7 @@ function getTTSProviderLabel(provider) {
 
 function getPublicTTSMode(item = {}) {
   if (item.provider === 'mock') return 'demo';
-  if (item.provider === 'cosyvoice') return 'local';
+  if (item.provider === 'cosyvoice' || item.provider === 'voxcpm2') return 'local';
   if (item.provider === 'qwen3_tts' || item.provider === 'fish_audio') return 'remote';
   if (item.provider === 'self_hosted') return 'selfHosted';
   return item.mode || 'real';

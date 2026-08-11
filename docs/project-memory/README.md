@@ -78,8 +78,9 @@ Alice 是一个工程闭环完整的本地可测试 AI digital companion MVP：W
 
 | 文件路径 | 文档用途 | 状态 | 推荐阅读场景 | 时间差风险 |
 | --- | --- | --- | --- | --- |
-| `docs/guides/LOCAL_TTS.md` | local / remote / selfHosted 策略、CosyVoice2/Qwen3/Fish/self-hosted、配置闭环、Audio Result 与验证方式 | 当前权威 | 改 `/api/tts`、Web Settings、TTS provider 前 | 低；实现以 `backend/services/tts/*` 为准 |
+| `docs/guides/LOCAL_TTS.md` | local / remote / selfHosted 策略、CosyVoice2/VoxCPM2/Qwen3/Fish/self-hosted、配置闭环、Audio Result 与验证方式 | 当前权威 | 改 `/api/tts`、Web Settings、TTS provider 前 | 低；实现以 `backend/services/tts/*` 为准 |
 | `docs/guides/COSYVOICE_RUNTIME.md` | CosyVoice2 官方 FastAPI 本地运行、模型、speaker、live 验证 | 当前权威 | 启动真实本地 TTS、排查 CosyVoice2 前 | 中；外部 runtime 和模型状态因机器而异 |
+| `docs/guides/VOXCPM2_RUNTIME.md` | VoxCPM2 官方 Python/MPS 本地运行、配置、资源风险和待验收边界 | 当前权威 | 安装或排查实验本地 VoxCPM2 前 | 低；当前未完成依赖/模型安装与 live |
 | `docs/assets/licenses/MOTION_ASSET_LICENSES.md` | 动作素材授权证据与许可记录 | 当前权威 | 把 motion 资产产品化或公开分发前 | 中；新增素材必须补证据 |
 
 ### Avatar、VRM、动作和表现层
@@ -117,6 +118,7 @@ Alice 是一个工程闭环完整的本地可测试 AI digital companion MVP：W
 | `docs/reports/TTS_FOLLOWUP_AUDIT_20260731.md` | P5 后首音、CPU 调度、冷启动和其他 TTS provider 进入门槛复核 | 当前权威 | 继续优化 CosyVoice2 或考虑开放新 TTS provider 前 | 当前 provider 凭据无效/不完整；未做成功付费合成 |
 | `docs/reports/REMOTE_TTS_PROVIDER_AUDIT_20260810.md` | Qwen3/Fish 目标纠偏、本地/云/自建审计、实际 Provider 矩阵与 remote live 缺口 | 当前权威 | 配置 Qwen3/Fish live 或评估后续候选前 | 当前机器无两个目标 Provider 的有效凭据；Cosy 基线已重采，远程 latency/音质仍未验证 |
 | `docs/reports/TTS_PROVIDER_MODEL_CLOSURE_20260810.md` | local / remote / selfHosted descriptor、默认本地策略、Test→Save→Switch、加密存储与 fallback 收口 | 当前权威 | 改 TTS Settings、Provider 配置 API、自建服务 adapter 或 fallback 前 | 本轮不含远程/自建 live 或延迟对照；生产管理员鉴权仍待补 |
+| `docs/reports/LOCAL_TTS_VOXCPM2_CLOSURE_20260811.md` | VoxCPM2 本地 adapter/MPS 脚本、Qwen3 Mac 止损和 self-hosted 路线收口 | 当前权威 | 继续 VoxCPM2 安装/live、恢复本地对照或评估第三个本地候选前 | VoxCPM2 当前只有代码/自动化，无真实音频与延迟数据 |
 | `docs/reports/ALICE_PROJECT_AUDIT_20260803.md` | 当前产品阶段、价值假设、投入取舍、一个月路线和继续/转向/停止门槛 | 当前权威 | 决定下一阶段方向或评估是否新增功能前 | 基于当前代码和已有验收；产品判断仍需陌生用户与复访数据验证 |
 | `docs/product/PHASE3_ACCEPTANCE.md` | Phase 3 智能能力验收标准 | 历史参考 | 回查 Provider/Memory/RAG/n8n/Agent 验收 | 后续接口和 TTS 已变化；当前看 `API_CONTRACT.md` |
 | `docs/product/PHASE3_BASELINE.md` | Phase 3.9 智能能力基线封版 | 历史参考 | 理解智能编排为何集中到后端 | 不含后续长期 Memory、dialogue.v1、TTS provider 重构 |
@@ -150,7 +152,7 @@ Alice 是一个工程闭环完整的本地可测试 AI digital companion MVP：W
 | --- | --- | --- |
 | 改 `/api/dialogue` | `docs/contracts/DIALOGUE_CONTRACT.md`、`docs/api/API_CONTRACT.md` | `docs/product/PHASE3_BASELINE.md`、`docs/architecture/PHASE3_INTELLIGENCE_ARCHITECTURE.md` |
 | 改 Memory / Persona / Affect | `docs/architecture/PHASE5_MEMORY_ARCHITECTURE.md`、`docs/product/PHASE5_COMPANION_EXPERIENCE.md` | `docs/process/NEXT_PHASE_PLAN.md` Phase 5 部分 |
-| 改 TTS / CosyVoice2 / 远程或自建 Provider | `docs/guides/LOCAL_TTS.md`、`docs/guides/COSYVOICE_RUNTIME.md`、`docs/reports/TTS_PROVIDER_MODEL_CLOSURE_20260810.md`、`docs/reports/REMOTE_TTS_PROVIDER_AUDIT_20260810.md` | `docs/refactor/REFACTOR_NOTES.md` 中 TTS 相关记录 |
+| 改 TTS / CosyVoice2 / VoxCPM2 / 远程或自建 Provider | `docs/guides/LOCAL_TTS.md`、`docs/guides/COSYVOICE_RUNTIME.md`、`docs/guides/VOXCPM2_RUNTIME.md`、`docs/reports/TTS_PROVIDER_MODEL_CLOSURE_20260810.md`、`docs/reports/LOCAL_TTS_VOXCPM2_CLOSURE_20260811.md`、`docs/reports/REMOTE_TTS_PROVIDER_AUDIT_20260810.md` | `docs/refactor/REFACTOR_NOTES.md` 中 TTS 相关记录 |
 | 改 Avatar / VRM / motion | `docs/architecture/VRM_RENDERER_MVP.md`、`docs/avatar/AVATAR_PRESENTATION_CONTRACT.md`、`docs/architecture/VRM_MOTION_READINESS.md` | `docs/refactor/AVATAR_META_DEPRECATION_PLAN.md`、`docs/architecture/ANIMATION_ARCHITECTURE.md` |
 | 改部署 / 安全 | `docs/security/PHASE4_DEPLOYMENT_SECURITY_BASELINE.md`、`docs/deployment/ENVIRONMENT_MODES.md` | `docs/product/PHASE3_BASELINE.md` 当前未包含安全项 |
 | 做浏览器验收 | `docs/process/BROWSER_ACCEPTANCE_CHECKLIST.md` | `docs/product/MVP_BASELINE.md` |
@@ -162,7 +164,7 @@ Alice 是一个工程闭环完整的本地可测试 AI digital companion MVP：W
 | --- | --- | --- |
 | Web App | UI、Avatar 展示、用户交互、调试面板、调用后端 | provider secret、Memory/RAG/n8n 编排、后端 provider 决策 |
 | Backend | Dialogue、Memory、RAG、TTS provider、provider readiness、上传/安全边界 | DOM、Three.js 渲染、Web UI 事件 |
-| TTS | 统一 Audio Result、descriptor 与 capability/metadata；Settings 可选 `cosyvoice` / `qwen3_tts` / `fish_audio` / `self_hosted`，`mock` 仅作隐藏测试 | 普通合成泄露服务地址/密钥/model/voice、把 provider 私有字段传到 AppController、建立第二套播放器 |
+| TTS | 统一 Audio Result、descriptor 与 capability/metadata；Settings 可选 `cosyvoice` / `voxcpm2` / `qwen3_tts` / `fish_audio` / `self_hosted`，`mock` 仅作隐藏测试 | 普通合成泄露服务地址/密钥/model/voice、把 provider 私有字段传到 AppController、建立第二套播放器 |
 | Avatar Renderer | 把 `AvatarDirective` 映射为 Default / VRM 表现 | 决定 persona、memory、emotion、LLM provider |
 | MotionManager | Web body motion slot、队列、状态机、fallback | Dialogue policy、TTS provider、renderer-specific expression |
 | Docs | 记录当前事实、契约、边界、风险和历史决策 | 替代自动化测试或伪造未验证事实 |
@@ -173,6 +175,7 @@ Alice 是一个工程闭环完整的本地可测试 AI digital companion MVP：W
 - 本地默认 LLM：`stub`，无 Key 可跑主对话链路。
 - 本地默认 TTS：`cosyvoice`；不需要厂商云 Key，runtime 未启动时最终使用系统语音 fallback。`mock` 仅用于自动化 Audio Result 合约。
 - CosyVoice2：默认真实本地 TTS runtime，官方 FastAPI 默认端口 `50000`。
+- VoxCPM2：实验性第二本地 Provider，默认端口 `55000`；代码/脚本与自动化已接入，不需要 Key，但依赖/模型和 MPS live 尚未完成。
 - Qwen3-TTS / Fish Audio：目标云 adapters；可用后端环境变量或受保护 Settings 的加密配置，当前仍缺真实 remote live，adapter 存在不等于可用。
 - Self-hosted TTS：通用 OpenAI-compatible adapter 已接入；需用户自行准备服务 URL / model / voice，当前没有真实服务验收。
 - SQLite：`data/sqlite/alice.db` 是本地 runtime 数据，不应提交。
@@ -206,3 +209,4 @@ Alice 是一个工程闭环完整的本地可测试 AI digital companion MVP：W
 | 2026-08-10 | 将“有实际影响的项目修改必须同步写入权威文档与 project-memory”固化为仓库级协作规则；验收记录必须区分代码接入、凭据、自动化/Mock 与真实 live，避免后续调试依赖聊天上下文。 |
 | 2026-08-10 | 用户决定远程 TTS 本阶段按架构/adapter 代码收口，真实 Qwen3/Fish 对照后置；交接仍明确标记两个云 Provider 未完成 live，不新增其他候选。 |
 | 2026-08-10 | TTS 产品模型正式收口为 Local-first / Remote-optional / Self-hosted-ready：默认本地 CosyVoice2，云端与自建服务 Test→加密 Save→Switch，故障先回退本地；未改 AudioManager、LipSync、分段或 Presentation。 |
+| 2026-08-11 | 在统一 local 抽象下接入实验性 VoxCPM2 adapter、官方 Python/MPS 运行脚本、readiness 和后续顺序对照工具；默认与 fallback 仍为 CosyVoice2。按用户决定暂缓真实安装、语音和延迟对照，明确记录为代码/自动化已通过、live 未验收。 |

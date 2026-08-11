@@ -60,6 +60,7 @@ npm run check:cosyvoice-runtime
 | `/api/dialogue` | `docs/contracts/DIALOGUE_CONTRACT.md`、`backend/contracts/dialogueContract.js`、`backend/services/DialogueOrchestrationService.js` |
 | TTS | `docs/guides/LOCAL_TTS.md`、`backend/services/tts/*`、`backend/routes/ttsRoutes.js` |
 | CosyVoice2 | `docs/guides/COSYVOICE_RUNTIME.md`、`scripts/cosyvoice/*` |
+| VoxCPM2 | `docs/guides/VOXCPM2_RUNTIME.md`、`scripts/voxcpm2/*`；当前代码/脚本已接入但模型与 MPS live 未验收 |
 | Memory | `docs/architecture/PHASE5_MEMORY_ARCHITECTURE.md`、`backend/services/MemoryService.js`、`backend/db/schema.sql` |
 | Persona / Emotion | `backend/config/avatarPersonas.js`、`backend/services/CompanionAffectService.js` |
 | Avatar registry | `docs/architecture/AVATAR_ARCHITECTURE.md`、`public/avatars/registry.json` |
@@ -72,6 +73,7 @@ npm run check:cosyvoice-runtime
 更可能是环境问题：
 
 - `COSYVOICE_BASE_URL` 未配置导致 CosyVoice2 unavailable。
+- 把 `voxcpm2` 出现在 Settings 或 fake contract 通过误判为本机可用；必须先确认独立 runtime、模型、`device=mps` 和 `check:voxcpm2-live`，当前项目记忆明确标记未完成。
 - `runtime/cosyvoice/` 不存在或模型权重缺失。
 - TTS provider 配置密文被破坏、加密 key 不匹配，或生产环境缺少 `TTS_CONFIG_ENCRYPTION_KEY`。
 - 本地端口 `3000` 或 `50000` 被占用。

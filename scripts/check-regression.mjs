@@ -105,6 +105,11 @@ function checkTTSRegression() {
     'CosyVoice2 TTS provider 配置不完整。'
   );
   assert(
+    TTSProviders.voxcpm2?.transport === 'backend'
+      && typeof TTSProviders.voxcpm2.createPayload === 'function',
+    'VoxCPM2 Local TTS provider 配置不完整。'
+  );
+  assert(
     TTSProviders.qwen3_tts?.transport === 'backend'
       && typeof TTSProviders.qwen3_tts.createPayload === 'function',
     'Qwen3-TTS remote provider 配置不完整。'
