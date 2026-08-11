@@ -251,11 +251,17 @@
           <div class="setting-group">
             <span class="setting-label">TTS 引擎</span>
             <select class="custom-input" id="ttsEngine">
-              <option value="mock">Mock（本地演示）</option>
-              <option value="cosyvoice">CosyVoice2（本地服务）</option>
-              <option value="qwen3_tts">Qwen3-TTS（DashScope）</option>
-              <option value="fish_audio">Fish Audio（远程 API）</option>
+              <option value="cosyvoice">默认语音</option>
             </select>
+            <div class="setting-help">默认语音无需 Key；云端语音和自建语音服务通过“测试 → 保存并切换”启用。</div>
+          </div>
+          <div class="setting-group" id="ttsProviderConfigActions" hidden>
+            <span class="setting-label">服务配置</span>
+            <div class="tts-provider-config-fields" id="ttsProviderConfigFields"></div>
+            <div class="tts-provider-action-row">
+              <button class="custom-btn" id="saveTTSProviderBtn" disabled>保存并切换</button>
+            </div>
+            <div class="setting-help">访问 Key 只发送到 Alice 后端并加密保存；前端不会写入 localStorage，也不会再次回显。</div>
           </div>
           <div class="setting-group">
             <span class="setting-label">Provider 状态</span>
@@ -285,7 +291,7 @@
                 <strong id="ttsProviderReason">-</strong>
               </div>
             </div>
-            <div class="setting-help">仅开发模式允许切换 Mock、本地 CosyVoice2、Qwen3-TTS 与 Fish Audio；URL、model、voice 和密钥均由后端环境变量控制。</div>
+            <div class="setting-help">云端或自建服务故障时优先回退默认本地语音；播放器、口型和对话会话链路保持不变。</div>
           </div>
           <div class="setting-group">
             <span class="setting-label">语速 <span id="rateVal">1.05</span>x</span>
@@ -295,7 +301,7 @@
             <span class="setting-label">音调 <span id="pitchVal">1.2</span></span>
             <input type="range" id="speechPitch" min="0.8" max="2.0" step="0.05" value="1.2">
           </div>
-          <button class="custom-btn" id="testVoiceBtn">🔊 试听声音</button>
+          <button class="custom-btn" id="testVoiceBtn">🔊 测试声音</button>
           <div class="llm-status" id="ttsStatus"></div>
         </div>
       </details>

@@ -35,7 +35,7 @@ backend/server.js
   -> routes/*
   -> services/* (Avatar / StaticAsset / DialogueOrchestration / Memory / Rag / N8nWorkflow)
      -> TTSOrchestrator -> TTSProviderRegistry
-        -> CosyVoice2 Local / Qwen3-TTS Remote / Fish Audio Remote / future self-hosted adapter
+        -> CosyVoice2 Local / Qwen3-TTS Remote / Fish Audio Remote / Self-hosted TTS
         -> unified Audio Result
   -> utils/*
   -> static files
@@ -46,9 +46,10 @@ backend/server.js
 - 角色资源通过 `public/avatars/registry.json` 和 `manifest.json` 配置加载，旧 `meta.json` 只作为兼容 fallback。
 - 动作通过标准槽位管理，不在 UI 中写具体 FBX 文件名。
 - 模块间优先通过 EventBus、StateStore 或明确 Manager 接口协作。
-- API Key 只允许在后端环境变量中出现。
-- TTS provider 只在后端接触服务 URL、model、voice 和 secret；本地、远程与未来自建服务必须返回统一 Audio Result，再复用同一个 Web AudioManager / LipSync / Presentation 链路。
-- 浏览器本机语音只作为后端 TTS 失败后的兜底，保证无 Key 或上游故障时文字与状态链路仍可继续。
+- API Key 只允许进入后端环境变量、部署平台 Secret Manager 或后端加密 runtime store；不得进入仓库、普通前端持久化或日志。
+- TTS Registry 通过统一 descriptor 暴露 `id / displayName / type / fields / capabilities / models / voices`。本地、云端与自建 adapter 都必须返回统一 Audio Result，再复用同一个 Web TTSService / AudioManager / LipSync / Presentation 链路。
+- TTS 默认使用本地 `cosyvoice`。remote / selfHosted 失败时由 `TTSOrchestrator` 先尝试本地 CosyVoice2，本地仍不可用时浏览器本机语音才作为最终兜底。
+- Debug Settings 对 remote / selfHosted 使用 Test → Save → Switch：Test 不启用 fallback，Save 加密写入后端 runtime store，前端永不读取已保存 Key 明文。
 - RAG、Memory、n8n 和 Agent 编排只允许进入后端边界，当前统一对话入口为 `POST /api/dialogue`。
 - 默认 LLM provider 为本地 `stub`，保证无 API Key 的开发环境也能跑通对话演示链路。
 

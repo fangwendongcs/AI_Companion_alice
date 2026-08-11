@@ -87,8 +87,8 @@ async function checkAvatarRegression() {
 
 function checkTTSRegression() {
   assert(
-    DEFAULT_TTS_CONFIG.engine === 'mock',
-    '默认 TTS engine 必须保持为 mock，确保无本地语音服务时也可演示。'
+    DEFAULT_TTS_CONFIG.engine === 'cosyvoice',
+    '默认 TTS engine 必须保持为 cosyvoice；本地 runtime 不可用时由既有系统语音兜底。'
   );
   assert(
     VALID_TTS_ENGINES.includes(DEFAULT_TTS_CONFIG.engine),
@@ -115,8 +115,17 @@ function checkTTSRegression() {
     'Fish Audio remote provider 配置不完整。'
   );
   assert(
-    getTTSProvider('unsupported-provider') === TTSProviders.mock,
-    '未知 TTS provider 必须回退到 mock。'
+    TTSProviders.self_hosted?.transport === 'backend'
+      && typeof TTSProviders.self_hosted.createPayload === 'function',
+    'Self-hosted TTS provider 配置不完整。'
+  );
+  assert(
+    getTTSProvider('').id === 'cosyvoice',
+    '空 TTS provider 必须回退到默认本地 cosyvoice。'
+  );
+  assert(
+    getTTSProvider('future_provider').id === 'future_provider',
+    '合法的新 descriptor id 应透传后端 Registry，避免前端硬编码阻塞未来 provider。'
   );
   assert(
     !Object.keys(DEFAULT_TTS_CONFIG).some((key) => key.toLowerCase().includes('key')),

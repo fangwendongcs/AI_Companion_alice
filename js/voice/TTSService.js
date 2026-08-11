@@ -45,6 +45,14 @@ export class TTSService {
     return this.lastMetrics ? cloneMetrics(this.lastMetrics) : null;
   }
 
+  async playTestResult(result, { onStart = null, onEnd = null } = {}) {
+    this.stop();
+    const playbackEpoch = this.playbackEpoch;
+    const shouldContinue = () => this.playbackEpoch === playbackEpoch;
+    await this.playAudioResult(result, { onStart, shouldContinue });
+    if (shouldContinue()) onEnd?.();
+  }
+
   async speak(text, config, { muted = false, onStart, onEnd, onError, onFallback, timing = null } = {}) {
     if (muted) {
       this.stop();
@@ -64,9 +72,19 @@ export class TTSService {
     try {
       if (isBackendEngine) {
         if (shouldUseSegmentedBackendTTS(text, provider, config)) {
-          await this.speakWithBackendSegments(text, config, provider, { onStart: emitStart, shouldContinue, metrics });
+          await this.speakWithBackendSegments(text, config, provider, {
+            onStart: emitStart,
+            onFallback,
+            shouldContinue,
+            metrics
+          });
         } else {
-          await this.speakWithBackend(text, config, provider, { onStart: emitStart, shouldContinue, metrics });
+          await this.speakWithBackend(text, config, provider, {
+            onStart: emitStart,
+            onFallback,
+            shouldContinue,
+            metrics
+          });
         }
         finalizeTTSMetrics(metrics);
         if (shouldContinue()) onEnd?.({ metrics: cloneMetrics(metrics) });
@@ -102,7 +120,7 @@ export class TTSService {
     }
   }
 
-  async speakWithBackend(text, config, provider = getTTSProvider(config.engine), { onStart, shouldContinue, metrics } = {}) {
+  async speakWithBackend(text, config, provider = getTTSProvider(config.engine), { onStart, onFallback, shouldContinue, metrics } = {}) {
     const requestSession = createBackendRequestSession();
     this.currentPlayback = requestSession;
     try {
@@ -110,6 +128,7 @@ export class TTSService {
         signal: requestSession.controller.signal,
         shouldContinue,
         metrics,
+        onFallback,
         segment: createSegmentMetrics(metrics, {
           index: 0,
           total: 1,
@@ -139,10 +158,10 @@ export class TTSService {
     }
   }
 
-  async speakWithBackendSegments(text, config, provider = getTTSProvider(config.engine), { onStart, shouldContinue, metrics } = {}) {
+  async speakWithBackendSegments(text, config, provider = getTTSProvider(config.engine), { onStart, onFallback, shouldContinue, metrics } = {}) {
     const segments = segmentTextForTTS(text, config.segmentedTTSOptions);
     if (segments.length <= 1) {
-      await this.speakWithBackend(text, config, provider, { onStart, shouldContinue, metrics });
+      await this.speakWithBackend(text, config, provider, { onStart, onFallback, shouldContinue, metrics });
       return;
     }
 
@@ -181,6 +200,7 @@ export class TTSService {
         signal: controller.signal,
         shouldContinue: () => canContinue(shouldContinue) && !session.cancelled,
         metrics,
+        onFallback,
         segment: segmentMetrics
       }).finally(() => {
         session.controllers.delete(controller);
@@ -327,7 +347,7 @@ export class TTSService {
     }
   }
 
-  async fetchBackendAudioPayload(text, config, provider, { signal = null, shouldContinue, metrics, segment = null } = {}) {
+  async fetchBackendAudioPayload(text, config, provider, { signal = null, shouldContinue, metrics, segment = null, onFallback = null } = {}) {
     const requestStartedAt = nowMs();
     markFirstTTSRequest(metrics, requestStartedAt);
     if (segment) segment.requestStartedAt = requestStartedAt;
@@ -348,6 +368,7 @@ export class TTSService {
     if (contentType.includes('application/json')) {
       const payload = normalizeTTSAudioResult(await response.json());
       if (!canContinue(shouldContinue)) return;
+      emitBackendFallback(payload, metrics, onFallback);
       markAudioReady(metrics, segment, payload);
       return {
         type: 'json',
@@ -508,7 +529,10 @@ export class TTSService {
       let started = false;
       let settled = false;
       let playback = null;
+      let voiceLoadTimer = null;
       const cleanup = () => {
+        if (voiceLoadTimer) clearTimeout(voiceLoadTimer);
+        voiceLoadTimer = null;
         utterance.onstart = null;
         utterance.onend = null;
         utterance.onerror = null;
@@ -537,6 +561,8 @@ export class TTSService {
           return;
         }
         started = true;
+        if (voiceLoadTimer) clearTimeout(voiceLoadTimer);
+        voiceLoadTimer = null;
         if (synth.onvoiceschanged === selectAndSpeak) synth.onvoiceschanged = null;
         const voices = synth.getVoices();
         const savedVoiceName = config.browserVoice;
@@ -583,6 +609,7 @@ export class TTSService {
         selectAndSpeak();
       } else {
         synth.onvoiceschanged = selectAndSpeak;
+        voiceLoadTimer = setTimeout(selectAndSpeak, 250);
       }
     });
   }
@@ -849,6 +876,21 @@ function markAudioReady(metrics, segment, payload) {
   }
   metrics.fullAudioReadyAt = audioReadyAt;
   metrics.fullAudioReadyMs = roundMs(audioReadyAt - metrics.timing.startedAt);
+}
+
+function emitBackendFallback(payload, metrics, onFallback) {
+  const fallback = payload?.metadata?.fallback;
+  if (fallback?.applied !== true || metrics?.backendFallbackApplied) return;
+  if (metrics) {
+    metrics.backendFallbackApplied = true;
+    metrics.backendFallback = { ...fallback };
+  }
+  const error = new Error(
+    `${fallback.requestedProvider || 'remote'} unavailable; using ${fallback.localProvider || 'local'} TTS.`
+  );
+  error.code = fallback.reasonCode || 'TTS_PROVIDER_FAILED';
+  error.fallback = { ...fallback };
+  onFallback?.(error);
 }
 
 function markDecodeComplete(metrics, segment, decodeStartedAt, blob) {

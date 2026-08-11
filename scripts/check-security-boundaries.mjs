@@ -45,6 +45,7 @@ async function checkApiAuthBoundary() {
   ['/api/dialogue', '/api/chat', '/api/tts', '/api/avatars'].forEach((path) => {
     assert(auth.includes(path), `authMiddleware 必须保护 ${path} 的敏感写接口。`);
   });
+  assert(auth.includes('/api/tts/providers/'), 'authMiddleware 必须保护 TTS Provider 配置、测试和保存接口。');
   ['API_AUTH_REQUIRED', 'API_AUTH_INVALID', 'API_AUTH_MISCONFIGURED'].forEach((code) => {
     assert(auth.includes(code), `authMiddleware 必须提供稳定错误码 ${code}。`);
   });
@@ -77,6 +78,8 @@ async function checkEnvExample() {
     'COSYVOICE_API_KEY',
     'QWEN3_TTS_API_KEY',
     'FISH_AUDIO_API_KEY',
+    'SELF_HOSTED_TTS_API_KEY',
+    'TTS_CONFIG_ENCRYPTION_KEY',
     'HIGGS_API_KEY',
     'N8N_WEBHOOK_URL',
     'N8N_WEBHOOK_SECRET'
@@ -152,6 +155,9 @@ async function checkProviderStatusSafety() {
   assert(providerService.includes('requiresKey'), 'ProviderStatusService 必须返回 requiresKey，而不是返回 secret。');
   assert(!/apiKey\s*:/.test(providerService), 'ProviderStatusService 不得返回 apiKey 字段。');
   assert(!/secret\s*:/.test(providerService), 'ProviderStatusService 不得返回 secret 字段。');
+  const configStore = await readFile('backend/services/tts/TTSProviderConfigStore.js', 'utf8');
+  assert(configStore.includes('aes-256-gcm'), 'Settings 保存的 TTS Provider 配置必须使用 authenticated encryption。');
+  assert(configStore.includes('0o600'), 'TTS Provider 配置和本地 key 文件必须限制文件权限。');
 }
 
 async function checkUploadSafety() {

@@ -337,8 +337,9 @@ async function assertProviderStatus() {
   if (!ttsProviders.some((item) => item.provider === 'cosyvoice')) throw new Error('/api/providers missing cosyvoice TTS provider');
   if (!ttsProviders.some((item) => item.provider === 'qwen3_tts')) throw new Error('/api/providers missing qwen3_tts TTS provider');
   if (!ttsProviders.some((item) => item.provider === 'fish_audio')) throw new Error('/api/providers missing fish_audio TTS provider');
+  if (!ttsProviders.some((item) => item.provider === 'self_hosted')) throw new Error('/api/providers missing self_hosted TTS provider');
   if (ttsProviders.some((item) => ['higgs', 'openai', 'minimax', 'siliconflow'].includes(item.provider))) {
-    throw new Error('/api/providers public TTS status should only expose mock/cosyvoice/qwen3_tts/fish_audio');
+    throw new Error('/api/providers public TTS status should only expose descriptors in the current product set');
   }
   if (!ttsProviders.every((item) => item.capabilities)) throw new Error('/api/providers TTS providers should expose safe capabilities');
   if (!ttsProviders.every((item) => item.metadata?.provider === item.provider)) throw new Error('/api/providers TTS providers should expose unified safe metadata');

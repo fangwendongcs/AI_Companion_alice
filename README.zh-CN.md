@@ -69,7 +69,7 @@ flowchart LR
 | Interaction Events | MVP | head / body / arm / leg 交互可触发动作槽位或 fallback。 |
 | Animation System | MVP / evolving | motion slots、queue、state-machine checks、boot/idle/gesture/speaking/listening 流程。 |
 | Dialogue Flow | MVP | 前端主对话路径使用 `/api/dialogue`，`/api/chat` 保留兼容。 |
-| TTS / Audio | MVP / 可插拔 | Mock、本地 CosyVoice2、官方 DashScope 的 Qwen3-TTS 与 Fish Audio 共用后端 Provider 边界，并复用既有 AudioManager、分段、LipSync 和浏览器 fallback；远程 live 仍待验收。 |
+| TTS / Audio | MVP / 可插拔 | 以本地优先的 descriptor/adapter 边界统一默认 CosyVoice2、Qwen3-TTS/Fish Audio 云端 adapter 与通用自建服务；云端/自建使用 Test → Save → Switch，失败先回退本地，且全部复用既有 AudioManager、分段、LipSync 和浏览器 fallback。远程 live 仍待验收。 |
 | Backend API Boundary | MVP | 原生 Node 后端，包含 routes、services、provider readiness、上传校验与安全检查。 |
 | LLM Provider | MVP / configurable | 默认 `stub` 无 Key 可运行，真实 provider 需要后端环境变量。 |
 | Memory | MVP / evolving | SQLite-backed 最近上下文 + 保守长期 `memory_items`；不是自动用户画像系统。 |
@@ -92,7 +92,7 @@ npm run demo:stop
 
 Demo supervisor 会在启动命令退出后继续托管 Alice 与 CosyVoice2，执行真实 DeepSeek 和 WAV readiness 检查，并且不会写入 API Key。详见 [Alice Demo Runtime](./docs/guides/DEMO_RUNTIME.md)。
 
-不需要 Key、使用默认 stub/mock 的前后端开发：
+不需要 Key、使用默认 stub/本地语音路径的前后端开发：
 
 ```bash
 npm run dev
@@ -110,7 +110,7 @@ http://localhost:3000
 http://localhost:3000?debug=1
 ```
 
-默认 LLM provider 是 `stub`，所以本地开发不需要 API Key。Web Settings 展示 `Mock`、本地 `CosyVoice2`、`Qwen3-TTS（DashScope）` 和 `Fish Audio` 四个 TTS 测试入口；服务地址、model、voice、端口和 secret 全部留在后端环境变量中。Qwen3/Fish 已完成代码接入，但仍需要用户在忽略的 `.env` 中配置凭据并完成真实 API 验收。
+默认 LLM provider 是 `stub`；默认 TTS 是本地 `CosyVoice2`，runtime 未启动时最终使用系统语音兜底。Debug Settings 按`默认语音 / 云端语音 / 自建语音服务`展示；云端和自建必须 Test 成功后才能加密保存并切换，API Key 不进入 localStorage。Qwen3/Fish 已完成代码接入，但当前环境仍没有有效凭据和真实 API 验收。
 
 ## 部署模式与 Secret 管理
 
@@ -122,7 +122,7 @@ http://localhost:3000?debug=1
 | `demo` | 受控私有演示 | 需要显式配置来源域名，建议开启单 token API auth。 |
 | `production` | 公网部署候选 | 必须配置非 localhost-only 来源、API auth、非占位 token、rate limit 和明确的上传 / 公开资源目录。 |
 
-真实 API Key、provider token、n8n webhook、TTS key、未来向量库凭证、`.env`、`.env.local`、日志和上传隔离目录都不应该提交到仓库。它们只应该存在于本地未提交配置或部署平台的 Environment Variables / Secret Manager。
+真实 API Key、provider token、n8n webhook、TTS key、未来向量库凭证、`.env`、`.env.local`、日志和上传隔离目录都不应该提交到仓库。它们只能进入后端环境变量、部署平台 Secret Manager，或受信任本地 Debug Settings 使用的后端加密 TTS runtime store；生产环境应从 Secret Manager 注入 `TTS_CONFIG_ENCRYPTION_KEY` 并补正式管理员访问控制。
 
 这仍然不是完整生产级安全系统：当前不包含用户登录、OAuth/RBAC、WAF、对象存储、CDN 隔离、病毒扫描、沙箱解析、外部链路追踪或多实例限流。
 

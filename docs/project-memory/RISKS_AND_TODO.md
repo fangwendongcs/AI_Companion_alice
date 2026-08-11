@@ -1,14 +1,15 @@
 # Risks And Todo
 
-最后更新：2026-08-10
+最后更新：2026-08-11
 
 ## 当前风险
 
 | 风险 | 等级 | 当前处理 | 需要检查 |
 | --- | --- | --- | --- |
-| CosyVoice2 live 依赖本地 Python、模型、speaker、端口和官方 runtime。 | 中 | `mock` 保持默认可用；CosyVoice2 有独立脚本和文档。 | `docs/guides/COSYVOICE_RUNTIME.md`、`scripts/cosyvoice/*` |
+| 默认 CosyVoice2 live 依赖本地 Python、模型、speaker、端口和官方 runtime。 | 中 | `cosyvoice` 保持产品默认；runtime 不可用时最终走系统语音 fallback，`mock` 仅用于自动化。完整 Demo 可由 supervisor 托管 runtime。 | `docs/guides/COSYVOICE_RUNTIME.md`、`scripts/cosyvoice/*` |
 | Qwen3-TTS / Fish Audio adapter 已公开但当前没有真实 remote live 证据；现有 `QWEN_API_KEY` 只是 placeholder。 | 高 | Provider 显式拒绝 `replace_with_*`；Qwen 两轮 live 停在 `missing_key` 预检、Fish 固定 live 停在未配置，不把非空字符串或 readiness 当成可调用。用户已决定本阶段先完成代码收口，不执行真实对照。 | 后续恢复验收时，在忽略的 `.env` 配置有效同 region Key，再分别完成真实中文、连续两轮、延迟、听感、账单和故障恢复；见 `docs/reports/REMOTE_TTS_PROVIDER_AUDIT_20260810.md`。 |
-| 模型名可能让人误以为当前 Qwen3/Fish provider 是开源本地部署。 | 中 | 文档明确当前两个 identity 都是云 API；本地开源部署不向厂商取 Key，也不与云端共享 readiness。 | 若决定本地跑 Qwen3/Fish，先评估机器/GPU/许可证，再新增独立 self-hosted adapter 与真实本地验收；不改 AudioManager。 |
+| 模型名可能让人误以为当前 Qwen3/Fish provider 是开源本地部署。 | 中 | 文档明确当前两个 identity 都是云 API；本地开源部署不向厂商取 Key，也不与云端共享 readiness；通用 `self_hosted` adapter 已单独提供。 | 决定本地跑 Qwen3/Fish 后，先评估机器/GPU/许可证，再配置或按实际协议补专用 adapter 并做真实本地验收；不改 AudioManager。 |
+| TTS runtime store 的本地自动加密 key 与密文位于同一机器，不能替代生产 Secret Manager；配置 API 目前只有项目单 token 基线。 | 高 | 文件权限为 `0600`、目录 Git ignore、GET 不返回 Key；生产文档要求通过 `TTS_CONFIG_ENCRYPTION_KEY` 注入独立密钥。 | 公网前增加正式管理员身份/RBAC、密钥轮换与平台 Secret Manager；不要向普通最终用户开放 TTS 配置接口。 |
 | 非空 remote TTS 配置可能仍不可用。 | 中 | live check 验证真实音频签名；本机 MiniMax 已实证鉴权拒绝，OpenAI 已实证当前网络 TLS 不通，不把 `configured=true` 当成 live。 | 更换有效 credential / 网络后必须重新执行真实短中文和两轮对照。 |
 | VRM / VRMA / FBX 动作质量无法只靠自动化证明。 | 中 | 原始全身 FBX 保持 QA-only；本地 Demo 正式 slot 只保留上半身轨道，已通过髋/腿不变断言和截图视觉 QA。更换模型或动作仍需重做验证。 | `docs/architecture/VRM_MOTION_READINESS.md`、`docs/architecture/VRM_MOTION_QUALITY_V1.md` |
 | 部分早期文档是历史阶段记录，容易被误读为当前状态。 | 中 | 新建 project-memory 作为导航；docs index 标注历史参考。 | `docs/project-memory/DOCUMENT_AUDIT.md` |
@@ -86,7 +87,7 @@
 | Web 页面是否无控制台错误、Avatar 可见、Shiro/Wambo VRM 可切换。 | `npm run dev` 后浏览器手动验收 `http://localhost:3000?debug=1` |
 | `dialogue.v1` 是否仍满足 Web 表现层语义契约。 | `npm run check:dialogue-contract` |
 | Dialogue requestId、耗时、fallback/error 日志和 Web Debug 是否保持一致。 | `npm run check:dialogue-observability` |
-| TTS provider 合约是否只公开 Mock / CosyVoice2 / Qwen3-TTS / Fish Audio，且 metadata/secret 边界稳定。 | `npm run check:tts-provider-flow`、`npm run check:provider-config` |
+| TTS provider 合约是否维持 local / remote / selfHosted descriptor；Settings 只选择 CosyVoice2 / Qwen3-TTS / Fish Audio / self-hosted，Mock 仅隐藏测试，且 metadata/secret/fallback 边界稳定。 | `npm run check:tts-provider-flow`、`npm run check:provider-config`、`npm run check:security-boundaries`、`npm run check:api-auth-boundaries` |
 | CosyVoice2 本地 runtime 是否可用。 | `npm run check:cosyvoice-runtime`、`npm run check:cosyvoice-live` |
 | Qwen3-TTS / Fish Audio 是否真实生成中文、连续两轮并产生可信 latency。 | 配置本地 `.env` 后分别运行固定 live 与 compare 命令，再做浏览器两轮/取消/静音/idle 验收。 |
 | VRMRenderer 和 local test manifest 是否仍受 debug gate 保护。 | `npm run check:vrm-renderer-flow` |
@@ -98,7 +99,7 @@
 ## 下一步建议
 
 1. 固定真实模型行为用例已通过；下一步邀请陌生用户完成 10 分钟会话，记录性格辨识、继续聊天意愿、“她记得我”反馈，以及边界轮次额外延迟是否可接受。
-2. 在忽略的 `.env` 配置 Qwen3-TTS 与 Fish Audio 后分别完成真实中文两轮、首 chunk/完整耗时、音质和实际成本；完成这两个目标前不接第三个 remote provider。
+2. 需要恢复 TTS live 时，在后端环境变量或受保护 Settings 配置 Qwen3-TTS 与 Fish Audio，分别完成真实中文两轮、首 chunk/完整耗时、音质和实际成本；完成这两个目标前不接新的云 Provider。`self_hosted` 只在用户已有实际服务时验收，不为模型名称扩 adapter。
 3. P5 已选择更保守的分段/缓冲并拒绝当前 PCM streaming；下一步在陌生用户 10 分钟会话中同时记录 `10–13s` 中长回复首音是否比原有段间断裂更影响继续聊天意愿。
 4. 选择私有演示部署平台与预览域名后，再补平台变量、HTTPS、Secret Manager、持久化目录和健康检查方案。
 5. 仅在新增正式 Avatar 时补模型专用近景口型 QA，不重新打开已收口的 Alice P2 主阶段。

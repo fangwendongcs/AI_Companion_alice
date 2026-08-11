@@ -1,5 +1,9 @@
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { TTSOrchestrator } from '../backend/services/tts/TTSOrchestrator.js';
+import { TTSProviderConfigurationService } from '../backend/services/tts/TTSProviderConfigurationService.js';
+import { TTSProviderConfigStore } from '../backend/services/tts/TTSProviderConfigStore.js';
 import { createTTSProviderRegistry } from '../backend/services/tts/TTSProviderRegistry.js';
 
 const failures = [];
@@ -13,6 +17,10 @@ await checkQwen3RequestMapping();
 await checkQwen3Failure();
 await checkFishAudioRequestMapping();
 await checkFishAudioFailure();
+await checkSelfHostedRequestMapping();
+await checkLocalFallback();
+await checkEncryptedConfigurationLifecycle();
+await checkCorruptConfigDoesNotBreakLocalDefault();
 await checkHiggsRequestMapping();
 await checkTimeoutFallback();
 await checkProviderStatusSafety();
@@ -295,6 +303,110 @@ async function checkFishAudioFailure() {
   assert(result.metadata?.provider === 'fish_audio', 'Fish Audio 故障结果也应保留安全 metadata。');
 }
 
+async function checkSelfHostedRequestMapping() {
+  let request = null;
+  const orchestrator = createOrchestrator({
+    fetchImpl: async (url, options) => {
+      request = { url, body: JSON.parse(options.body), headers: options.headers };
+      return createBinaryResponse(createMockWavBuffer(), 'audio/wav');
+    }
+  });
+  const provider = orchestrator.registry.get('self_hosted');
+  provider.baseUrl = 'http://127.0.0.1:18080';
+  provider.model = 'local-qwen-tts';
+  provider.defaultVoice = 'alice';
+
+  const result = await orchestrator.synthesize({
+    provider: 'self_hosted',
+    text: '自建服务测试'
+  }, { allowLocalFallback: false });
+
+  assert(result.tts_status === 'ok', 'Self-hosted fake response 应返回 ok。');
+  assert(request.url === 'http://127.0.0.1:18080/v1/audio/speech', 'Self-hosted 默认应调用 OpenAI-compatible speech path。');
+  assert(request.body.model === 'local-qwen-tts' && request.body.voice === 'alice', 'Self-hosted 应映射 model / voice。');
+  assert(!request.headers.Authorization, 'Self-hosted 未配置 Key 时不应发送 Authorization。');
+  assert(result.metadata?.provider === 'self_hosted', 'Self-hosted 应复用统一 Audio Result metadata。');
+}
+
+async function checkLocalFallback() {
+  const orchestrator = createOrchestrator({
+    fetchImpl: async (url) => {
+      if (String(url).includes('dashscope')) return createErrorResponse(503, 'remote unavailable');
+      return createBinaryResponse(Buffer.from([0, 0, 0, 0]), 'application/octet-stream');
+    }
+  });
+  const remote = orchestrator.registry.get('qwen3_tts');
+  remote.apiKey = 'qwen3_test_key';
+  remote.model = 'qwen3-tts-flash';
+  remote.defaultVoice = 'Cherry';
+  const local = orchestrator.registry.get('cosyvoice');
+  local.baseUrl = 'http://127.0.0.1:50000';
+
+  const result = await orchestrator.synthesize({
+    provider: 'qwen3_tts',
+    text: '远程故障后回退本地'
+  });
+  assert(result.tts_status === 'ok' && result.provider === 'cosyvoice', 'Remote 故障时应在同一 Orchestrator 回退 CosyVoice。');
+  assert(result.metadata?.fallback?.applied === true, '成功本地回退应记录 fallback.applied=true。');
+  assert(result.metadata?.fallback?.requestedProvider === 'qwen3_tts', 'fallback metadata 应记录原请求 provider。');
+  assert(result.metadata?.fallback?.localProvider === 'cosyvoice', 'fallback metadata 应记录默认本地 provider。');
+}
+
+async function checkEncryptedConfigurationLifecycle() {
+  const directory = await mkdtemp(join(tmpdir(), 'alice-tts-config-'));
+  const encryptionKey = 'test-only-encryption-key';
+  const signedAudioUrl = 'https://dashscope-result.oss-cn-hangzhou.aliyuncs.com/test.wav';
+  try {
+    const store = new TTSProviderConfigStore({ directory, encryptionKey });
+    const registry = createTTSProviderRegistry({
+      configStore: store,
+      fetchImpl: async (url) => {
+        if (url === signedAudioUrl) return createBinaryResponse(createMockWavBuffer(), 'audio/wav');
+        return createJsonResponse({
+          status_code: 200,
+          output: { audio: { url: signedAudioUrl } }
+        });
+      }
+    });
+    const service = new TTSProviderConfigurationService({ registry, configStore: store });
+    const config = {
+      apiKey: 'qwen3_runtime_secret',
+      model: 'qwen3-tts-flash',
+      voice: 'Cherry'
+    };
+    const tested = await service.test('qwen3_tts', { config });
+    assert(tested.tts_status === 'ok', 'Remote Test 应使用未保存配置完成一次真实 HTTP adapter 闭环。');
+    assert(!JSON.stringify(tested).includes(config.apiKey), 'Remote Test Audio Result 不得包含 Key。');
+
+    const saved = service.save('qwen3_tts', { config });
+    assert(saved.configured === true, 'Remote Save 后 registry 应立即刷新为 configured。');
+    assert(saved.secretFields?.apiKey?.configured === true, '配置读取只能返回 Key 已配置状态。');
+    assert(!JSON.stringify(saved).includes(config.apiKey), '配置读取不得回显 Key。');
+    const encrypted = await readFile(join(directory, 'providers.enc.json'), 'utf8');
+    assert(!encrypted.includes(config.apiKey) && !encrypted.includes('qwen3-tts-flash'), 'Settings 保存内容必须整体加密落盘。');
+
+    const reloadedStore = new TTSProviderConfigStore({ directory, encryptionKey });
+    const reloaded = reloadedStore.get('qwen3_tts');
+    assert(reloaded.apiKey === config.apiKey && reloaded.voice === 'Cherry', '加密配置应可在后端重启后恢复。');
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+}
+
+async function checkCorruptConfigDoesNotBreakLocalDefault() {
+  const directory = await mkdtemp(join(tmpdir(), 'alice-tts-corrupt-config-'));
+  try {
+    await writeFile(join(directory, 'providers.enc.json'), '{invalid-json', 'utf8');
+    const store = new TTSProviderConfigStore({ directory, encryptionKey: 'test-only-encryption-key' });
+    const registry = createTTSProviderRegistry({ configStore: store });
+    assert(registry.getDefaultProviderId() === 'cosyvoice', '加密 Remote 配置损坏时默认 Local provider 仍必须可注册。');
+    assert(registry.get('cosyvoice')?.id === 'cosyvoice', '加密 Remote 配置损坏不得阻断 CosyVoice local fallback。');
+    assert(registry.configStoreError?.code === 'TTS_CONFIG_STORE_INVALID', '损坏配置应保留可诊断错误，而不是静默当成有效配置。');
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+}
+
 async function checkTimeoutFallback() {
   const orchestrator = createOrchestrator({
     fetchImpl: async () => {
@@ -319,7 +431,7 @@ async function checkProviderStatusSafety() {
   const status = registry.listStatus();
   const health = await registry.checkHealth();
   const providers = new Set(status.map((item) => item.provider));
-  ['mock', 'cosyvoice', 'qwen3_tts', 'fish_audio', 'higgs', 'openai', 'minimax'].forEach((provider) => {
+  ['mock', 'cosyvoice', 'qwen3_tts', 'fish_audio', 'self_hosted', 'higgs', 'openai', 'minimax'].forEach((provider) => {
     assert(providers.has(provider), `TTS provider status 必须包含 ${provider}。`);
   });
   assert(status.every((item) => item.capabilities), '每个 TTS provider status 必须包含 capabilities。');
@@ -328,6 +440,13 @@ async function checkProviderStatusSafety() {
   assert(health.some((item) => item.provider === 'cosyvoice' && item.status === 'missing_base_url'), 'CosyVoice 未配置时 health 应说明 missing_base_url。');
   assert(!JSON.stringify(status).match(/apiKey|secret|token|Bearer/i), 'TTS provider status 不应返回 secret 字段。');
   assert(!JSON.stringify(health).match(/apiKey|secret|token|Bearer/i), 'TTS provider health 不应返回 secret 字段。');
+  const descriptors = registry.listDescriptors({ selectableOnly: true });
+  assert(['local', 'remote', 'selfHosted'].every((type) => descriptors.some((item) => item.type === type)), 'descriptor 必须覆盖 local / remote / selfHosted。');
+  assert(descriptors.every((item) => Array.isArray(item.requiredFields) && Array.isArray(item.optionalFields)), 'descriptor 必须声明 requiredFields / optionalFields。');
+  registry.defaultProviderId = 'qwen3_tts';
+  registry.localFallbackProviderId = 'mock';
+  assert(registry.getDefaultProviderId() === 'cosyvoice', 'remote 或隐藏 Mock 不得成为产品默认；默认必须收敛到可选 local provider。');
+  assert(registry.getLocalFallbackProviderId() === 'cosyvoice', '隐藏 Mock 不得替代产品 local fallback。');
 }
 
 async function checkFrontendAudioResultSupport() {
@@ -335,9 +454,10 @@ async function checkFrontendAudioResultSupport() {
   const registry = await readFile('js/voice/TTSProviderRegistry.js', 'utf8');
   const route = await readFile('backend/routes/ttsRoutes.js', 'utf8');
   assert(service.includes('audioBase64') && service.includes('playAudioResult'), 'TTSService 必须支持统一 Audio Result JSON。');
-  assert(registry.includes("id: 'mock'") && registry.includes("id: 'cosyvoice'") && registry.includes("id: 'qwen3_tts'") && registry.includes("id: 'fish_audio'"), '前端 TTS registry 必须识别公开 backend TTS provider。');
+  assert(service.includes('emitBackendFallback(payload, metrics, onFallback)'), 'TTSService 必须把后端已应用的 local fallback 继续映射到既有 onFallback 生命周期。');
+  assert(['mock', 'cosyvoice', 'qwen3_tts', 'fish_audio', 'self_hosted'].every((id) => registry.includes(`backendProvider('${id}'`)), '前端 TTS registry 必须识别公开 backend TTS provider。');
   assert(!/id:\s*['"`](higgs|openai|minimax)['"`]/i.test(registry), '前端 TTS registry 当前不应暴露 higgs/openai/minimax provider。');
-  assert(route.includes("'mock'") && route.includes("'cosyvoice'") && route.includes("'qwen3_tts'") && route.includes("'fish_audio'") && route.includes('publicTTSProviders'), '/api/tts 必须对白名单 provider 做集中校验。');
+  assert(route.includes('ttsProviderRegistry.getDescriptor'), '/api/tts 必须通过 descriptor registry 做集中校验。');
   assert(registry.includes("responseFormat: 'json'"), '前端 backend TTS payload 必须请求统一 JSON Audio Result。');
   assert(!/COSYVOICE_API_KEY|QWEN3_TTS_API_KEY|DASHSCOPE_API_KEY|QWEN_API_KEY|FISH_AUDIO_API_KEY|FISH_AUDIO_TTS_BASE_URL|HIGGS_API_KEY/.test(registry), '前端 registry 不应出现后端 TTS secret 或 URL 环境变量名。');
 }
@@ -346,7 +466,8 @@ async function checkEnvExample() {
   const source = await readFile('.env.example', 'utf8');
   const serverConfig = await readFile('backend/config/serverConfig.js', 'utf8');
   [
-    'TTS_PROVIDER=mock',
+    'TTS_PROVIDER=cosyvoice',
+    'TTS_LOCAL_FALLBACK_PROVIDER=cosyvoice',
     'COSYVOICE_BASE_URL=',
     'COSYVOICE_API_STYLE=official_fastapi',
     'COSYVOICE_API_MODE=sft',
@@ -360,6 +481,8 @@ async function checkEnvExample() {
     'FISH_AUDIO_TTS_BASE_URL=https://api.fish.audio',
     'FISH_AUDIO_TTS_MODEL=s2.1-pro-free',
     'FISH_AUDIO_TTS_VOICE=replace_with_voice_model_id',
+    'SELF_HOSTED_TTS_PATH=/v1/audio/speech',
+    'TTS_CONFIG_STORE_DIR=runtime/tts/provider-config',
     'HIGGS_BASE_URL=',
     'HIGGS_MODEL=higgs-audio-v3'
   ].forEach((snippet) => {

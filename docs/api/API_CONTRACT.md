@@ -15,6 +15,9 @@
 - `DELETE /api/memory`
 - `POST /api/chat`
 - `POST /api/tts`
+- `GET /api/tts/providers/:id/config`
+- `POST /api/tts/providers/:id/test`
+- `PUT /api/tts/providers/:id/config`
 - `POST /api/avatars`
 - 非明确公开的 `POST / PUT / PATCH / DELETE` API
 
@@ -58,7 +61,7 @@ Phase 4.2 已增加公网部署前请求边界，当前约定如下：
 - 每个响应都会带 `X-Request-ID`；客户端报错时可以把 requestId 带回，后端日志用同一 ID 排查。
 - 生产启动前可以运行 `npm run check:deployment-readiness` 检查配置是否适合 demo / production。
 - `DEPLOYMENT_MODE=local` 保持本地默认值；`demo` 面向受控私有演示；`production` 必须使用非 localhost-only origin、启用 API auth、启用 rate limit，并显式配置上传隔离目录和公开资源目录。
-- `.env.example` 只能包含 placeholder；真实 provider key、TTS key、n8n webhook、API token、未来向量库凭证只允许在后端环境变量或部署平台 Secret Manager 中配置。
+- `.env.example` 只能包含 placeholder；真实 provider key、TTS key、n8n webhook、API token、未来向量库凭证只允许进入后端环境变量、部署平台 Secret Manager，或 TTS Settings 的后端加密 runtime store。不得进入仓库、普通前端存储或公开日志。
 
 这些边界保持本地开发兼容，但公网部署前仍需要正式域名白名单、HTTPS、平台 secret 管理、上传隔离与更完整审计。
 
@@ -496,7 +499,7 @@ Workflow 成功时：
 
 ### POST /api/tts
 
-后端统一 TTS provider 入口。推荐 Web / iOS 发送 `responseFormat=json`，消费统一 Audio Result；旧二进制响应仍保留为兼容路径。
+后端统一 TTS provider 入口。默认 provider 是本地 `cosyvoice`。推荐 Web / iOS 发送 `responseFormat=json`，消费统一 Audio Result；旧二进制响应仍保留为兼容路径。
 
 请求：
 
@@ -591,23 +594,35 @@ Workflow 成功时：
 
 Provider：
 
-- `mock`：默认本地演示，不需要外部服务。
-- `cosyvoice`：CosyVoice2 adapter，默认通过官方 FastAPI runtime 配置；OpenAI-compatible proxy 必须显式设置 `COSYVOICE_API_STYLE=openai_compatible`。
+- `mock`：隐藏测试 provider，不需要外部服务，仅用于 smoke / contract。
+- `cosyvoice`：默认本地 provider，CosyVoice2 adapter；默认通过官方 FastAPI runtime 配置，OpenAI-compatible proxy 必须显式设置 `COSYVOICE_API_STYLE=openai_compatible`。
 - `qwen3_tts`：使用 Alibaba Cloud Model Studio / DashScope 官方原生 multimodal-generation HTTP API；非流式签名 URL 由后端下载为 Base64，不下发客户端。
 - `fish_audio`：使用 Fish Audio 官方原生 `/v1/tts`，在 adapter 内生成 `model` header 与 `reference_id` voice。
+- `self_hosted`：通用自建 OpenAI-compatible TTS adapter，要求 server URL / model / voice，API Key 可选。
 
-当前 Web Settings 与公开 `/api/providers` TTS readiness 只暴露 `mock` / `cosyvoice` / `qwen3_tts` / `fish_audio`。Higgs / OpenAI / MiniMax 历史实验 provider 不进入当前前端切换面板，也不作为公开状态返回。
+当前 Web Settings 可选择 `cosyvoice` / `qwen3_tts` / `fish_audio` / `self_hosted`；`mock` 只保留在公开诊断和自动化中，descriptor 标记为 `selectable=false`。Higgs / OpenAI / MiniMax 历史实验 provider 不进入当前前端切换面板，也不作为公开状态返回。
 
 合约要求：
 
-- 前端和 iOS 不接触 TTS service URL、模型部署地址或 API Key。
-- 客户端传入的远程 model / voice 不能覆盖后端配置；前端只选择公开 provider id。
+- 普通合成客户端不接触 TTS service URL、模型部署地址或 API Key；受保护的 Settings Test/Save 流程是唯一配置入口例外。
+- 普通 `/api/tts` 请求传入的远程 model / voice 不能覆盖后端配置；客户端只选择公开 provider id。
 - `emotion / tone / prosody` 是 Alice 统一语义，provider-specific prompt、instruction 或 inline token 只在后端 adapter 内生成。
-- `GET /api/providers` 只返回 provider readiness 和 capability，不返回 base URL、secret、token 或 Bearer。
+- remote / selfHosted 失败时后端先尝试 `TTS_LOCAL_FALLBACK_PROVIDER`（默认 `cosyvoice`）；本地仍失败时客户端继续使用既有浏览器语音 fallback。后端应用 fallback 后，Audio Result 的实际 `provider` 是本地 provider，`metadata.fallback` 记录 requested/local/reason/status。
+- `GET /api/providers` 只返回 provider readiness、descriptor 和 capability，不返回 base URL、secret、token 或 Bearer。
+
+### TTS Provider 配置接口
+
+以下接口只支持 `remote` / `selfHosted` descriptor，并在启用 `REQUIRE_API_AUTH` 时全部要求 API token：
+
+- `GET /api/tts/providers/:id/config`：返回 descriptor、非敏感 resolved values、readiness，以及各 secret 字段的 `{ configured: boolean }`；绝不返回 secret 明文。
+- `POST /api/tts/providers/:id/test`：使用请求中的临时未保存配置真实调用目标 adapter，返回统一 Audio Result；此调用禁用本地 fallback，避免把本地声音误判为目标服务成功。
+- `PUT /api/tts/providers/:id/config`：校验并加密保存配置，刷新 Registry；成功后返回与 GET 相同的安全结构。
+
+Key 不进入 LocalConfigStore / localStorage。后端 runtime store 使用 AES-256-GCM，默认文件位于 Git ignore 的 `runtime/tts/provider-config/`；本地可以自动生成 `0600` key 文件，生产必须通过 `TTS_CONFIG_ENCRYPTION_KEY`/Secret Manager 注入密钥并增加正式管理员访问控制。
 
 ### GET /api/providers
 
-安全 provider readiness 诊断接口。成功返回：
+安全 provider readiness 诊断接口。下列 JSON 是结构示例；实际每个 TTS 条目还包含同 id 的 `descriptor`，顶层包含 `ttsPolicy`。成功返回：
 
 ```json
 {
@@ -763,6 +778,9 @@ Provider：
 
 - 不返回真实 API Key、secret、token、Bearer 或 webhook。
 - 不返回 provider base URL 的真实值。
+- 每个 TTS `descriptor` 至少包含 `id / displayName / type / requiredFields / optionalFields / capabilities / models / voices`；`type` 为 `local | remote | selfHosted`。
+- `ttsPolicy` 返回 `defaultProvider=cosyvoice`、`localFallbackProvider=cosyvoice`、`localFirst=true`、`remoteOptional=true`、`selfHostedReady=true`。
+- `self_hosted` 作为 `selfHosted` readiness 条目公开；`mock` 保持公开诊断但 `selectable=false`，Settings 不显示它。
 - `stub.configured` 必须为 `true`。
 - 真实 provider 未配置时只返回稳定状态，不触发外部网络请求。
 - 远程 provider 的 `available=true` 只表示配置足够发起请求，不代表已经执行计费 live probe；真实可用性以显式 live check 为准。

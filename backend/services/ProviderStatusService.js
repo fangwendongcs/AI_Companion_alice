@@ -8,8 +8,6 @@ import {
 import { createTTSProviderRegistry } from './tts/TTSProviderRegistry.js';
 
 const realProviders = ['openai', 'qwen', 'deepseek', 'custom'];
-const publicTTSProviders = new Set(['mock', 'cosyvoice', 'qwen3_tts', 'fish_audio']);
-
 export class ProviderStatusService {
   constructor({
     ttsRegistry = createTTSProviderRegistry(),
@@ -34,8 +32,19 @@ export class ProviderStatusService {
         ...realProviders.map((provider) => this.getRealProviderStatus(provider))
       ],
       tts: this.ttsRegistry.listStatus()
-        .filter((item) => publicTTSProviders.has(item.provider))
-        .map((item) => toPublicTTSStatus(item, ttsHealth.get(item.provider)))
+        .filter((item) => Boolean(this.ttsRegistry.getDescriptor?.(item.provider)))
+        .map((item) => toPublicTTSStatus(
+          item,
+          ttsHealth.get(item.provider),
+          this.ttsRegistry.getDescriptor(item.provider)
+        )),
+      ttsPolicy: {
+        defaultProvider: this.ttsRegistry.getDefaultProviderId?.() || 'cosyvoice',
+        localFallbackProvider: this.ttsRegistry.getLocalFallbackProviderId?.() || 'cosyvoice',
+        localFirst: true,
+        remoteOptional: true,
+        selfHostedReady: true
+      }
     };
   }
 
@@ -55,14 +64,17 @@ export class ProviderStatusService {
   }
 }
 
-function toPublicTTSStatus(item, health = null) {
+function toPublicTTSStatus(item, health = null, descriptor = null) {
   const publicHealth = health || item.health || {};
   const isLiveReady = item.provider === 'mock'
     ? true
     : item.configured === true && publicHealth.healthy === true;
   return {
     provider: item.provider,
-    label: getTTSProviderLabel(item.provider),
+    label: descriptor?.displayName || getTTSProviderLabel(item.provider),
+    technicalName: descriptor?.technicalName || null,
+    type: descriptor?.type || getPublicTTSMode(item),
+    descriptor,
     configured: item.configured === true,
     available: isLiveReady,
     status: resolvePublicTTSStatus(item, publicHealth),
@@ -100,6 +112,7 @@ function getTTSProviderLabel(provider) {
   if (provider === 'cosyvoice') return 'CosyVoice2 Local';
   if (provider === 'qwen3_tts') return 'Qwen3-TTS Remote';
   if (provider === 'fish_audio') return 'Fish Audio Remote';
+  if (provider === 'self_hosted') return 'Self-hosted TTS';
   return 'Mock';
 }
 
@@ -107,6 +120,7 @@ function getPublicTTSMode(item = {}) {
   if (item.provider === 'mock') return 'demo';
   if (item.provider === 'cosyvoice') return 'local';
   if (item.provider === 'qwen3_tts' || item.provider === 'fish_audio') return 'remote';
+  if (item.provider === 'self_hosted') return 'selfHosted';
   return item.mode || 'real';
 }
 
@@ -114,7 +128,9 @@ function resolvePublicTTSStatus(item, health = {}) {
   if (item.provider === 'mock') return 'ready';
   if (item.status === 'missing_base_url') return 'local_service_not_running';
   if (item.configured === true && health.healthy === true) return 'ready';
-  if (item.configured === true && health.healthy === false) return 'local_service_not_running';
+  if (item.configured === true && health.healthy === false) {
+    return getPublicTTSMode(item) === 'local' ? 'local_service_not_running' : 'endpoint_unreachable';
+  }
   return item.status || health.status || 'not_configured';
 }
 

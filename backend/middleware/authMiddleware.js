@@ -47,6 +47,7 @@ export function enforceApiAuth(req, res, url) {
 
 export function isProtectedApiRoute(pathname, method) {
   if (isPublicApiRoute(pathname, method)) return false;
+  if (pathname.startsWith('/api/tts/providers/') && ['GET', 'POST', 'PUT'].includes(method)) return true;
   if (sensitiveRoutes.some((route) => route.pathname === pathname && route.methods.includes(method))) return true;
   return pathname.startsWith('/api/') && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
 }

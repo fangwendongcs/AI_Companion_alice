@@ -79,7 +79,8 @@ export const providerBaseUrlEnv = {
   custom: 'CUSTOM_BASE_URL'
 };
 
-export const ttsDefaultProvider = String(process.env.TTS_PROVIDER || 'mock').trim().toLowerCase();
+export const ttsDefaultProvider = String(process.env.TTS_PROVIDER || 'cosyvoice').trim().toLowerCase();
+export const ttsLocalFallbackProvider = String(process.env.TTS_LOCAL_FALLBACK_PROVIDER || 'cosyvoice').trim().toLowerCase();
 export const ttsOutputFormat = String(process.env.TTS_OUTPUT_FORMAT || 'mp3').trim().toLowerCase();
 export const ttsCosyVoiceBaseUrl = String(process.env.COSYVOICE_BASE_URL || '').trim();
 export const ttsCosyVoiceApiStyle = String(process.env.COSYVOICE_API_STYLE || 'official_fastapi').trim();
@@ -99,7 +100,7 @@ export const ttsHiggsModel = String(process.env.HIGGS_MODEL || 'higgs-audio-v3')
 export const ttsHiggsVoiceId = String(process.env.HIGGS_VOICE_ID || 'alice').trim();
 export const ttsHiggsApiKeyEnv = 'HIGGS_API_KEY';
 export const ttsHiggsApiKey = String(process.env[ttsHiggsApiKeyEnv] || '').trim();
-export const ttsQwen3BaseUrl = String(process.env.QWEN3_TTS_BASE_URL || '').trim();
+export const ttsQwen3BaseUrl = String(process.env.QWEN3_TTS_BASE_URL || 'https://dashscope.aliyuncs.com/api/v1').trim();
 export const ttsQwen3Path = String(process.env.QWEN3_TTS_PATH || '/services/aigc/multimodal-generation/generation').trim();
 export const ttsQwen3Model = String(process.env.QWEN3_TTS_MODEL || '').trim();
 export const ttsQwen3VoiceId = String(process.env.QWEN3_TTS_VOICE || '').trim();
@@ -113,7 +114,7 @@ export const ttsQwen3ApiKey = String(
   || process.env.QWEN_API_KEY
   || ''
 ).trim();
-export const ttsFishAudioBaseUrl = String(process.env.FISH_AUDIO_TTS_BASE_URL || '').trim();
+export const ttsFishAudioBaseUrl = String(process.env.FISH_AUDIO_TTS_BASE_URL || 'https://api.fish.audio').trim();
 export const ttsFishAudioPath = String(process.env.FISH_AUDIO_TTS_PATH || '/v1/tts').trim();
 export const ttsFishAudioModel = String(process.env.FISH_AUDIO_TTS_MODEL || '').trim();
 export const ttsFishAudioVoiceId = String(process.env.FISH_AUDIO_TTS_VOICE || '').trim();
@@ -122,6 +123,15 @@ export const ttsFishAudioSampleRate = Number(process.env.FISH_AUDIO_TTS_SAMPLE_R
 export const ttsFishAudioLatencyMode = String(process.env.FISH_AUDIO_TTS_LATENCY || 'balanced').trim().toLowerCase();
 export const ttsFishAudioApiKeyEnv = 'FISH_AUDIO_API_KEY';
 export const ttsFishAudioApiKey = String(process.env[ttsFishAudioApiKeyEnv] || '').trim();
+export const ttsSelfHostedBaseUrl = String(process.env.SELF_HOSTED_TTS_BASE_URL || '').trim();
+export const ttsSelfHostedPath = String(process.env.SELF_HOSTED_TTS_PATH || '/v1/audio/speech').trim();
+export const ttsSelfHostedModel = String(process.env.SELF_HOSTED_TTS_MODEL || '').trim();
+export const ttsSelfHostedVoiceId = String(process.env.SELF_HOSTED_TTS_VOICE || '').trim();
+export const ttsSelfHostedOutputFormat = String(process.env.SELF_HOSTED_TTS_OUTPUT_FORMAT || 'wav').trim().toLowerCase();
+export const ttsSelfHostedSampleRate = Number(process.env.SELF_HOSTED_TTS_SAMPLE_RATE || 24000);
+export const ttsSelfHostedApiKey = String(process.env.SELF_HOSTED_TTS_API_KEY || '').trim();
+export const ttsConfigStoreDir = readPath('TTS_CONFIG_STORE_DIR', join(rootDir, 'runtime', 'tts', 'provider-config'));
+export const ttsConfigEncryptionKey = String(process.env.TTS_CONFIG_ENCRYPTION_KEY || '').trim();
 
 export const ttsProviderBaseUrls = {
   openai: String(process.env.OPENAI_BASE_URL || providerBaseUrls.openai).trim(),

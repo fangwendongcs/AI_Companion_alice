@@ -19,7 +19,7 @@ export class TTSOrchestrator {
     return this.registry.checkHealth();
   }
 
-  async synthesize(input = {}) {
+  async synthesize(input = {}, { allowLocalFallback = true } = {}) {
     const normalized = normalizeTTSInput(input);
     const providerId = normalizeProviderId(input.provider || this.registry.getDefaultProviderId());
     const provider = this.registry.get(providerId);
@@ -34,24 +34,87 @@ export class TTSOrchestrator {
     }
 
     const synthesisStartedAt = nowMs();
+    let primaryResult;
     try {
       const result = await provider.synthesize({
         ...normalized,
         provider: provider.id
       });
-      return normalizeProviderResult(result, provider, normalized, roundMs(nowMs() - synthesisStartedAt));
+      primaryResult = normalizeProviderResult(result, provider, normalized, roundMs(nowMs() - synthesisStartedAt));
     } catch (error) {
-      return normalizeProviderResult(
+      primaryResult = normalizeProviderResult(
         createFailedResult(provider.id, error?.message || 'TTS provider failed.', error?.code || 'TTS_PROVIDER_FAILED'),
         provider,
         normalized,
         roundMs(nowMs() - synthesisStartedAt)
       );
     }
+
+    if (!allowLocalFallback || primaryResult.tts_status === TTS_STATUS.OK || !this.shouldFallback(provider)) {
+      return primaryResult;
+    }
+    return this.synthesizeLocalFallback(primaryResult, provider, normalized);
+  }
+
+  shouldFallback(provider) {
+    return this.registry.getDescriptor?.(provider?.id)?.type !== 'local';
+  }
+
+  async synthesizeLocalFallback(primaryResult, requestedProvider, normalizedInput) {
+    const fallbackProviderId = this.registry.getLocalFallbackProviderId?.();
+    const fallbackProvider = fallbackProviderId ? this.registry.get(fallbackProviderId) : null;
+    if (!fallbackProvider || fallbackProvider.id === requestedProvider.id) return primaryResult;
+
+    const fallbackStartedAt = nowMs();
+    let fallbackResult;
+    try {
+      fallbackResult = await fallbackProvider.synthesize({
+        ...normalizedInput,
+        provider: fallbackProvider.id
+      });
+    } catch (error) {
+      fallbackResult = createFailedResult(
+        fallbackProvider.id,
+        error?.message || 'Local TTS fallback failed.',
+        error?.code || 'TTS_LOCAL_FALLBACK_FAILED'
+      );
+    }
+
+    const normalizedFallback = normalizeProviderResult(
+      fallbackResult,
+      fallbackProvider,
+      normalizedInput,
+      roundMs(nowMs() - fallbackStartedAt)
+    );
+    const fallbackMetadata = {
+      applied: normalizedFallback.tts_status === TTS_STATUS.OK,
+      attempted: true,
+      requestedProvider: requestedProvider.id,
+      localProvider: fallbackProvider.id,
+      reasonCode: primaryResult.error?.code || 'TTS_PROVIDER_FAILED',
+      localStatus: normalizedFallback.tts_status
+    };
+
+    if (normalizedFallback.tts_status === TTS_STATUS.OK) {
+      return {
+        ...normalizedFallback,
+        metadata: {
+          ...(normalizedFallback.metadata || {}),
+          fallback: fallbackMetadata
+        }
+      };
+    }
+    return {
+      ...primaryResult,
+      metadata: {
+        ...(primaryResult.metadata || {}),
+        fallback: fallbackMetadata
+      }
+    };
   }
 }
 
-function normalizeProviderResult(result, provider, input = {}, synthesisMs = null) {
+export function normalizeProviderResult(result, provider, input = {}, synthesisMs = null) {
   const providerId = provider?.id || 'unknown';
   let candidate = result;
   if (!result || typeof result !== 'object') {

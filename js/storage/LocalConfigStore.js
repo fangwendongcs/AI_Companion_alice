@@ -1,7 +1,7 @@
 import { DEFAULT_LLM_CONFIG, DEFAULT_TTS_CONFIG } from '../config/providers.js';
 
 const supportedProviders = new Set(['stub', 'openai', 'qwen', 'deepseek', 'custom']);
-const supportedTTSEngines = new Set(['mock', 'cosyvoice', 'qwen3_tts', 'fish_audio']);
+const localFirstTTSMigrationKey = 'tts_local_first_default_v1';
 const freeDefaultMigrationKey = 'tts_free_default_migration_v1';
 const ttsProviderBoundaryMigrationKey = 'tts_mock_cosyvoice_boundary_v1';
 const llmStubDefaultMigrationKey = 'llm_stub_default_migration_v1';
@@ -116,14 +116,21 @@ export class LocalConfigStore {
       localStorage.setItem(freeDefaultMigrationKey, '1');
     }
     if (!localStorage.getItem(ttsProviderBoundaryMigrationKey)) {
-      if (!supportedTTSEngines.has(engine)) {
+      if (!isSafeTTSEngine(engine)) {
         engine = DEFAULT_TTS_CONFIG.engine;
         localStorage.setItem('tts_engine', engine);
       }
       localStorage.setItem(ttsProviderBoundaryMigrationKey, '1');
     }
+    if (!localStorage.getItem(localFirstTTSMigrationKey)) {
+      if (engine === 'mock' || !isSafeTTSEngine(engine)) {
+        engine = DEFAULT_TTS_CONFIG.engine;
+        localStorage.setItem('tts_engine', engine);
+      }
+      localStorage.setItem(localFirstTTSMigrationKey, '1');
+    }
     return {
-      engine: supportedTTSEngines.has(engine) ? engine : DEFAULT_TTS_CONFIG.engine,
+      engine: isSafeTTSEngine(engine) ? engine : DEFAULT_TTS_CONFIG.engine,
       browserVoice: localStorage.getItem('tts_browser_voice') || DEFAULT_TTS_CONFIG.browserVoice,
       rate: parseFloat(localStorage.getItem('tts_rate') || String(DEFAULT_TTS_CONFIG.rate)),
       pitch: parseFloat(localStorage.getItem('tts_pitch') || String(DEFAULT_TTS_CONFIG.pitch))
@@ -163,6 +170,10 @@ export class LocalConfigStore {
     if (birthday) localStorage.setItem('user_birthday', birthday);
     if (likes) localStorage.setItem('user_likes', likes);
   }
+}
+
+function isSafeTTSEngine(value = '') {
+  return /^[a-z0-9][a-z0-9_-]{0,63}$/.test(String(value || ''));
 }
 
 function createSessionId() {

@@ -1,6 +1,6 @@
 # AGENTS.md
 
-最后更新：2026-08-10
+最后更新：2026-08-11
 
 这是所有 Coding Agent 进入 Alice 项目后的第一阅读入口。目标是在 10 分钟内理解项目是什么、当前做到哪里、怎么运行、哪些边界不能破坏、下一步从哪里开始。
 
@@ -10,7 +10,7 @@ Alice 是一个 AI digital companion / interactive avatar 项目，不是普通�
 
 - Web 端：HTML / CSS / Vanilla JS + Three.js，提供 3D/VRM Avatar、交互、调试和设置面板。
 - Backend：Node HTTP 服务，统一承接 Dialogue、Memory、RAG、TTS、provider readiness、安全边界。
-- TTS：当前公开集合是 `mock` + `cosyvoice` + `qwen3_tts` + `fish_audio`；CosyVoice2 已完成本地 live，两个远程 provider 已接入代码但仍待有效凭据下的真实验收。
+- TTS：按 `local / remote / selfHosted` 统一 descriptor/adapter；Settings 可选默认 `cosyvoice`、`qwen3_tts`、`fish_audio`、`self_hosted`，`mock` 仅作隐藏测试。CosyVoice2 已完成本地 live，两个云 provider 和通用自建 adapter 已接入代码但未完成各自真实验收。
 - VRM：Web 已有 renderer adapter 边界，业务层只消费 `AvatarDirective` 语义，不绑定 VRM/FBX 细节。
 
 ## 仓库结构速览

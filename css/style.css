@@ -1185,6 +1185,34 @@ textarea.custom-input {
   color: #ffd54f;
 }
 
+.tts-provider-config-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.setting-group[hidden] {
+  display: none !important;
+}
+
+.tts-provider-config-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.tts-provider-config-field label {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.tts-provider-action-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
 .toggle-row {
   min-height: 38px;
   display: flex;

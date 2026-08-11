@@ -1,17 +1,18 @@
 import { maxJsonBodyBytes } from '../config/serverConfig.js';
+import {
+  ttsOrchestrator,
+  ttsProviderConfigurationService,
+  ttsProviderRegistry
+} from '../services/tts/TTSRuntime.js';
 import { createFailedResult, TTS_STATUS } from '../services/tts/TTSResult.js';
-import { TTSOrchestrator } from '../services/tts/TTSOrchestrator.js';
 import { readJsonBody } from '../utils/request.js';
 import { sendJson, sendOk, writeCors } from '../utils/response.js';
-
-const ttsOrchestrator = new TTSOrchestrator();
-const publicTTSProviders = new Set(['mock', 'cosyvoice', 'qwen3_tts', 'fish_audio']);
 
 export async function handleTTS(req, res) {
   const body = await readJsonBody(req, maxJsonBodyBytes);
   const wantsJson = shouldReturnJson(req, body);
-  const requestedProvider = normalizeProvider(body.provider || 'mock');
-  const result = publicTTSProviders.has(requestedProvider)
+  const requestedProvider = normalizeProvider(body.provider || ttsProviderRegistry.getDefaultProviderId());
+  const result = ttsProviderRegistry.getDescriptor(requestedProvider)
     ? await ttsOrchestrator.synthesize({ ...body, provider: requestedProvider })
     : createFailedResult(requestedProvider || 'unknown', `Unsupported TTS provider: ${requestedProvider}`, 'TTS_PROVIDER_UNSUPPORTED');
 
@@ -47,6 +48,28 @@ export async function handleTTS(req, res) {
     tts_status: TTS_STATUS.FAILED,
     provider: result.provider
   });
+}
+
+export async function handleTTSProviderConfig(req, res, url) {
+  const match = url.pathname.match(/^\/api\/tts\/providers\/([a-z0-9_-]+)\/(config|test)$/);
+  if (!match) return false;
+  const [, providerId, action] = match;
+
+  if (action === 'config' && req.method === 'GET') {
+    sendOk(res, 200, ttsProviderConfigurationService.getPublicConfig(providerId));
+    return true;
+  }
+  if (action === 'config' && req.method === 'PUT') {
+    const body = await readJsonBody(req, maxJsonBodyBytes);
+    sendOk(res, 200, ttsProviderConfigurationService.save(providerId, body));
+    return true;
+  }
+  if (action === 'test' && req.method === 'POST') {
+    const body = await readJsonBody(req, maxJsonBodyBytes);
+    sendOk(res, 200, await ttsProviderConfigurationService.test(providerId, body));
+    return true;
+  }
+  return false;
 }
 
 function normalizeProvider(value = '') {

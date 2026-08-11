@@ -1,6 +1,6 @@
 # Agent Handoff Checklist
 
-最后更新：2026-08-10
+最后更新：2026-08-11
 
 这份清单给后续 Codex、Claude Code、Cursor 或其他 Coding Agent 使用。
 
@@ -73,8 +73,9 @@ npm run check:cosyvoice-runtime
 
 - `COSYVOICE_BASE_URL` 未配置导致 CosyVoice2 unavailable。
 - `runtime/cosyvoice/` 不存在或模型权重缺失。
+- TTS provider 配置密文被破坏、加密 key 不匹配，或生产环境缺少 `TTS_CONFIG_ENCRYPTION_KEY`。
 - 本地端口 `3000` 或 `50000` 被占用。
-- 真实 provider 缺 API Key。
+- 真实 remote provider 缺 API Key，或 self-hosted endpoint / model / voice 未配置。
 - 本地测试 VRM 文件不存在，且脚本明确允许跳过。
 
 更可能是代码问题：
@@ -83,7 +84,7 @@ npm run check:cosyvoice-runtime
 - `npm run check:tts-provider-flow` 暴露 secret、base URL 或 provider 私有字段。
 - `/api/dialogue` 返回 renderer-specific 字段。
 - `npm run check:vrm-renderer-flow` 发现 local test asset 进入 public registry。
-- `npm run smoke` 在默认 stub/mock 环境失败。
+- `npm run smoke` 在默认 stub/local 环境失败；其 TTS 路径显式使用隐藏的 Mock provider，不代表云 provider 已 live。
 
 ## 提交前最低验证
 
@@ -92,7 +93,7 @@ npm run check:cosyvoice-runtime
 | 文档 | `git diff --check` |
 | 通用 JS / config | `npm run check:js`、`npm run check:config` |
 | API / dialogue | `npm run check:dialogue-contract`、`npm run smoke` |
-| TTS | `npm run check:tts-provider-flow`，必要时 `npm run check:tts-live` |
+| TTS | `npm run check:tts-provider-flow`、`npm run check:provider-config`、`npm run check:mvp-flow`；只在明确配置并要求真实验收时运行 live 检查 |
 | VRM / Avatar | `npm run check:vrm-renderer-flow`、必要时浏览器 debug 手动验收 |
 | Memory | `npm run check:memory-flow`、`npm run check:sqlite-flow` |
 | 安全 / env | `npm run check:security-boundaries`、`npm run check:deployment-readiness` |

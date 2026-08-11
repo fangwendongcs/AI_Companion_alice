@@ -6,7 +6,7 @@ export const DEFAULT_LLM_CONFIG = {
 };
 
 export const DEFAULT_TTS_CONFIG = {
-  engine: 'mock',
+  engine: 'cosyvoice',
   browserVoice: 'auto',
   rate: 1.05,
   pitch: 1.2

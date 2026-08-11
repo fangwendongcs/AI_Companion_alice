@@ -3,7 +3,7 @@ import { handleChat, handleDialogue } from './dialogueRoutes.js';
 import { handleHealth } from './healthRoutes.js';
 import { handleMemoryClear, handleMemoryList } from './memoryRoutes.js';
 import { handleProviders } from './providerRoutes.js';
-import { handleTTS } from './ttsRoutes.js';
+import { handleTTS, handleTTSProviderConfig } from './ttsRoutes.js';
 import { enforceApiAuth } from '../middleware/authMiddleware.js';
 import { enforceRateLimit } from '../middleware/rateLimitMiddleware.js';
 import { serveStatic } from '../services/StaticAssetService.js';
@@ -53,6 +53,10 @@ export async function routeRequest(req, res) {
   if (url.pathname === '/api/tts' && req.method === 'POST') {
     await handleTTS(req, res);
     return;
+  }
+
+  if (url.pathname.startsWith('/api/tts/providers/')) {
+    if (await handleTTSProviderConfig(req, res, url)) return;
   }
 
   if (url.pathname === '/api/avatars' && req.method === 'GET') {

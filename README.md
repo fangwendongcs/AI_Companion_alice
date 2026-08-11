@@ -69,7 +69,7 @@ Notes:
 | Interaction Events | MVP | Head / body / arm / leg interactions trigger configured motion slots or fallbacks. |
 | Animation System | MVP / evolving | Motion slots, queue/state-machine checks, boot/idle/gesture/speaking/listening flows. |
 | Dialogue Flow | MVP | Frontend main dialogue path uses `/api/dialogue`; `/api/chat` remains compatible. |
-| TTS / Audio | MVP / pluggable | One backend provider boundary for Mock, local CosyVoice2, Qwen3-TTS via official DashScope, and Fish Audio; all reuse the existing AudioManager, segmented playback, LipSync, and browser fallback. Remote live validation is still pending. |
+| TTS / Audio | MVP / pluggable | Local-first descriptor/adapter boundary for default CosyVoice2, Qwen3-TTS and Fish Audio cloud adapters, and a generic self-hosted service. Remote/self-hosted providers use Test → Save → Switch and fall back to local; all reuse the existing AudioManager, segmented playback, LipSync, and browser fallback. Remote live validation is still pending. |
 | Backend API Boundary | MVP | Native Node HTTP backend with routes, services, provider readiness, upload validation, and security checks. |
 | LLM Provider | MVP / configurable | Default `stub` provider works without keys; real providers require backend environment variables. |
 | Memory | MVP / evolving | SQLite-backed recent context plus conservative long-term `memory_items` for explicit user-approved memories; not an automatic user-profile system. |
@@ -92,7 +92,7 @@ npm run demo:stop
 
 The demo supervisor keeps Alice and CosyVoice2 alive after the start command returns, performs real DeepSeek and WAV readiness checks, and never writes API keys. See [Alice Demo Runtime](./docs/guides/DEMO_RUNTIME.md).
 
-For no-key frontend/backend development with the default stub/mock path:
+For no-key frontend/backend development with the default stub/local-TTS path:
 
 ```bash
 npm run dev
@@ -110,7 +110,7 @@ For debug state inspection:
 http://localhost:3000?debug=1
 ```
 
-Default LLM provider is `stub`, so no API key is required for local development. Web Settings exposes `Mock`, local `CosyVoice2`, `Qwen3-TTS (DashScope)`, and `Fish Audio` for TTS testing. Service URLs, models, voices, ports, and secrets stay in backend environment variables. Qwen3/Fish are code-integrated but still require user credentials and real API acceptance in an ignored `.env` file.
+Default LLM provider is `stub`; default TTS is local `CosyVoice2`, with system speech as the final fallback when its runtime is absent. Debug Settings groups TTS as Default Voice, Cloud Voice (Qwen3-TTS/Fish Audio), and Self-hosted Voice Service. Cloud/self-hosted entries must pass Test before encrypted backend Save and Switch; API keys never enter localStorage. Qwen3/Fish are code-integrated but still lack valid credentials and live acceptance in the current environment.
 
 ## Deployment Modes And Secrets
 
@@ -122,7 +122,7 @@ The project now separates deployment configuration into three modes:
 | `demo` | Controlled private preview | Requires explicit origins and should enable single-token API auth. |
 | `production` | Public deployment candidate | Requires non-local CORS origins, API auth, non-placeholder token, rate limit, and explicit upload/public asset directories. |
 
-Secrets are backend-only. Real API keys, provider tokens, n8n webhook values, TTS keys, future vector credentials, `.env`, `.env.local`, logs, and upload quarantine files should never be committed. Use deployment platform Environment Variables / Secret Manager instead.
+Secrets are backend-only. Real API keys, provider tokens, n8n webhook values, TTS keys, future vector credentials, `.env`, `.env.local`, logs, and upload quarantine files should never be committed. Use backend environment variables / deployment Secret Manager, or the encrypted TTS runtime store for the trusted local Debug Settings flow. Production should inject `TTS_CONFIG_ENCRYPTION_KEY` from Secret Manager and add formal admin access control.
 
 This is still not a complete production security system. It does not include user login, OAuth/RBAC, WAF, object storage, CDN isolation, virus scanning, sandbox parsing, external tracing, or multi-instance rate limiting.
 

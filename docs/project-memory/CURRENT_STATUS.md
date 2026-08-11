@@ -1,6 +1,6 @@
 # Current Status
 
-最后更新：2026-08-10
+最后更新：2026-08-11
 
 ## 当前阶段
 
@@ -12,7 +12,7 @@ Alice 当前处在“工程闭环完整的本地可测试 MVP + 消费级产品�
 - 后端是所有 LLM、Memory、RAG、n8n、TTS provider 和 secret 的边界。
 - `/api/dialogue` 是主对话入口，并已提供 `dialogue.v1` 语义字段供 Web 表现层消费。
 - LLM 已支持后端 OpenAI-compatible `openai` / `qwen` / `deepseek` / `custom`；真实 provider 失败时，`/api/dialogue` 默认安全降级到完整 `dialogue.v1` stub 回复。
-- 本地 `npm run dev` 使用 Node 原生 `--env-file-if-exists=.env`：存在本地忽略配置时自动加载，不存在时仍可用 stub/mock 启动。
+- 本地 `npm run dev` 使用 Node 原生 `--env-file-if-exists=.env`：存在本地忽略配置时自动加载，不存在时仍可用 stub + 默认本地 CosyVoice2 启动；Cosy runtime 不可用时 Web 最终使用系统语音兜底。
 - 完整本地 Demo 已提供 `demo:start/status/stop`：Node supervisor 统一托管 Alice 与 CosyVoice2，并以真实 DeepSeek 回复和有效 WAV 作为 ready 标准。
 - 正式 Web Demo 会在 UI 初始化前读取 provider readiness；DeepSeek / CosyVoice2 ready 时每次加载都采用真实 provider 和后端默认 model，历史 localStorage 不再让正式入口静默回到 Stub / Mock。
 - P1A 已收口 Prompt/Persona 基础正确性：后端控制不可覆盖规则和 Persona，Web `systemPrompt` 只作为低优先级回复偏好，短期历史保持原始 `user` / `assistant` role。
@@ -21,7 +21,9 @@ Alice 当前处在“工程闭环完整的本地可测试 MVP + 消费级产品�
 - P1D 已收口波浪号与记忆确认措辞，并提供默认关闭、production 强制关闭的五字段安全评测诊断；4 轮 DeepSeek 抽样全部 `llm_only`、无截断、无 fallback，P1 对话质量阶段可以正式结束。
 - 2026-07-27 对话行为微调已收口：后端明确“当前轮要求 > 会话偏好 > Persona 默认主动性 > 建议/追问”，新增即时策略解析、最终草稿行为检查和最多两次受控重写；12 轮真实 DeepSeek 固定集全部 `llm_only`、无 fallback、无最终违规。
 - P3 已收口 Dialogue 可观测链路：`meta.trace` 贯通 `X-Request-ID`、编排耗时和 LLM 耗时；成功、fallback、未降级失败都有固定字段脱敏日志，Web Debug 面板显示 provider/model/mode/requestId/耗时/fallback/errorCode。
-- TTS 公开集合已纠正为 `mock` / `cosyvoice` / `qwen3_tts` / `fish_audio`：本地与远程 provider 共用统一 Audio Result 和既有 TTSService / AudioManager / LipSync / Presentation。Qwen3-TTS 使用官方 DashScope API，Fish 使用原生 `/v1/tts`；两者代码、Settings、capability/metadata 与故障归一已接入。当前 `QWEN_BASE_URL` 指向官方 host，但 `QWEN_API_KEY` 是 placeholder，Qwen3 live 预检为 `missing_key`；Fish 也无有效凭据，真实中文音频和远程延迟仍未通过。上一版 SiliconFlow/CosyVoice2 远程目标属于范围偏差，已移除。
+- TTS 已正式按 `local / remote / selfHosted` descriptor/adapter 收口：Settings 可选默认 `cosyvoice`、云端 `qwen3_tts` / `fish_audio`、通用 `self_hosted`，`mock` 仅作隐藏测试。remote / selfHosted 使用 Test → Save → Switch，配置由后端 AES-256-GCM runtime store 保存，Key 不进入 localStorage，也不会由配置 GET 回传。它们与本地 provider 共用统一 Audio Result 和既有 TTSService / AudioManager / LipSync / Presentation。
+- Qwen3-TTS 使用官方 DashScope API，Fish 使用原生 `/v1/tts`；两者代码、Settings、capability/metadata 与故障归一已接入。当前没有可证明有效的两个云 Provider 凭据，真实中文音频和远程延迟仍未通过。上一版 SiliconFlow/CosyVoice2 远程目标属于范围偏差，已移除。
+- remote / selfHosted 合成失败时，后端先回退默认本地 `cosyvoice` 并在 `metadata.fallback` 记录原因；本地仍失败才进入 Web 既有系统语音 fallback。配置 Test 明确禁用该 fallback，避免假阳性。
 - 2026-08-10 对 Open-LLM-VTuber 当前主分支复核确认其 TTS factory 同时容纳本地与云端：CosyVoice2 使用本地 `client_url`，Fish API 使用云 Key；当前没有 Qwen3-TTS adapter。Alice 当前 `qwen3_tts` / `fish_audio` 也分别代表 DashScope/Fish 云服务，不代表开源模型的本地部署。未来 Qwen3/Fish self-hosted 服务不需要厂商 Key，应作为独立 provider identity 接本地 URL，继续复用统一 Audio Result。
 - 2026-08-10 用户决定本阶段不再执行真实远程 TTS 对照，当前 changeset 按架构/adapter 代码收口：CosyVoice2 本地 live 已通过，Qwen3/Fish remote live、连续两轮、听感和本地延迟差值明确后置。该范围决定不改变两者“待真实验收”状态，也不授权新增第三个候选。
 - P5 CosyVoice2 连续播放已收口：继续复用 `/api/tts` 完整 WAV/Base64 Audio Result，不引入 PCM streaming。`24` 字以内保持单段；`25–84` 字使用 balanced、`85` 字以上使用 extended 分段档；所有分段回复立即 2 路预取，`25` 字以上在首段 ready 后等待第二段 ready 或最多 `5000ms`。Node 真实 `/api/tts` 探针在 16 / 26 / 54 / 95 字中最大 gap 为 `0 / 3 / 5 / 4ms`；真实浏览器 16 / 54 / 95 字为 `0 / 24 / 236ms`，相对正式 Demo `6271ms` 基线下降约 `96.2%`。代价是 54 字 Node 首次播放 p50 约 `12.5s`。官方 FastAPI 不提供模型级 true streaming；Direct Python 虽能提前首 PCM，但当前 CPU chunk 最大 gap 仍超过 `2s`，因此不采用新流式协议。
@@ -50,9 +52,11 @@ Alice 当前处在“工程闭环完整的本地可测试 MVP + 消费级产品�
 | Local RAG | 可用 | `docs/guides/KNOWLEDGE_GUIDE.md` |
 | n8n Workflow 边界 | 可选 | `docs/architecture/DIALOGUE_BACKEND_BOUNDARY.md` |
 | TTS Audio Result | 可用 | `docs/guides/LOCAL_TTS.md` |
-| Mock TTS | 可用 | `backend/services/tts/providers/MockTTSProvider.js` |
-| CosyVoice2 adapter | 已接入，真实服务需本地 runtime | `docs/guides/COSYVOICE_RUNTIME.md` |
-| Qwen3-TTS / Fish Audio remote adapters | 已接入公开 Settings 和统一 Audio Result；当前无各自 Key/config，remote live 未通过 | `docs/reports/REMOTE_TTS_PROVIDER_AUDIT_20260810.md` |
+| Mock TTS | 可用；隐藏测试 provider，不是产品默认 | `backend/services/tts/providers/MockTTSProvider.js` |
+| CosyVoice2 adapter | 默认本地 provider；已接入，真实服务需本地 runtime | `docs/guides/COSYVOICE_RUNTIME.md` |
+| Qwen3-TTS / Fish Audio remote adapters | 已接入公开 Settings 和统一 Audio Result；当前无可证明有效凭据，remote live 未通过 | `docs/reports/REMOTE_TTS_PROVIDER_AUDIT_20260810.md` |
+| Self-hosted TTS adapter | 已接入通用 OpenAI-compatible adapter、descriptor 与 Settings；未配置真实服务，live 未通过 | `docs/reports/TTS_PROVIDER_MODEL_CLOSURE_20260810.md` |
+| TTS 配置闭环 | Test → encrypted Save → Switch 已接入；secret 不进前端持久化，remote/selfHosted 失败先回退本地 | `docs/reports/TTS_PROVIDER_MODEL_CLOSURE_20260810.md` |
 | VRMRenderer MVP | 可用；TTS 振幅接线、保守口型与 99.48 秒真实 CosyVoice2 视觉 QA 已完成 | `docs/architecture/VRM_RENDERER_MVP.md` |
 | VRM 文件动作 | 本地可用；7 个正式 slot 均使用经上半身轨道过滤的 FBX，程序化版仅做加载失败 fallback | `docs/architecture/VRM_MOTION_QUALITY_V1.md` |
 | Avatar Presentation 分层 | MVP 接线已收口 | `docs/avatar/AVATAR_PRESENTATION_CONTRACT.md` |
@@ -66,7 +70,7 @@ Alice 当前处在“工程闭环完整的本地可测试 MVP + 消费级产品�
 | 角色感真实评测 | “先陪伴、别建议”固定集已收口；记录人格一致性、相对文本/通用语音入口的差异感和自然承接，只修真实测试中最高频的问题。 |
 | Project Memory | 后续每次阶段性变更维护 `docs/project-memory/*`，避免聊天记录成为唯一上下文。 |
 | Demo Runtime | macOS 本机完整启停已验收；后续仅在需要跨平台时补 Windows 进程管理。 |
-| TTS | 可插拔本地/远程骨架与目标 Qwen3-TTS / Fish Audio adapter 已完成代码收口；真实远程对照由用户后置。恢复验收时只补目标 provider 的真实中文连续两轮、首 chunk/完整耗时、听感和实际账单；未完成前不得把 adapter readiness 当作可用性，也不继续扩展第三个候选。 |
+| TTS | local / remote / selfHosted descriptor、默认本地策略、Test→Save→Switch、加密存储和 remote→local fallback 已完成代码收口；真实远程对照由用户后置。恢复验收时只补 Qwen3/Fish 的真实中文连续两轮、首 chunk/完整耗时、听感和实际账单；未完成前不得把 adapter/readiness 当作可用性，也不继续扩展其他云候选。 |
 | VRM | 默认 Alice 的音频/口型与本地文件动作均已收口；下一步只在 Shiro / Wambo、新模型或新动作资产进入时重做模型专用视觉验收，公开分发前完成 motion 授权复核。 |
 | Memory / Persona | 基础阶段和即时行为微调已完成；下一步只围绕陌生用户真实会话暴露的人格一致性和会话内关系感做产品体验验证。 |
 | Observability | P3 已完成当前单实例闭环；后续真实部署时再评估集中式日志、指标存储与跨服务 tracing。 |
@@ -78,7 +82,8 @@ Alice 当前处在“工程闭环完整的本地可测试 MVP + 消费级产品�
 - 当前没有陌生目标用户、相对基线或实际复访证据；本地真实链路验收不能替代产品价值验证。
 - 普通入口的开发者文案、机甲台词和占位控件已隐藏或收口；远程测试前仍需解决 `girl.vrm` 授权/分发，以及后端单 token 鉴权与最终用户入口之间的闭环。
 - CosyVoice2 live 依赖外部模型/运行时，不能被普通 `npm run check` 完全覆盖。
-- Qwen3-TTS 与 Fish Audio 当前仅通过 adapter contract 和故障归一；Qwen3 现有兼容 Key 是 placeholder，Fish 无 Key，专用 model/voice 配置也未完成。remote live、连续两轮和本地对照延迟都未完成。
+- Qwen3-TTS 与 Fish Audio 当前仅通过 adapter contract、配置流程和故障归一；没有可证明有效的凭据，remote live、连续两轮和本地对照延迟都未完成。
+- 加密 runtime store 解决了 Key 不进入仓库/前端明文存储的问题，但本地自动生成的加密 key 文件不等于生产 Secret Manager；公网部署前还需正式管理员访问控制和外部密钥注入。
 - 默认 Alice 的真实 CosyVoice2 长音频和视觉同步已通过 99.48 秒浏览器验收；其他 Avatar 仍不能只靠自动化证明口型观感。
 - VRM motion / FBX retarget 质量不能只靠自动脚本证明，需要视觉 QA。
 - 当前 FBX 文件动作只批准用于本机 Demo；浏览器 QA 通过不代表授权或原文件再分发权已确认。
@@ -96,6 +101,15 @@ Alice 当前处在“工程闭环完整的本地可测试 MVP + 消费级产品�
 - DeepSeek 明确边界轮次可能因复杂规则消耗内部生成预算并触发 2～3 次生成；最终 12 轮虽无 fallback，但最慢一轮为 `17.08s`，服从度提升存在可感知延迟代价。
 
 ## 最近验证
+
+2026-08-11 TTS 三类产品模型最终收口已执行：
+
+- `npm run check` 全量通过；覆盖默认 local 约束、三类 descriptor、Test/加密 Save/Registry refresh、self-hosted request mapping、remote→CosyVoice fallback、fallback 后同一 AudioManager 生命周期、取消/静音/分段/最终 `audio:end`、secret/auth 边界和既有 VRM/Dialogue 回归。
+- 清空真实 Provider 凭据、使用 `PORT=3105` 的隔离服务上，`SMOKE_BASE_URL=http://127.0.0.1:3105 npm run smoke` 通过；TTS smoke 明确使用 Mock，不构成 Remote 或 CosyVoice live。
+- 新增并通过两个边界回归：已保存 remote provider 不会在 Settings descriptor 加载前被临时 CosyVoice 选项覆盖；系统 voice 列表为空且浏览器不触发 `voiceschanged` 时，仍会在短等待后调用默认系统声线，不让本地最终 fallback 悬挂。
+- 加密 remote 配置文件损坏时 Registry 会隔离该错误，默认 `cosyvoice` 仍可注册和作为 local fallback；配置错误仍保留为 `TTS_CONFIG_STORE_INVALID` 供配置链路排查。
+- Playwright `http://127.0.0.1:3000/?debug=1`：Console 0 error、1 个既有 warning；选择器只展示默认 CosyVoice、Qwen3-TTS、Fish Audio、self-hosted，并按默认/云端/自建分组。只选择 Fish 时 `tts_engine` 仍为 `cosyvoice`、Save disabled；临时把已保存选择设为 Fish 后刷新，DOM 与 storage 都恢复为 Fish。请求列表只有安全 config GET，没有 `/test` 或 `/api/tts` POST；验收后已把本地选择恢复为 CosyVoice并关闭浏览器/服务。
+- 本轮没有点击 Remote Test，没有执行真实 Qwen3/Fish/self-hosted 合成，没有采集新的 CosyVoice live 或远程延迟；这些状态仍是待验收，不能由上述自动化/浏览器 UI 结果推断为真实可用。
 
 2026-08-10 可插拔远程 TTS 第一阶段已执行：
 

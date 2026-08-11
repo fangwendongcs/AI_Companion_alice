@@ -214,7 +214,7 @@ Current rule:
 
 - The first implementation is lifecycle-only. It does not connect Higgs Audio, OpenAI TTS, Azure, ElevenLabs, or any new provider.
 - Real provider work should happen behind `TTSService` / backend `/api/tts` and continue to send only non-secret style hints to the frontend.
-- Local CosyVoice2, remote Qwen3-TTS/Fish Audio, and future self-hosted adapters all enter this same lifecycle through the unified Audio Result; Presentation must never branch on provider id.
+- Local CosyVoice2, remote Qwen3-TTS/Fish Audio, and the generic `self_hosted` adapter all enter this same lifecycle through the unified Audio Result; Presentation must never branch on provider id.
 - When backend audio playback exposes an `HTMLAudioElement`, the presentation layer may use a local amplitude sampler for lip-sync. Browser `speechSynthesis` does not expose a safe audio element, so it remains on the fallback speaking loop.
 
 ### Renderer Boundary

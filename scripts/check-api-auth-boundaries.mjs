@@ -26,6 +26,9 @@ function checkRoutePolicy() {
   assert(isPublicApiRoute('/api/avatars', 'GET'), 'avatar registry must stay public read');
   assert(isProtectedApiRoute('/api/avatars', 'POST'), 'avatar upload must be protected');
   assert(isProtectedApiRoute('/api/dialogue', 'POST'), 'dialogue write must be protected');
+  assert(isProtectedApiRoute('/api/tts/providers/qwen3_tts/config', 'GET'), 'TTS provider config read must be protected');
+  assert(isProtectedApiRoute('/api/tts/providers/qwen3_tts/test', 'POST'), 'TTS provider test must be protected');
+  assert(isProtectedApiRoute('/api/tts/providers/qwen3_tts/config', 'PUT'), 'TTS provider save must be protected');
   assert(isProtectedApiRoute('/api/internal/debug', 'POST'), 'unknown API write routes must default to protected');
   assert(!isProtectedApiRoute('/index.html', 'GET'), 'static assets must not require API token');
 }

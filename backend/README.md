@@ -8,7 +8,7 @@
 npm run dev
 ```
 
-仓库不使用 `dotenv`；`npm run dev` 通过 Node 原生 `--env-file-if-exists=.env` 加载根目录本地配置。存在 `.env` 时自动加载，不存在时继续以默认 `stub` LLM / `mock` TTS 启动。`.env` 必须保持 Git ignore 且禁止提交，完整说明见 [`docs/guides/DEVELOPMENT_GUIDE.md`](../docs/guides/DEVELOPMENT_GUIDE.md#环境变量注入)。
+仓库不使用 `dotenv`；`npm run dev` 通过 Node 原生 `--env-file-if-exists=.env` 加载根目录本地配置。存在 `.env` 时自动加载，不存在时继续以默认 `stub` LLM / `cosyvoice` TTS 启动；CosyVoice2 runtime 未运行时 Web 使用系统语音兜底。`.env` 必须保持 Git ignore 且禁止提交，完整说明见 [`docs/guides/DEVELOPMENT_GUIDE.md`](../docs/guides/DEVELOPMENT_GUIDE.md#环境变量注入)。
 
 默认前端 LLM provider 为 `stub`，本地演示不需要 API Key。真实 provider 仍通过后端环境变量配置，例如：
 
@@ -16,9 +16,9 @@ npm run dev
 OPENAI_API_KEY=replace_with_your_key MINIMAX_API_KEY=replace_with_your_key npm run dev
 ```
 
-本地 TTS provider 默认是 `mock`，不需要外部服务。Web Settings 展示 `Mock`、本地 `CosyVoice2`、远程 `Qwen3-TTS（DashScope）` 与 `Fish Audio`；本地语音需要 CosyVoice2 runtime，远程语音需要后端 `.env` 中各自的 URL / Key / model / voice。
+本地 TTS provider 默认是 `cosyvoice`，不需要厂商云 Key，但需要 Alice 机器上的 CosyVoice2 runtime。Web Settings 展示产品化的`默认语音`、`云端语音`和`自建语音服务`；remote / selfHosted 必须 Test → Save → Switch。`mock` 只保留为隐藏测试 provider。
 
-Provider 配置状态可通过 `GET /api/providers` 查看。该接口只返回安全状态，例如 provider 是否 configured、是否可用、默认 model/voice、demo/local/remote mode 和 capability metadata，不返回任何真实 Key、service URL 或 secret。TTS readiness 只公开 `mock` / `cosyvoice` / `qwen3_tts` / `fish_audio`，Higgs / OpenAI / MiniMax 历史实验 adapter 仍不暴露。
+Provider 配置状态可通过 `GET /api/providers` 查看。该接口只返回安全状态、descriptor、默认 model/voice、`local/remote/selfHosted` 类型和 capability metadata，不返回任何真实 Key、service URL 或 secret。TTS readiness 公开 `mock` / `cosyvoice` / `qwen3_tts` / `fish_audio` / `self_hosted`，其中 Mock `selectable=false`；Higgs / OpenAI / MiniMax 历史实验 adapter 仍不暴露。
 
 默认地址：
 
@@ -67,7 +67,10 @@ http://localhost:3000
 - `CUSTOM_BASE_URL`：自定义 OpenAI-compatible 接口地址
 - `OPENAI_TTS_MODEL`：OpenAI TTS 模型，默认 `gpt-4o-mini-tts`
 - `MINIMAX_TTS_MODEL`：MiniMax TTS 模型，默认 `speech-2.8-hd`
-- `TTS_PROVIDER`：后端默认 TTS provider，当前 Web Settings 支持 `mock` / `cosyvoice` / `qwen3_tts` / `fish_audio`，默认 `mock`
+- `TTS_PROVIDER`：后端默认 TTS provider，默认 `cosyvoice`；只有可选择的 local descriptor 可成为产品默认，remote / 隐藏 Mock 会收敛回 CosyVoice2
+- `TTS_LOCAL_FALLBACK_PROVIDER`：remote / selfHosted 失败后的本地 fallback provider，默认 `cosyvoice`
+- `TTS_CONFIG_STORE_DIR`：后端加密 TTS 配置目录，默认 Git ignore 的 `runtime/tts/provider-config`
+- `TTS_CONFIG_ENCRYPTION_KEY`：生产建议由 Secret Manager 注入的配置加密密钥；本地缺省时生成权限 `0600` 的机器 key 文件
 - `TTS_OUTPUT_FORMAT`：后端 TTS 输出格式，默认 `mp3`
 - `QWEN3_TTS_BASE_URL` / `QWEN3_TTS_PATH`：DashScope region base URL 与原生生成 path
 - `QWEN3_TTS_MODEL` / `QWEN3_TTS_VOICE`：后端固定 Qwen3 model / voice；客户端不能覆盖
@@ -75,6 +78,10 @@ http://localhost:3000
 - `FISH_AUDIO_TTS_BASE_URL` / `FISH_AUDIO_TTS_PATH`：Fish Audio 原生 TTS endpoint
 - `FISH_AUDIO_TTS_MODEL` / `FISH_AUDIO_TTS_VOICE`：原生 `model` header 与 `reference_id`
 - `FISH_AUDIO_TTS_OUTPUT_FORMAT` / `FISH_AUDIO_TTS_SAMPLE_RATE` / `FISH_AUDIO_TTS_LATENCY`：Fish 完整音频与延迟档位
+- `SELF_HOSTED_TTS_BASE_URL` / `SELF_HOSTED_TTS_PATH`：自建 OpenAI-compatible TTS 服务与 speech path
+- `SELF_HOSTED_TTS_MODEL` / `SELF_HOSTED_TTS_VOICE`：自建服务暴露的 model / voice
+- `SELF_HOSTED_TTS_API_KEY`：自建服务可选鉴权 Key
+- `SELF_HOSTED_TTS_OUTPUT_FORMAT` / `SELF_HOSTED_TTS_SAMPLE_RATE`：自建服务音频格式和采样率 metadata
 - `COSYVOICE_BASE_URL`：CosyVoice2 兼容服务地址，未配置时 provider 报 `missing_base_url`
 - `COSYVOICE_API_STYLE`：`official_fastapi` 或 `openai_compatible`，默认 `official_fastapi`
 - `COSYVOICE_API_MODE`：官方 FastAPI mode，默认 `sft`
@@ -111,6 +118,9 @@ http://localhost:3000
 - `POST /api/dialogue`：当前前端主对话入口，支持本地 `stub`、LLM-only 编排、短期 Memory、本地 RAG 和可选 n8n workflow 工具调用
 - `GET /api/providers`：安全读取 LLM provider 配置状态，不返回 secret
 - `POST /api/tts`
+- `GET /api/tts/providers/:id/config`：读取 remote / selfHosted 安全配置状态，不返回 secret 明文
+- `POST /api/tts/providers/:id/test`：用未保存配置测试目标 adapter，不启用本地 fallback
+- `PUT /api/tts/providers/:id/config`：加密保存配置并刷新 Registry
 - `GET /api/avatars`
 - `POST /api/avatars`
 - `GET /api/health`
@@ -131,9 +141,12 @@ API_AUTH_TOKEN=replace_with_private_token
 - `POST /api/dialogue`
 - `POST /api/chat`
 - `POST /api/tts`
+- `GET /api/tts/providers/:id/config`
+- `POST /api/tts/providers/:id/test`
+- `PUT /api/tts/providers/:id/config`
 - `POST /api/avatars`
 
-`GET /api/health`、`GET /api/providers` 和静态资源仍可公开读取；`GET /api/providers` 只能返回安全 readiness 状态。
+`GET /api/health`、`GET /api/providers` 和静态资源仍可公开读取；TTS 配置 GET 由于会暴露配置状态和非敏感值，也属于受保护接口。
 
 ## TTS Provider 架构
 
@@ -141,17 +154,20 @@ API_AUTH_TOKEN=replace_with_private_token
 
 当前 Web Settings provider：
 
-- `mock`：默认演示 provider，返回本地静音 WAV，用于无 Key / 无外部服务的链路验证。
-- `cosyvoice`：CosyVoice2 开源主线 adapter，默认按官方 FastAPI `/inference_sft` 契约调用服务；如明确部署了 OpenAI-compatible proxy，可设置 `COSYVOICE_API_STYLE=openai_compatible`。
+- `cosyvoice`：`默认语音`，CosyVoice2 开源本地主线 adapter，默认按官方 FastAPI `/inference_sft` 契约调用服务。
 - `qwen3_tts`：调用 Alibaba Cloud Model Studio / DashScope 官方原生接口；签名音频 URL 由后端下载并转成统一 Audio Result。
 - `fish_audio`：调用 Fish Audio 官方原生 `/v1/tts`，使用 `model` header 与 `reference_id`；本轮仍返回完整音频。
+- `self_hosted`：`自建语音服务`，通用 OpenAI-compatible adapter；要求 URL / model / voice，Key 可选。
 
-旧实验 adapter 不会出现在当前 Web Settings 或公开 TTS readiness 中；后续要启用新 provider，需要单独做 adapter contract、Settings 状态、smoke 和 live 验收。
+`mock` 返回本地静音 WAV，只用于 smoke / contract，不在 Settings 中选择。旧实验 adapter 也不会出现在当前 Web Settings 或公开 TTS readiness 中。
+
+remote / selfHosted 选择本身不会切换当前 provider。Settings 先调用目标 adapter Test；成功才允许 Save，加密保存后再 Switch。Key 不写入 localStorage，后端 GET 只返回 secret 是否已配置。后续要启用新 provider，主要新增 adapter + descriptor + contract/live 验收，不修改播放链路。
 
 默认 provider：
 
 ```bash
-TTS_PROVIDER=mock
+TTS_PROVIDER=cosyvoice
+TTS_LOCAL_FALLBACK_PROVIDER=cosyvoice
 TTS_OUTPUT_FORMAT=mp3
 ```
 
@@ -247,12 +263,12 @@ CosyVoice 官方 FastAPI 的上游响应是 raw PCM 流，但 Alice 后端会先
 }
 ```
 
-如果 provider 未配置、超时或上游异常，接口返回稳定 `tts_status=unavailable/failed`，前端仍会按现有 audio fallback 走浏览器本机语音，不影响 `/api/dialogue` 文本回复。
+如果 remote / selfHosted 未配置、超时或上游异常，后端先尝试 `TTS_LOCAL_FALLBACK_PROVIDER`。本地成功时返回实际本地 Audio Result 并附 `metadata.fallback`；本地也失败时接口返回稳定 `tts_status=unavailable/failed`，前端再按既有 audio fallback 走浏览器本机语音，不影响 `/api/dialogue` 文本回复。
 
 `GET /api/providers` 会返回 TTS provider 的安全 readiness：
 
 - `configured` / `status`：说明后端配置是否足够，不返回环境变量值。
-- `health`：轻量健康摘要；Mock 始终 ready，CosyVoice2 会做短超时 live probe；Qwen3-TTS / Fish Audio 只做非计费配置检查，真实可用性必须执行 live check。
+- `health`：轻量健康摘要；Mock 始终 ready，CosyVoice2 会做短超时 live probe；Qwen3-TTS / Fish Audio / self-hosted 只做非计费配置检查，真实可用性必须执行 Test 或 live check。
 - `capabilities`：声明 `supportsStreaming`、`supportsVoiceClone`、`supportsEmotion` 等能力。
 - `metadata`：统一返回安全的 provider/model/voice/capability/sampleRate；readiness 阶段 `latency=null`。
 

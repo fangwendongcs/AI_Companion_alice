@@ -12,6 +12,7 @@ const failures = [];
 
 await checkMuteButtonStopsActivePlayback();
 await checkBackendRequestCancellation();
+await checkBrowserFallbackWithoutLoadedVoices();
 
 await checkDialogueSuccessFlow();
 await checkDialogueErrorFlow();
@@ -25,6 +26,7 @@ await checkAudioMutedFlow();
 await checkAudioActiveMutedFlow();
 await checkAudioReplacementCleanupFlow();
 await checkAudioFallbackFlow();
+await checkBackendAppliedLocalFallbackLifecycle();
 await checkAudioUnexpectedErrorFlow();
 await checkTTSPlaybackLifecycle();
 await checkSegmentedTTSLifecycle();
@@ -91,6 +93,47 @@ async function checkBackendRequestCancellation() {
   } finally {
     if (previousWindow === undefined) delete globalThis.window;
     else globalThis.window = previousWindow;
+  }
+}
+
+async function checkBrowserFallbackWithoutLoadedVoices() {
+  const originalWindow = globalThis.window;
+  const originalUtterance = globalThis.SpeechSynthesisUtterance;
+  let speakCount = 0;
+  let startCount = 0;
+  globalThis.SpeechSynthesisUtterance = class FakeSpeechSynthesisUtterance {
+    constructor(text) {
+      this.text = text;
+    }
+  };
+  globalThis.window = {
+    speechSynthesis: {
+      onvoiceschanged: null,
+      cancel() {},
+      getVoices() { return []; },
+      speak(utterance) {
+        speakCount += 1;
+        utterance.onstart?.();
+        setTimeout(() => utterance.onend?.(), 0);
+      }
+    }
+  };
+
+  try {
+    const service = new TTSService('/api/tts');
+    await service.speakWithBrowser('本机系统语音兜底', { rate: 1, pitch: 1 }, {
+      onStart: () => {
+        startCount += 1;
+      }
+    });
+    assert(speakCount === 1, '系统 voice 列表未加载且不触发 voiceschanged 时，也必须使用浏览器默认声线开始播放。');
+    assert(startCount === 1, '系统语音兜底必须保持单次 audio:start 生命周期。');
+    service.destroy();
+  } finally {
+    if (originalWindow === undefined) delete globalThis.window;
+    else globalThis.window = originalWindow;
+    if (originalUtterance === undefined) delete globalThis.SpeechSynthesisUtterance;
+    else globalThis.SpeechSynthesisUtterance = originalUtterance;
   }
 }
 
@@ -429,6 +472,96 @@ async function checkAudioFallbackFlow() {
     EVENT_NAMES.AUDIO_END
   ], 'AudioManager fallback 链路事件顺序异常。');
   assert(events.at(-1)?.detail?.fallback === true, 'AudioManager fallback 后的 audio:end 必须标记 fallback=true。');
+}
+
+async function checkBackendAppliedLocalFallbackLifecycle() {
+  const originalWindow = globalThis.window;
+  const originalAudio = globalThis.Audio;
+  const originalAtob = globalThis.atob;
+  const originalCreateObjectURL = globalThis.URL.createObjectURL;
+  const originalRevokeObjectURL = globalThis.URL.revokeObjectURL;
+  const events = [];
+  globalThis.window = {
+    speechSynthesis: {
+      cancel() {},
+      getVoices() { return []; }
+    }
+  };
+  globalThis.atob = (value) => Buffer.from(String(value), 'base64').toString('binary');
+  globalThis.URL.createObjectURL = () => 'blob:local-fallback';
+  globalThis.URL.revokeObjectURL = () => {};
+  globalThis.Audio = class FakeAudio {
+    play() {
+      setTimeout(() => this.onended?.(), 0);
+      return Promise.resolve();
+    }
+
+    pause() {}
+  };
+
+  try {
+    const service = new TTSService('/api/tts', {
+      apiClient: {
+        response: async () => ({
+          headers: {
+            get: (name) => String(name).toLowerCase() === 'content-type' ? 'application/json' : ''
+          },
+          json: async () => ({
+            ok: true,
+            data: {
+              tts_status: 'ok',
+              provider: 'cosyvoice',
+              format: 'wav',
+              contentType: 'audio/wav',
+              audioBase64: createSilentWavBase64(24000, 120),
+              metadata: {
+                fallback: {
+                  applied: true,
+                  attempted: true,
+                  requestedProvider: 'qwen3_tts',
+                  localProvider: 'cosyvoice',
+                  reasonCode: 'TTS_NOT_CONFIGURED',
+                  localStatus: 'ok'
+                }
+              }
+            }
+          })
+        })
+      }
+    });
+    const manager = new AudioManager({
+      ttsService: service,
+      eventBus: {
+        emit(type, detail) {
+          if ([EVENT_NAMES.AUDIO_REQUEST, EVENT_NAMES.AUDIO_FALLBACK, EVENT_NAMES.AUDIO_START, EVENT_NAMES.AUDIO_END].includes(type)) {
+            events.push({ name: type, detail });
+          }
+        }
+      },
+      getConfig: () => ({ engine: 'qwen3_tts', rate: 1, pitch: 1 })
+    });
+
+    await manager.speak('后端回退本地生命周期');
+
+    assertEventOrder(events, [
+      EVENT_NAMES.AUDIO_REQUEST,
+      EVENT_NAMES.AUDIO_FALLBACK,
+      EVENT_NAMES.AUDIO_START,
+      EVENT_NAMES.AUDIO_END
+    ], '后端 remote→local fallback 必须继续复用既有 AudioManager 生命周期。');
+    assert(events.at(-1)?.detail?.fallback === true, '后端已应用 local fallback 时最终 audio:end 必须保留 fallback=true。');
+    assert(service.getLastMetrics()?.backendFallbackApplied === true, 'TTSService metrics 必须记录后端已应用 local fallback。');
+    service.destroy();
+  } finally {
+    if (originalWindow === undefined) delete globalThis.window;
+    else globalThis.window = originalWindow;
+    if (originalAudio === undefined) delete globalThis.Audio;
+    else globalThis.Audio = originalAudio;
+    if (originalAtob === undefined) delete globalThis.atob;
+    else globalThis.atob = originalAtob;
+    globalThis.URL.createObjectURL = originalCreateObjectURL;
+    globalThis.URL.revokeObjectURL = originalRevokeObjectURL;
+  }
 }
 
 async function checkAudioUnexpectedErrorFlow() {
