@@ -1,6 +1,6 @@
 # Decision Log
 
-最后更新：2026-08-11
+最后更新：2026-09-05
 
 本文件只记录会影响后续开发方向的关键决策。小修复、局部命名、纯样式调整不需要写入。
 
@@ -34,6 +34,8 @@
 | 2026-08-10 | TTS 产品模型统一为 `local / remote / selfHosted` descriptor；默认和本地 fallback 都是 `cosyvoice`，`mock` 降为隐藏测试。remote / selfHosted 必须 Test→加密 Save→Switch，Test 禁止 fallback；生产加密 key 应来自 Secret Manager。 | 用户需要不用 Key 的默认本地语音、可选云端和未来自建 GPU 服务，同时不能复制播放/口型/分段链路。先测试再切换及 Test 禁用 fallback 可避免配置失败或本地声音造成假成功；后端加密存储避免 Key 落入仓库和前端持久化。 | TTS descriptors/Registry/Orchestrator/config API、Settings、安全边界、provider readiness；不改 AudioManager/LipSync/Presentation | `docs/reports/TTS_PROVIDER_MODEL_CLOSURE_20260810.md`、`docs/guides/LOCAL_TTS.md`、`docs/api/API_CONTRACT.md` |
 | 2026-07-14 | 完整本地 Demo 使用 detached Node supervisor 统一托管 Alice 与 CosyVoice2，状态以进程所有权、endpoint、真实 DeepSeek 回复和有效 WAV 四层证据为准。 | 单独 `npm run dev` 与 `cosyvoice:start` 无法解决受控环境子进程存活、空 CosyVoice URL、幂等启停和真实 readiness；停服又必须避免按端口误杀未知进程。 | 本地 Demo 启停、PID/state/log、安全边界、真实 provider 验收 | `scripts/demo/demo-manager.mjs`、`docs/guides/DEMO_RUNTIME.md` |
 | 2026-08-10 | 原始 Mixamo FBX 继续保持 `debugOnly / pending verification`；本地 Demo 可通过 `mixamo-vrm-upper-body-v1` 校准 slot 使用其上半身轨道，严格限制 `releaseScope=local-only` 并保留程序化 fallback。 | 原始全身播放的交叉腿、hips/root 漂移和僵硬站姿不能直接产品化；但上半身手势在剔除 hips/legs 后已通过本地浏览器 QA。技术可用不能被误写成授权可分发。 | `motions.json`、MotionManager 资产 gate、动作状态机、浏览器 QA、许可登记 | `docs/architecture/VRM_MOTION_QUALITY_V1.md`、`docs/assets/licenses/MOTION_ASSET_LICENSES.md` |
+
+2026-09-05 阶段规划调整：用户明确选择“工程能力优先”，替代 8 月产品审核的近期执行顺序。按 E1 可复现基线 → E2 连续对话/故障恢复 → E3 Core 联动 → E4 首音性能决策推进；5 人预试、10 人会话与 7 天复访后置，但产品价值未验证的判断不变。该选择不自动恢复此前暂缓的 VoxCPM2 安装或真实 TTS 对照，也不批准新增依赖、Provider、公开部署或移动端工作。详见 [工程路线](../process/ENGINEERING_ROADMAP_20260905.md)。
 
 ## 新增决策模板
 

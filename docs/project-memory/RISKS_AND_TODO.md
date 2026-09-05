@@ -1,6 +1,15 @@
 # Risks And Todo
 
-最后更新：2026-08-11
+最后更新：2026-09-05
+
+## 2026-09-05 工程复核增量
+
+- 当前执行顺序以 [工程路线 E1–E4](../process/ENGINEERING_ROADMAP_20260905.md) 为准，用户已选择工程优先；下方历史记录中的用户测试、部署和 Provider 对照不自动成为本轮执行任务。
+- 全量自动化与隔离 HTTP smoke 通过，但开发指南及 `check-llm-provider-flow` 同时固化旧“默认 Mock”文案，检查存在事实漂移盲点。E1 同步修正文档和相关断言，不修改真实默认策略。
+- CosyVoice2 默认目录的模型/24kHz/speaker 预检通过，未做 endpoint/live；VoxCPM2 默认模型/config/AudioVAE 缺失，独立 Python 缺 `torch`。安装与真实对照继续按既有用户决定后置。
+- `meta.json` 兼容已超过原定 2026-08-16 复核日期；正式 registry 是 manifest-only，外部导入依赖未确认，保留兼容并复核，不能按日期自动删除。
+- 当前默认 `girl.vrm` 为本机 Git-ignored 资源，Web 核心模块仍依赖 CDN；本轮主机通过不能推出干净 clone 完整可运行、完全离线或可公开分发。
+- 本轮未读取当前凭据，以下 Provider 凭据和首音数字保留为原日期的历史记录，不代表 9 月重新检查。
 
 ## 当前风险
 

@@ -8,6 +8,7 @@
 - 阶段 2“MVP 交互闭环与稳定性验收”已收口，当前基线见 [MVP_BASELINE.md](../product/MVP_BASELINE.md)。
 - Phase 3“智能能力接入基线”已收口，当前基线见 [PHASE3_BASELINE.md](../product/PHASE3_BASELINE.md)。
 - Phase 4.1 已建立部署安全与公网前检查基线，当前仍不是生产级公网服务。
+- Phase 5 的 SQLite Memory、Persona/Affect、`dialogue.v1` 和 Web VRM 表现基础已落地。2026-09-05 用户选择继续工程加固；近期执行顺序见 [工程路线](../process/ENGINEERING_ROADMAP_20260905.md)，阶段与验证日期见 [当前状态](../project-memory/CURRENT_STATUS.md)。
 
 ## 运行时结构
 
@@ -91,6 +92,6 @@ backend/
 
 ## 后续演进方向
 
-短期继续保持原生模块结构。下一阶段优先做公网前安全加固、浏览器级验收、产品 UI polish 或更真实的知识库能力，不把这些能力塞进 UI Controller。只有当 UI 面板、状态和路由复杂到明显阻碍开发时，再考虑 Vite/TypeScript 或前端框架迁移。
+短期继续保持原生模块结构，按 2026-09-05 工程路线推进可复现基线、连续对话/故障恢复、Core 联动与首音性能决策。公网部署、知识库扩展和框架迁移均不是当前默认任务；只有实际问题表明需要改变边界时，才另行评估架构调整。
 
 公网部署前的安全事项见 [DEPLOYMENT_SECURITY.md](../security/DEPLOYMENT_SECURITY.md) 与 [PHASE4_DEPLOYMENT_SECURITY_BASELINE.md](../security/PHASE4_DEPLOYMENT_SECURITY_BASELINE.md)。

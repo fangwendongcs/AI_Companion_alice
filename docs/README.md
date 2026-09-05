@@ -5,6 +5,7 @@
 - [AGENTS.md](../AGENTS.md): 所有 Coding Agent 的第一阅读入口
 - [project-memory/README.md](./project-memory/README.md): 项目长期记忆导航页与权威来源地图
 - [project-memory/CURRENT_STATUS.md](./project-memory/CURRENT_STATUS.md): 当前状态、已完成能力、进行中模块和下一步
+- [ENGINEERING_ROADMAP_20260905.md](./process/ENGINEERING_ROADMAP_20260905.md): 2026-09-05 阶段复核、实测证据与工程优先任务 E1–E4
 - [project-memory/DECISION_LOG.md](./project-memory/DECISION_LOG.md): 重大技术决策记录
 - [project-memory/RISKS_AND_TODO.md](./project-memory/RISKS_AND_TODO.md): 当前风险、待验证项和后续建议
 - [project-memory/AGENT_HANDOFF_CHECKLIST.md](./project-memory/AGENT_HANDOFF_CHECKLIST.md): 面向其他 Coding Agent 的快速验证与交接清单

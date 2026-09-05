@@ -1,10 +1,12 @@
 # Current Status
 
-最后更新：2026-08-11
+最后更新：2026-09-05
 
 ## 当前阶段
 
-Alice 当前处在“工程闭环完整的本地可测试 MVP + 消费级产品价值验证前”阶段。Dialogue、Memory、DeepSeek、CosyVoice2 和 VRM 表现链路已有重复验收；下一主线不是扩功能，而是收敛单一测试入口并验证目标用户的 10 分钟体验与 7 天实际复访。
+Alice 当前处在“本地可测试 MVP 的工程加固 + 消费级产品价值验证前”阶段。Dialogue、Memory、DeepSeek、CosyVoice2 和 VRM 表现链路有 7–8 月历史验收；2026-09-05 用户明确选择后续“工程能力优先”，近期顺序调整为可复现基线、连续对话/故障恢复、Core 联动、首音性能决策。真实用户招募与复访后置，产品价值未验证的判断不变。
+
+本轮阶段复核、证据边界与任务 E1–E4 见 [工程路线](../process/ENGINEERING_ROADMAP_20260905.md)。全量自动化和隔离 HTTP smoke 已于 9 月 5 日通过；CosyVoice2 文件/speaker 预检通过，VoxCPM2 因模型缺失和独立 Python 缺 `torch` 未就绪。本轮未重新执行真实 LLM/TTS 或浏览器 QA；此前暂缓的安装和 Provider 对照没有自动恢复。
 
 已经确认的主线：
 
@@ -68,13 +70,15 @@ Alice 当前处在“工程闭环完整的本地可测试 MVP + 消费级产品�
 
 | 方向 | 当前下一步 |
 | --- | --- |
-| 产品验证 P0 | 单一 Alice 测试入口已完成代码与本地浏览器收口；下一步完成 5 名预试用户的 60 秒自行开始验收，再进行 10 名目标用户的 10 分钟会话与 7 天实际复访。 |
-| 角色感真实评测 | “先陪伴、别建议”固定集已收口；记录人格一致性、相对文本/通用语音入口的差异感和自然承接，只修真实测试中最高频的问题。 |
+| 工程 E1（下一任务） | 修正开发指南与检查中的旧 Mock 默认说明，固化隔离 smoke 和依赖说明，记录 legacy 复核状态；保持现有业务默认与契约。 |
+| 工程 E2–E4 | 按工程路线复验连续对话与故障恢复、加固多轮 Core 联动、重建同机首音基线；真实验证尚未执行，Provider 对照仍后置。 |
+| 产品验证（后置） | 普通入口已有代码与历史浏览器验收；5 人预试、10 人会话、7 天实际复访保留为产品验证路线，按 2026-09-05 用户选择暂不作为近期工程完成条件。 |
+| 角色感真实评测 | 保留已收口行为固定集，先用跨层工程验收核查人格/记忆联动；陌生用户的差异感与自然承接评测后置。 |
 | Project Memory | 后续每次阶段性变更维护 `docs/project-memory/*`，避免聊天记录成为唯一上下文。 |
 | Demo Runtime | macOS 本机完整启停已验收；后续仅在需要跨平台时补 Windows 进程管理。 |
 | TTS | local / remote / selfHosted descriptor、默认本地策略、Test→Save→Switch、加密存储和非默认→CosyVoice fallback 已完成代码收口；真实对照由用户后置。恢复本地验收时先完成 VoxCPM2 安装/MPS live、两轮、取消/静音/fallback/idle，再决定是否跑 CosyVoice2 对照；恢复云验收时只补 Qwen3/Fish 的真实中文、耗时、听感和账单。未完成前不得把 adapter/readiness 当作可用性，也不继续扩展候选。 |
 | VRM | 默认 Alice 的音频/口型与本地文件动作均已收口；下一步只在 Shiro / Wambo、新模型或新动作资产进入时重做模型专用视觉验收，公开分发前完成 motion 授权复核。 |
-| Memory / Persona | 基础阶段和即时行为微调已完成；下一步只围绕陌生用户真实会话暴露的人格一致性和会话内关系感做产品体验验证。 |
+| Memory / Persona | 基础阶段和即时行为微调已完成；工程 E3 复核否定偏好、召回/写入区分、关闭/清除/重启、session/avatar 隔离和行为切换，只修可复现问题，不扩张自动记忆。 |
 | Observability | P3 已完成当前单实例闭环；后续真实部署时再评估集中式日志、指标存储与跨服务 tracing。 |
 | Security | 公网前仍需正式鉴权、域名、HTTPS、secret manager 和部署平台策略。 |
 | LLM Provider | 后续用真实 Key 验证 OpenAI / Qwen；DeepSeek 默认 `deepseek-v4-flash` 已完成项目内 `/api/dialogue` live 验证。 |
@@ -104,6 +108,14 @@ Alice 当前处在“工程闭环完整的本地可测试 MVP + 消费级产品�
 - DeepSeek 明确边界轮次可能因复杂规则消耗内部生成预算并触发 2～3 次生成；最终 12 轮虽无 fallback，但最慢一轮为 `17.08s`，服从度提升存在可感知延迟代价。
 
 ## 最近验证
+
+2026-09-05 项目阶段检查已执行：
+
+- `env -i PATH="$PATH" TMPDIR="$TMPDIR" npm run check` 全量通过，含 12 个固定行为用例；Node `v22.23.2`，npm `10.9.8`。
+- 在无 `.env`、不继承真实 Provider 配置、临时 SQLite/TTS 配置/上传目录的隔离服务上执行 `node scripts/smoke-test.mjs` 通过。沙箱首次监听返回 `EPERM`；执行权限审核后仅绑定 `127.0.0.1` 随机端口，结束后已停服并清理临时数据。该结果只证明 Stub/Mock HTTP 链路。
+- 干净环境运行 `node scripts/cosyvoice/check-runtime-readiness.mjs --no-endpoint` 通过：模型文件、24kHz、中文女 speaker 可读；不构成 endpoint 或合成 live。
+- 干净环境运行 `node scripts/voxcpm2/check-runtime-readiness.mjs` 失败：默认目录模型/config/AudioVAE 缺失，独立 Python 缺 `torch`；属于未安装完成的环境缺口。
+- 本轮没有读取当前凭据、调用真实 DeepSeek/TTS、下载模型或执行浏览器视觉 QA。发现开发指南/检查仍固化旧 Mock 默认，legacy 兼容已到复核时间；均列入后续任务，未宣称已修复。
 
 2026-08-11 VoxCPM2 本地 Provider 代码收口已执行：
 
@@ -360,3 +372,4 @@ Alice 当前处在“工程闭环完整的本地可测试 MVP + 消费级产品�
 | 2026-08-03 | 完成普通用户单一 Alice 入口：首次记忆同意默认关闭，一次点击进入对话，普通入口隐藏开发设置和进阶控件，保留显式 Debug/QA 入口；点击、加载、错误和状态文案统一为日常 Persona。 |
 | 2026-08-10 | 收口普通入口无法打开问题：修复 ES Module 内 `file://` 提示永远不可达的设计缺陷，并定位/清除 macOS DeepSeek 旧 DNS 缓存；完整 Demo 重新通过 girl.vrm、真实 DeepSeek 和真实 CosyVoice2 readiness。 |
 | 2026-08-11 | 增加实验本地 VoxCPM2 adapter、Settings、MPS 运行/验收脚本和安全 runtime metrics；默认/fallback 仍为 CosyVoice2。用户暂缓真实安装与对照，因此明确保留为代码/自动化通过、live/延迟/听感未验证。 |
+| 2026-09-05 | 复核项目阶段及源码/记忆，完成全量自动化、隔离 HTTP smoke 和两个本地 TTS runtime 预检；用户将后续主线调整为工程能力优先，形成 E1–E4 路线。真实用户验证后置，TTS 安装/对照仍暂缓，未修改业务实现。 |

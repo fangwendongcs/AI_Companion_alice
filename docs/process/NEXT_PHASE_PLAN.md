@@ -1,5 +1,7 @@
 # Next Phase Plan
 
+> 历史阶段路线。2026-09-05 起，近期执行顺序以 [工程路线 E1–E4](./ENGINEERING_ROADMAP_20260905.md) 和 [当前状态](../project-memory/CURRENT_STATUS.md) 为准。下方 Phase 标题记录阶段拆分，不能直接作为未完成任务清单或完成证据。
+
 ## Phase 2.1：MVP 验收文档与 Debug 状态面板
 
 **目标**

@@ -1,16 +1,17 @@
 # Project Memory
 
-最后更新：2026-08-10
+最后更新：2026-09-05
 
 这是 Alice 项目的长期记忆导航页。它不是又一份长 README，而是“单一事实来源”的入口：新 Agent 先从这里找到当前状态、权威文档、历史决策和下一步，不再依赖聊天记录。
 
 ## 当前一句话
 
-Alice 是一个工程闭环完整的本地可测试 AI digital companion MVP：Web、Node Backend、DeepSeek、CosyVoice2、Memory 和 VRM 表现已有重复验收；消费级产品价值尚未经过陌生用户与实际复访验证，当前主线是收敛单一测试入口和验证 5–10 分钟低压力中文交流场景。
+Alice 是一个本地可测试 AI digital companion MVP：Web、Node Backend、DeepSeek、CosyVoice2、Memory 和 VRM 表现有历史重复验收；消费级产品价值仍未经过陌生用户与实际复访验证。2026-09-05 用户选择工程能力优先，当前主线是基线可复现、连续对话/故障恢复、Core 联动与首音性能决策；产品验证和此前暂缓的 Provider 对照继续后置。
 
 ## 当前状态入口
 
 - 当前状态与下一步：[CURRENT_STATUS.md](./CURRENT_STATUS.md)
+- 当前阶段复核与工程执行顺序：[ENGINEERING_ROADMAP_20260905.md](../process/ENGINEERING_ROADMAP_20260905.md)
 - 产品与技术全面审核：[ALICE_PROJECT_AUDIT_20260803.md](../reports/ALICE_PROJECT_AUDIT_20260803.md)
 - 重大决策记录：[DECISION_LOG.md](./DECISION_LOG.md)
 - 风险与待验证项：[RISKS_AND_TODO.md](./RISKS_AND_TODO.md)
@@ -23,6 +24,7 @@ Alice 是一个工程闭环完整的本地可测试 AI digital companion MVP：W
 | --- | --- | --- |
 | 项目愿景与产品定位 | `docs/reports/ALICE_PROJECT_AUDIT_20260803.md`、`README.md` | `docs/product/PROJECT_SHOWCASE.md`、`docs/product/PHASE5_COMPANION_EXPERIENCE.md` |
 | 当前状态 | `docs/project-memory/CURRENT_STATUS.md` | `README.md` |
+| 近期工程任务 | `docs/process/ENGINEERING_ROADMAP_20260905.md` | `docs/reports/ALICE_PROJECT_AUDIT_20260803.md` 仅保留产品判断与后置评估门槛 |
 | 总体架构 | `docs/architecture/ARCHITECTURE.md` | `docs/architecture/MODULE_BOUNDARIES.md` |
 | Dialogue 语义契约 | `docs/contracts/DIALOGUE_CONTRACT.md` | `backend/contracts/dialogueContract.js`、`docs/api/API_CONTRACT.md` |
 | API 总契约 | `docs/api/API_CONTRACT.md` | `docs/api/API.md` |
